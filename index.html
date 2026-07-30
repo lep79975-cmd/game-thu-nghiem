@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mê Cung Nửa Trái Tim - 2 Player Online</title>
+    <title>Mê Cung Nửa Trái Tim - Online Siêu Tốc</title>
 
-    <!-- Thư viện PeerJS -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- Thư viện MQTT WebSocket (Thay thế hoàn toàn PeerJS) -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -39,7 +39,7 @@
         #room-display { background: #281e3f; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 20px; color: #2ed573; margin: 10px 0; border: 1px dashed #2ed573; letter-spacing: 2px; }
         #lobby-status { margin-top: 12px; color: #ffa502; font-size: 13px; font-weight: bold; line-height: 1.4; min-height: 36px; }
 
-        /* Phím ảo di chuyển D-Pad cho Điện thoại */
+        /* D-Pad cho Điện thoại */
         #dpad-container { margin-top: 12px; display: none; flex-direction: column; align-items: center; gap: 6px; }
         .dpad-row { display: flex; gap: 8px; }
         .dpad-btn { width: 55px; height: 50px; background: #2a223d; border: 2px solid #5f27cd; color: #fff; font-size: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 3px 0 #1a1428; }
@@ -61,7 +61,7 @@
                 <button class="btn" id="btn-join" onclick="joinRoom()">🔍 Vào</button>
             </div>
             
-            <div id="lobby-status">Vui lòng chọn Tạo phòng hoặc Nhập mã để chơi online.</div>
+            <div id="lobby-status">Chọn Tạo phòng hoặc Nhập mã để kết nối tức thì.</div>
         </div>
     </div>
 
@@ -90,7 +90,7 @@
         <button class="btn btn-purple" id="btn-start" style="display: none;" onclick="startPlayMode()">🚀 Bắt Đầu Trận Đấu</button>
     </div>
 
-    <!-- D-PAD BẤM CẢM ỨNG CHO ĐIỆN THOẠI -->
+    <!-- PHÍM D-PAD ĐIỆN THOẠI -->
     <div id="dpad-container">
         <div class="dpad-row">
             <div class="dpad-btn" onclick="moveSeeker(-1, 0)">⬆️</div>
@@ -109,35 +109,17 @@
         canvas.width = COLS * CELL_SIZE;
         canvas.height = ROWS * CELL_SIZE;
 
-        // CẤU HÌNH PEERJS + STUN & TURN SERVER (CHO CẢ WI-FI VÀ 4G/5G)
-        const PEER_CONFIG = {
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    {
-                        urls: "turn:openrelay.metered.ca:80",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    },
-                    {
-                        urls: "turn:openrelay.metered.ca:443",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    }
-                ],
-                iceCandidatePoolSize: 10
-            }
-        };
-
+        // TẠO CLIENT ID DUY NHẤT CHO MỖI MÁY
+        const myClientId = 'user_' + Math.random().toString(36).substr(2, 9);
+        
         let grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
         let startPos = { r: 1, c: 1 }, heartPos = { r: ROWS - 2, c: COLS - 2 };
         let seekerPos = { ...startPos };
 
         let myRole = ''; 
         let mode = 'BUILD'; 
-        let score = 0, timerId = null, syncTimer = null;
-        let peer = null, conn = null;
+        let score = 0, timerId = null;
+        let client = null, currentTopic = '';
 
         function updateStatus(msg, isError = false) {
             const statusDiv = document.getElementById('lobby-status');
@@ -150,129 +132,119 @@
             document.getElementById('btn-join').disabled = disabled;
         }
 
-        // TẠO PHÒNG (HOST)
+        // KẾT NỐI ĐẾN MÁY CHỦ WEBSOCKET MẠNH NHẤT (EMQX CLOUD)
+        function initWebSocket(roomId, callback) {
+            updateStatus("Đang nối tới máy chủ WebSocket...");
+            // Server WebSocket công cộng mã hóa SSL (wss://) cực nhanh và không bao giờ bị chặn
+            client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
+
+            client.on('connect', () => {
+                currentTopic = `heart-maze-game/${roomId}`;
+                client.subscribe(currentTopic, { qos: 1 }, (err) => {
+                    if (!err) {
+                        callback();
+                    } else {
+                        updateStatus("Lỗi đăng ký phòng!", true);
+                        setButtonsDisabled(false);
+                    }
+                });
+            });
+
+            client.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    if (data.sender === myClientId) return; // Bỏ qua tin nhắn do chính mình gửi
+
+                    handleNetworkData(data);
+                } catch (e) {
+                    console.error("Lỗi đọc dữ liệu:", e);
+                }
+            });
+
+            client.on('error', () => {
+                updateStatus("Lỗi kết nối mạng! Kiểm tra internet.", true);
+                setButtonsDisabled(false);
+            });
+        }
+
+        // GỬI DỮ LIỆU ĐẾN MÁY KIA
+        function sendMsg(data) {
+            if (client && client.connected) {
+                data.sender = myClientId;
+                client.publish(currentTopic, JSON.stringify(data), { qos: 1 });
+            }
+        }
+
+        // TẠO PHÒNG
         function createRoom() {
             setButtonsDisabled(true);
             const randomCode = Math.floor(1000 + Math.random() * 9000);
             const roomId = `HEART-${randomCode}`;
-            
-            updateStatus("Đang đăng ký máy chủ...");
-            peer = new Peer(roomId, PEER_CONFIG);
 
-            peer.on('open', (id) => {
+            initWebSocket(roomId, () => {
                 myRole = 'BUILDER';
                 document.getElementById('role-text').innerText = "NGƯỜI XÂY";
-                document.getElementById('game-room-id').innerText = id;
-                updateStatus(`Mã phòng của bạn:<div id="room-display">${id}</div>Đang chờ người thứ 2 tham gia...`);
-            });
-
-            peer.on('connection', (connection) => {
-                conn = connection;
-                setupDataListener();
-                updateStatus("Đã kết nối! Đang bắt tay đồng bộ...");
-            });
-
-            peer.on('error', (err) => {
-                setButtonsDisabled(false);
-                updateStatus("Lỗi kết nối máy chủ PeerJS!", true);
+                document.getElementById('game-room-id').innerText = roomId;
+                updateStatus(`Mã phòng của bạn:<div id="room-display">${roomId}</div>Đang chờ người chơi khác vào...`);
             });
         }
 
-        // VÀO PHÒNG (GUEST - TÍCH HỢP AUTO-RETRY CHỐNG KẸT SẢNH)
+        // VÀO PHÒNG
         function joinRoom() {
             const roomId = document.getElementById('room-input').value.trim().toUpperCase();
             if (!roomId) return alert("Vui lòng nhập Mã Phòng!");
 
             setButtonsDisabled(true);
-            updateStatus("Đang kết nối...");
-            peer = new Peer(PEER_CONFIG);
-
-            peer.on('open', () => {
+            initWebSocket(roomId, () => {
                 myRole = 'SEEKER';
                 document.getElementById('role-text').innerText = "NGƯỜI TÌM";
                 document.getElementById('role-text').style.color = "#ff4757";
                 document.getElementById('game-room-id').innerText = roomId;
 
-                conn = peer.connect(roomId, { reliable: true });
-                setupDataListener();
-
-                conn.on('open', () => {
-                    updateStatus("Đã nối thông! Đang tải bản đồ...");
-                    
-                    // Phát liên tục mỗi 300ms phòng trường hợp máy 1 chưa sẵn sàng nhận
-                    if (syncTimer) clearInterval(syncTimer);
-                    syncTimer = setInterval(() => {
-                        if (conn && conn.open) {
-                            conn.send({ type: 'CLIENT_READY' });
-                        }
-                    }, 300);
-                });
-            });
-
-            peer.on('error', () => {
-                setButtonsDisabled(false);
-                updateStatus("Không tìm thấy phòng! Kiểm tra lại Mã.", true);
+                updateStatus("Đã vào phòng! Đang lấy dữ liệu...");
+                sendMsg({ type: 'CLIENT_READY' });
             });
         }
 
-        // LẮNG NGHE VÀ XỬ LÝ DỮ LIỆU
-        function setupDataListener() {
-            conn.on('data', (data) => {
-                // Host nhận CLIENT_READY từ Guest -> Gửi bản đồ sang
-                if (data.type === 'CLIENT_READY' && myRole === 'BUILDER') {
-                    conn.send({ type: 'INIT_SYNC', grid: grid });
-                    enterGameScreen();
-                } 
-                // Guest nhận bản đồ từ Host -> Vào game
-                else if (data.type === 'INIT_SYNC') {
-                    grid = data.grid;
-                    enterGameScreen();
-                } 
-                // Cập nhật tường khi Host đặt
-                else if (data.type === 'GRID_UPDATE') {
-                    grid = data.grid;
-                    draw();
-                } 
-                // Bắt đầu trận đấu
-                else if (data.type === 'START_PLAY') {
-                    mode = 'PLAY';
-                    seekerPos = { ...startPos };
-                    if (myRole === 'SEEKER') {
-                        document.getElementById('dpad-container').style.display = 'flex';
-                    }
-                    draw();
-                } 
-                // Cập nhật vị trí Seeker di chuyển
-                else if (data.type === 'SEEKER_MOVE') {
-                    seekerPos = data.pos;
-                    draw();
-                } 
-                // Cập nhật điểm số
-                else if (data.type === 'SCORE_UPDATE') {
-                    score = data.score;
-                    document.getElementById('score-val').innerText = score;
-                } 
-                // Kết thúc trận đấu
-                else if (data.type === 'GAME_OVER') {
-                    mode = 'END';
-                    if (timerId) clearInterval(timerId);
-                    document.getElementById('dpad-container').style.display = 'none';
-                    alert(data.msg);
+        // XỬ LÝ DỮ LIỆU NHẬN ĐƯỢC
+        function handleNetworkData(data) {
+            if (data.type === 'CLIENT_READY' && myRole === 'BUILDER') {
+                sendMsg({ type: 'INIT_SYNC', grid: grid });
+                enterGameScreen();
+            } 
+            else if (data.type === 'INIT_SYNC') {
+                grid = data.grid;
+                enterGameScreen();
+            } 
+            else if (data.type === 'GRID_UPDATE') {
+                grid = data.grid;
+                draw();
+            } 
+            else if (data.type === 'START_PLAY') {
+                mode = 'PLAY';
+                seekerPos = { ...startPos };
+                if (myRole === 'SEEKER') {
+                    document.getElementById('dpad-container').style.display = 'flex';
                 }
-            });
-
-            conn.on('close', () => {
-                alert("Đối phương đã ngắt kết nối!");
-                location.reload();
-            });
+                draw();
+            } 
+            else if (data.type === 'SEEKER_MOVE') {
+                seekerPos = data.pos;
+                draw();
+            } 
+            else if (data.type === 'SCORE_UPDATE') {
+                score = data.score;
+                document.getElementById('score-val').innerText = score;
+            } 
+            else if (data.type === 'GAME_OVER') {
+                mode = 'END';
+                if (timerId) clearInterval(timerId);
+                document.getElementById('dpad-container').style.display = 'none';
+                alert(data.msg);
+            }
         }
 
-        // CHUYỂN VÀO MÀN HÌNH CHƠI GAME
         function enterGameScreen() {
-            if (syncTimer) {
-                clearInterval(syncTimer);
-                syncTimer = null;
-            }
             document.getElementById('lobby-overlay').style.display = 'none';
             if (myRole === 'BUILDER') {
                 document.getElementById('btn-start').style.display = 'inline-block';
@@ -280,7 +252,7 @@
             draw();
         }
 
-        // TÌM ĐƯỜNG BFS (KIỂM TRA TƯỜNG KHÔNG BỊ CHẶN HOÀN TOÀN)
+        // TÌM ĐƯỜNG BFS
         function hasPath(start, goal, currentGrid) {
             let queue = [{ r: start.r, c: start.c }];
             let visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
@@ -303,7 +275,7 @@
             return false;
         }
 
-        // TƯƠNG TÁC ĐẶT TƯỜNG (CHẠM ĐIỆN THOẠI & CLICK CHUỘT)
+        // TƯƠNG TÁC ĐẶT TƯỜNG (CHẠM & CLICK)
         canvas.addEventListener('pointerdown', (e) => {
             if (myRole !== 'BUILDER' || mode !== 'BUILD') return;
 
@@ -325,57 +297,57 @@
                 setTimeout(() => document.getElementById('toast').style.display = 'none', 1500);
             } else {
                 draw();
-                if (conn && conn.open) conn.send({ type: 'GRID_UPDATE', grid: grid });
+                sendMsg({ type: 'GRID_UPDATE', grid: grid });
             }
         });
 
-        // BẮT ĐẦU TRẬN ĐẤU (HOST BẤM)
+        // BẤM BẮT ĐẦU TRẬN
         function startPlayMode() {
             if (myRole !== 'BUILDER') return;
             mode = 'PLAY';
             seekerPos = { ...startPos };
             document.getElementById('btn-start').style.display = 'none';
-            if (conn && conn.open) conn.send({ type: 'START_PLAY' });
+            sendMsg({ type: 'START_PLAY' });
 
             timerId = setInterval(() => {
                 if (mode === 'PLAY') {
                     score += 50;
                     document.getElementById('score-val').innerText = score;
-                    if (conn && conn.open) conn.send({ type: 'SCORE_UPDATE', score: score });
+                    sendMsg({ type: 'SCORE_UPDATE', score: score });
 
                     if (score >= TARGET_SCORE) {
                         mode = 'END';
                         clearInterval(timerId);
                         let msg = "🎉 NGƯỜI XÂY THẮNG! Người tìm đã hết thời gian!";
                         alert(msg);
-                        if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
+                        sendMsg({ type: 'GAME_OVER', msg: msg });
                     }
                 }
             }, 100);
             draw();
         }
 
-        // HÀM DI CHUYỂN NGUỜI TÌM (CHO CẢ PHÍM BÀN PHÍM VÀ D-PAD)
+        // DI CHUYỂN NGUỜI TÌM
         function moveSeeker(dr, dc) {
             if (myRole !== 'SEEKER' || mode !== 'PLAY') return;
 
             let nr = seekerPos.r + dr, nc = seekerPos.c + dc;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] !== 1) {
                 seekerPos = { r: nr, c: nc };
-                if (conn && conn.open) conn.send({ type: 'SEEKER_MOVE', pos: seekerPos });
+                sendMsg({ type: 'SEEKER_MOVE', pos: seekerPos });
 
                 if (seekerPos.r === heartPos.r && seekerPos.c === heartPos.c) {
                     mode = 'END';
                     document.getElementById('dpad-container').style.display = 'none';
                     let msg = "💖 NGƯỜI TÌM THẮNG! Đã tìm thấy Nửa Trái Tim!";
                     alert(msg);
-                    if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
+                    sendMsg({ type: 'GAME_OVER', msg: msg });
                 }
             }
             draw();
         }
 
-        // DI CHUYỂN BẰNG BÀN PHÍM (PC)
+        // BÀN PHÍM PC
         window.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') moveSeeker(-1, 0);
             if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') moveSeeker(1, 0);
@@ -383,7 +355,7 @@
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveSeeker(0, 1);
         });
 
-        // VẼ MÀN HÌNH GAME
+        // VẼ MÀN HÌNH
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const FOG_RADIUS = 2.5;
@@ -393,7 +365,6 @@
                     let x = c * CELL_SIZE, y = r * CELL_SIZE;
 
                     let isVisible = true;
-                    // Sương mù che mắt Người Tìm trong lúc chơi
                     if (myRole === 'SEEKER' && mode === 'PLAY') {
                         isVisible = Math.hypot(r - seekerPos.r, c - seekerPos.c) <= FOG_RADIUS;
                     }
@@ -412,7 +383,6 @@
                         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
                     }
 
-                    // Vẽ Seeker (Chấm xanh)
                     if (r === seekerPos.r && c === seekerPos.c) {
                         ctx.fillStyle = '#2ed573';
                         ctx.beginPath();
@@ -420,7 +390,6 @@
                         ctx.fill();
                     }
 
-                    // Vẽ Đích (Trái tim)
                     if (r === heartPos.r && c === heartPos.c) {
                         ctx.fillStyle = '#ff4757';
                         ctx.font = '16px sans-serif';
