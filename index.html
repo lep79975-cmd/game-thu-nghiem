@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cozy Lounge - Trò Chuyện Trực Tuyến Đa Khu Vực</title>
+    <title>Cozy Lounge & 2D Online Duel Game</title>
 
     <!-- Thư viện MQTT WebSocket -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -34,30 +34,69 @@
         .map-card-title { font-size: 12px; font-weight: bold; color: #fff; }
 
         /* DANH SÁCH SERVER */
-        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 10px; padding: 8px; height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 10px; padding: 8px; height: 130px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
         .server-item { background: #1d1735; border: 1px solid #3a305e; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
         .server-info { display: flex; flex-direction: column; gap: 2px; }
         .server-name { font-weight: bold; font-size: 13px; color: #54a0ff; }
         .server-sub { font-size: 10px; color: #8c7ae6; }
         
         /* MÀN HÌNH CHÍNH GAME */
-        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 800px; height: 100vh; justify-content: center; padding: 10px; gap: 10px; }
+        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 900px; height: 100vh; justify-content: center; padding: 10px; gap: 8px; }
         
         #top-bar { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
         .room-title-text { font-size: 14px; font-weight: bold; color: #ff9f43; }
         
-        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 480px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         canvas { width: 100%; height: 100%; display: block; background: #05040a; }
 
         /* KHUNG CHAT */
-        #chat-box { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        #chat-messages { height: 80px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+        #chat-box { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+        #chat-messages { height: 75px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
         .msg-item { line-height: 1.3; }
         .msg-sender { font-weight: bold; color: #54a0ff; margin-right: 5px; }
         .msg-text { color: #e1b12c; }
-
         .chat-input-row { display: flex; gap: 8px; }
         #chat-input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 12px; }
+
+        /* --- GIAO DIỆN THÁCH ĐẤU & BẢNG THÔNG BÁO --- */
+        /* Nút mời thách đấu khi ở gần */
+        #invite-btn {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 12px 24px; background: #f59e0b; color: #000; border: none;
+            border-radius: 30px; font-weight: 800; font-size: 14px; cursor: pointer; display: none;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5); z-index: 80; transition: transform 0.1s;
+        }
+        #invite-btn:active { transform: translateX(-50%) scale(0.95); }
+
+        /* Bảng thông báo lời mời góc phải màn hình */
+        #invite-toast {
+            position: absolute; top: 15px; right: 15px;
+            background: rgba(15, 23, 42, 0.95); border: 2px solid #f59e0b;
+            padding: 14px; border-radius: 12px; display: none; width: 230px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.7); z-index: 95; backdrop-filter: blur(4px);
+        }
+        #invite-toast p { font-size: 13px; margin-bottom: 10px; line-height: 1.3; color: #f3f4f6; }
+        .toast-btns { display: flex; gap: 6px; }
+        .toast-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .toast-accept { background: #10b981; color: white; }
+        .toast-deny { background: #ef4444; color: white; }
+
+        /* Banner Thắng cuộc (Hiện 3s) */
+        #win-banner {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.95); border: 3px solid #f59e0b;
+            padding: 25px 40px; border-radius: 16px; font-size: 26px; color: #f59e0b;
+            text-align: center; display: none; font-weight: 900; text-shadow: 0 0 15px rgba(245, 158, 11, 0.7);
+            z-index: 100; box-shadow: 0 20px 50px rgba(0,0,0,0.9); width: 80%; max-width: 450px;
+        }
+
+        /* Thanh HUD Trận đấu trên cùng Canvas */
+        #duel-hud {
+            position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+            display: none; background: rgba(15, 23, 42, 0.85); padding: 8px 20px;
+            border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+            font-weight: bold; text-align: center; z-index: 75; font-size: 13px; color: #fff;
+        }
 
         /* MODAL BẢNG QUẢN LÝ CỦA HOST */
         #host-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
@@ -70,9 +109,8 @@
     <!-- SẢNH TẠO / CHỌN SERVER -->
     <div id="lobby-overlay">
         <div class="lobby-card">
-            <div class="lobby-title">✨ COZY LOUNGE ✨</div>
+            <div class="lobby-title">✨ COZY LOUNGE & DUEL ✨</div>
             
-            <!-- Nhập thông tin & chọn Khu vực -->
             <div style="display: flex; flex-direction: column; gap: 6px;">
                 <label style="font-size: 11px; color: #aaa;">Tên của bạn & Tên Server:</label>
                 <div class="input-group">
@@ -101,20 +139,19 @@
 
             <hr style="border: 0; border-top: 1px solid #282142;">
 
-            <!-- Danh sách Server -->
             <div style="display: flex; flex-direction: column; gap: 6px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 11px; color: #aaa;">Danh Sách Server Online:</label>
                     <span style="font-size: 10px; color: #54a0ff;">🟢 Tự cập nhật</span>
                 </div>
                 <div class="server-list-box" id="server-list">
-                    <div style="text-align: center; color: #666; font-size: 11px; margin-top: 50px;">Đang tìm các server xung quanh...</div>
+                    <div style="text-align: center; color: #666; font-size: 11px; margin-top: 45px;">Đang tìm các server xung quanh...</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MÀN HÌNH KHUNG CẢNH GAME -->
+    <!-- MÀN HÌNH CHÍNH GAME -->
     <div id="game-ui">
         <div id="top-bar">
             <div>
@@ -129,11 +166,25 @@
 
         <div id="canvas-wrapper">
             <canvas id="loungeCanvas"></canvas>
+
+            <!-- Giao diện PvP Thách đấu trên Canvas -->
+            <button id="invite-btn" onclick="sendDuelInvite()">⚔️ MỜI THÁCH ĐẤU</button>
+
+            <div id="invite-toast">
+                <p id="invite-text">Player B muốn thách đấu bạn!</p>
+                <div class="toast-btns">
+                    <button class="toast-btn toast-accept" onclick="acceptDuelInvite()">Chấp nhận</button>
+                    <button class="toast-btn toast-deny" onclick="denyDuelInvite()">Từ chối</button>
+                </div>
+            </div>
+
+            <div id="win-banner"></div>
+            <div id="duel-hud"><span id="duel-round-info">VÁN 1: Súng Lục Bạc (Dame: 45)</span></div>
         </div>
 
         <div id="chat-box">
             <div id="chat-messages">
-                <div style="color: #666; font-style: italic; font-size: 11px;">Chạm vào màn hình hoặc dùng phím WASD để di chuyển nhân vật!</div>
+                <div style="color: #666; font-style: italic; font-size: 11px;">Dùng WASD / Mũi tên để di chuyển. Tiến gần người khác để Mời Thách Đấu! Nhấp/Chạm màn hình để bắn đạn liên tục.</div>
             </div>
             <div class="chat-input-row">
                 <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="60">
@@ -150,461 +201,773 @@
                 <span style="cursor: pointer; font-size: 18px;" onclick="closeHostModal()">✖</span>
             </div>
             <div style="font-size: 12px; color: #aaa;">Danh sách người chơi & tình trạng thiết bị:</div>
-            <div id="host-player-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
-                <!-- render player list here -->
-            </div>
+            <div id="host-player-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
             <button class="btn btn-purple" onclick="closeHostModal()">Đóng</button>
         </div>
     </div>
 
-    <script>
-        const LOBBY_TOPIC = "cozy-lounge-v3/public-lobby";
-        const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
-        const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+<script>
+    const LOBBY_TOPIC = "cozy-lounge-v3/public-lobby";
+    const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
+    const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
 
-        let client = null;
-        let currentRoomId = null;
-        let isHost = false;
-        let myName = "Người Chơi";
-        let selectedMapType = 'CAMPFIRE'; // 'CAMPFIRE', 'BEACH', 'FOREST', 'NEON'
-        let currentRoomMap = 'CAMPFIRE';
+    let client = null;
+    let currentRoomId = null;
+    let isHost = false;
+    let myName = "Người Chơi";
+    let selectedMapType = 'CAMPFIRE';
+    let currentRoomMap = 'CAMPFIRE';
 
-        // Lấy thông tin PIN điện thoại/thiết bị
-        let myBatteryStatus = "N/A";
-        if ('getBattery' in navigator) {
-            navigator.getBattery().then(battery => {
-                myBatteryStatus = Math.round(battery.level * 100) + "%";
-                battery.addEventListener('levelchange', () => {
-                    myBatteryStatus = Math.round(battery.level * 100) + "%";
-                });
-            }).catch(() => {});
+    let myBatteryStatus = "N/A";
+    if ('getBattery' in navigator) {
+        navigator.getBattery().then(battery => {
+            myBatteryStatus = Math.round(battery.level * 100) + "%";
+            battery.addEventListener('levelchange', () => { myBatteryStatus = Math.round(battery.level * 100) + "%"; });
+        }).catch(() => {});
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedName = localStorage.getItem('cozy_lounge_username');
+        if (savedName) document.getElementById('username-input').value = savedName;
+    });
+
+    // TỌA ĐỘ VÀ DỮ LIỆU GAME
+    let myPos = { x: 400, y: 300, targetX: 400, targetY: 300 };
+    let otherPlayers = {}; 
+    let publicServers = {}; 
+    let myChatBubble = { text: "", timer: null };
+
+    // BỘ VŨ KHÍ NGẪU NHIÊN CHO VÁN CUỐI
+    const RANDOM_WEAPONS = [
+        { name: "Súng Laze Cổ Đại", color: "#a855f7" },
+        { name: "Súng Đại Bác Hạng Nặng", color: "#f97316" },
+        { name: "Súng Rồng Lửa", color: "#ef4444" },
+        { name: "Súng Sấm Sét", color: "#06b6d4" },
+        { name: "Súng Quái Thú", color: "#10b981" }
+    ];
+
+    // HỆ THỐNG TRẠNG THÁI THÁCH ĐẤU (DUEL STATE)
+    let duelState = {
+        inBattle: false,
+        partnerId: null,
+        isInviteLocked: false, // Khóa lời mời 1 lần đến khi có người thắng trận cuối
+        round: 1, // 1: Ván 1 (Lục bạc 45 dame), 2: Ván cuối (Súng & dame ngẫu nhiên)
+        myHp: 100,
+        maxHp: 100,
+        myWeapon: { name: "Súng Lục Bạc", damage: 45 },
+        prePos: { x: 400, y: 300 },
+        pendingInviterId: null
+    };
+
+    let bullets = [];
+    let keys = {};
+    let nearestPlayerId = null;
+
+    const canvas = document.getElementById('loungeCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function selectMap(mapType, el) {
+        selectedMapType = mapType;
+        document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    function initCanvasSize() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        
+        particles = [];
+        for(let i = 0; i < 50; i++) {
+            particles.push({ 
+                x: Math.random() * canvas.width, 
+                y: Math.random() * canvas.height, 
+                r: Math.random() * 2 + 1, 
+                vy: Math.random() * 1 + 0.2,
+                alpha: Math.random() 
+            });
         }
+    }
+    window.addEventListener('resize', initCanvasSize);
 
-        // TỰ ĐỘNG LƯU & TẢI TÊN TỪ LOCALSTORAGE
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedName = localStorage.getItem('cozy_lounge_username');
-            if (savedName) {
-                document.getElementById('username-input').value = savedName;
+    // KẾT NỐI WEBSOCKET MQTT
+    client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
+
+    client.on('connect', () => { client.subscribe(LOBBY_TOPIC); });
+
+    client.on('message', (topic, message) => {
+        try {
+            const data = JSON.parse(message.toString());
+
+            if (topic === LOBBY_TOPIC && data.type === 'SERVER_HEARTBEAT') {
+                publicServers[data.roomId] = { ...data, lastPing: Date.now() };
+                renderServerList();
+                return;
             }
-        });
 
-        // VỊ TRÍ & BẢN ĐỒ
-        let myPos = { x: 400, y: 300, targetX: 400, targetY: 300 };
-        let otherPlayers = {}; 
-        let publicServers = {}; 
-        let myChatBubble = { text: "", timer: null };
-
-        const canvas = document.getElementById('loungeCanvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-
-        function selectMap(mapType, el) {
-            selectedMapType = mapType;
-            document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
-            el.classList.add('selected');
-        }
-
-        function initCanvasSize() {
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-            
-            // Tạo các hạt môi trường tùy map
-            particles = [];
-            for(let i = 0; i < 50; i++) {
-                particles.push({ 
-                    x: Math.random() * canvas.width, 
-                    y: Math.random() * canvas.height, 
-                    r: Math.random() * 2 + 1, 
-                    vy: Math.random() * 1 + 0.2,
-                    alpha: Math.random() 
-                });
-            }
-        }
-        window.addEventListener('resize', initCanvasSize);
-
-        // KẾT NỐI WEBSOCKET
-        client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
-
-        client.on('connect', () => {
-            client.subscribe(LOBBY_TOPIC);
-        });
-
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-
-                if (topic === LOBBY_TOPIC && data.type === 'SERVER_HEARTBEAT') {
-                    publicServers[data.roomId] = { ...data, lastPing: Date.now() };
-                    renderServerList();
-                    return;
-                }
-
-                if (topic === `cozy-lounge-v3/room/${currentRoomId}`) {
-                    // XỬ LÝ KICK NGƯỜI CHƠI
-                    if (data.type === 'KICK_PLAYER') {
-                        if (data.targetId === myClientId) {
-                            alert("⚠️ Bạn đã bị chủ phòng mời ra khỏi server!");
-                            location.reload();
-                        } else {
-                            delete otherPlayers[data.targetId];
-                            updateOnlineCount();
-                            if (isHost) renderHostPlayerList();
-                        }
-                        return;
-                    }
-
-                    if (data.sender === myClientId) return;
-
-                    if (data.type === 'PLAYER_MOVE') {
-                        otherPlayers[data.sender] = { ...otherPlayers[data.sender], ...data };
-                        updateOnlineCount();
-                        if (isHost && document.getElementById('host-modal').style.display === 'flex') {
-                            renderHostPlayerList();
-                        }
-                    } 
-                    else if (data.type === 'PLAYER_CHAT') {
-                        if (otherPlayers[data.sender]) {
-                            otherPlayers[data.sender].chatBubble = data.text;
-                            setTimeout(() => { if(otherPlayers[data.sender]) otherPlayers[data.sender].chatBubble = ""; }, 4000);
-                        }
-                        appendChatMessage(data.name, data.text);
-                    }
-                    else if (data.type === 'PLAYER_LEAVE') {
-                        delete otherPlayers[data.sender];
+            if (topic === `cozy-lounge-v3/room/${currentRoomId}`) {
+                if (data.type === 'KICK_PLAYER') {
+                    if (data.targetId === myClientId) {
+                        alert("⚠️ Bạn đã bị chủ phòng mời ra khỏi server!");
+                        location.reload();
+                    } else {
+                        delete otherPlayers[data.targetId];
                         updateOnlineCount();
                         if (isHost) renderHostPlayerList();
                     }
+                    return;
                 }
-            } catch(e){}
-        });
 
-        function renderServerList() {
-            const listEl = document.getElementById('server-list');
-            const now = Date.now();
-            let html = '', count = 0;
+                if (data.sender === myClientId) return;
 
-            const mapNames = { 'CAMPFIRE': '🔥 Lửa Trại', 'BEACH': '🏖️ Bãi Biển', 'FOREST': '🌲 Rừng Rậm', 'NEON': '🌃 Thành Phố' };
-
-            for (let id in publicServers) {
-                let s = publicServers[id];
-                if (now - s.lastPing < 8000) {
-                    count++;
-                    html += `
-                        <div class="server-item">
-                            <div class="server-info">
-                                <span class="server-name">${escapeHtml(s.roomName)} <span style="font-size: 10px; color: #ff9f43;">[${mapNames[s.mapType] || 'Khu vực'}]</span></span>
-                                <span class="server-sub">Chủ phòng: ${escapeHtml(s.hostName)}</span>
-                            </div>
-                            <button class="btn btn-purple" style="padding: 5px 10px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}', '${s.mapType}')">Tham gia</button>
-                        </div>
-                    `;
+                if (data.type === 'PLAYER_MOVE') {
+                    otherPlayers[data.sender] = { ...otherPlayers[data.sender], ...data };
+                    updateOnlineCount();
+                } 
+                else if (data.type === 'PLAYER_CHAT') {
+                    if (otherPlayers[data.sender]) {
+                        otherPlayers[data.sender].chatBubble = data.text;
+                        setTimeout(() => { if(otherPlayers[data.sender]) otherPlayers[data.sender].chatBubble = ""; }, 4000);
+                    }
+                    appendChatMessage(data.name, data.text);
+                }
+                else if (data.type === 'PLAYER_LEAVE') {
+                    if (duelState.inBattle && duelState.partnerId === data.sender) {
+                        handleOpponentLeftMidGame();
+                    }
+                    delete otherPlayers[data.sender];
+                    updateOnlineCount();
+                }
+                // --- XỬ LÝ SỰ KIỆN THÁCH ĐẤU TRỰC TUYẾN ---
+                else if (data.type === 'DUEL_INVITE' && data.targetId === myClientId) {
+                    if (!duelState.isInviteLocked && !duelState.inBattle) {
+                        duelState.pendingInviterId = data.sender;
+                        document.getElementById('invite-text').innerText = `${escapeHtml(data.senderName)} muốn thách đấu bạn!`;
+                        document.getElementById('invite-toast').style.display = 'block';
+                    }
+                }
+                else if (data.type === 'DUEL_RESPONSE' && data.targetId === myClientId) {
+                    if (data.accepted) {
+                        duelState.partnerId = data.sender;
+                        duelState.isInviteLocked = true;
+                        startBattleSession(true);
+                    } else {
+                        alert(`${otherPlayers[data.sender]?.name || 'Đối thủ'} đã từ chối lời mời!`);
+                        duelState.isInviteLocked = false;
+                    }
+                }
+                else if (data.type === 'DUEL_SHOOT' && data.targetId === myClientId) {
+                    bullets.push(new Bullet(data.x, data.y, data.targetX, data.targetY, data.damage, data.sender));
+                }
+                else if (data.type === 'DUEL_HP_SYNC' && data.targetId === myClientId) {
+                    if (otherPlayers[data.sender]) {
+                        otherPlayers[data.sender].hp = data.hp;
+                    }
+                }
+                else if (data.type === 'DUEL_ROUND_NEXT' && data.targetId === myClientId) {
+                    duelState.round = 2;
+                    duelState.myWeapon = data.partnerWeapon; // Nhận cấu hình súng ván cuối đã tạo đồng bộ
+                    resetDuelRound();
+                    updateDuelHUD();
+                }
+                else if (data.type === 'DUEL_WINNER' && data.targetId === myClientId) {
+                    finishDuelGame(data.winnerName);
                 }
             }
-            if (count === 0) listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 11px; margin-top: 50px;">Chưa có server nào. Hãy tạo Server ngay!</div>`;
-            else listEl.innerHTML = html;
-        }
+        } catch(e){}
+    });
 
-        function createNewServer() {
-            const userIn = document.getElementById('username-input').value.trim();
-            const serverIn = document.getElementById('servername-input').value.trim();
+    function renderServerList() {
+        const listEl = document.getElementById('server-list');
+        const now = Date.now();
+        let html = '', count = 0;
 
-            if (!userIn || !serverIn) return alert("Vui lòng nhập Tên của bạn và Tên Server!");
+        const mapNames = { 'CAMPFIRE': '🔥 Lửa Trại', 'BEACH': '🏖️ Bãi Biển', 'FOREST': '🌲 Rừng Rậm', 'NEON': '🌃 Thành Phố' };
 
-            myName = userIn;
-            localStorage.setItem('cozy_lounge_username', myName); // Lưu tên vào LocalStorage
-
-            currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
-            isHost = true;
-            currentRoomMap = selectedMapType;
-
-            document.getElementById('host-panel-btn').style.display = 'inline-block';
-            enterScene(serverIn);
-
-            setInterval(() => {
-                if (isHost && client && client.connected) {
-                    client.publish(LOBBY_TOPIC, JSON.stringify({
-                        type: 'SERVER_HEARTBEAT',
-                        roomId: currentRoomId,
-                        roomName: serverIn,
-                        hostName: myName,
-                        mapType: currentRoomMap
-                    }));
-                }
-            }, 3000);
-        }
-
-        function joinServer(roomId, roomName, mapType) {
-            const userIn = document.getElementById('username-input').value.trim() || ("Khách_" + Math.floor(Math.random()*100));
-            myName = userIn;
-            localStorage.setItem('cozy_lounge_username', myName);
-
-            currentRoomId = roomId;
-            currentRoomMap = mapType || 'CAMPFIRE';
-            isHost = false;
-
-            enterScene(roomName);
-        }
-
-        function enterScene(roomName) {
-            document.getElementById('lobby-overlay').style.display = 'none';
-            document.getElementById('game-ui').style.display = 'flex';
-            document.getElementById('display-room-name').innerText = `Server: ${roomName}`;
-
-            client.subscribe(`cozy-lounge-v3/room/${currentRoomId}`);
-            
-            initCanvasSize();
-            myPos.x = canvas.width / 2;
-            myPos.y = canvas.height / 2 + 50;
-            myPos.targetX = myPos.x;
-            myPos.targetY = myPos.y;
-
-            broadcastMyPosition();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function leaveServer() {
-            if (client && currentRoomId) {
-                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                    type: 'PLAYER_LEAVE', sender: myClientId
-                }));
-            }
-            location.reload();
-        }
-
-        function broadcastMyPosition() {
-            if (client && client.connected && currentRoomId) {
-                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                    type: 'PLAYER_MOVE',
-                    sender: myClientId,
-                    name: myName,
-                    x: myPos.x,
-                    y: myPos.y,
-                    color: myColor,
-                    battery: myBatteryStatus
-                }));
-            }
-        }
-
-        function updateOnlineCount() {
-            let count = Object.keys(otherPlayers).length + 1;
-            document.getElementById('online-count').innerText = `👥 ${count} Trực tuyến`;
-        }
-
-        /* --- BẢNG BẢNG QUẢN LÝ CỦA HOST --- */
-        function openHostModal() {
-            if (!isHost) return;
-            renderHostPlayerList();
-            document.getElementById('host-modal').style.display = 'flex';
-        }
-
-        function closeHostModal() {
-            document.getElementById('host-modal').style.display = 'none';
-        }
-
-        function renderHostPlayerList() {
-            const listContainer = document.getElementById('host-player-list');
-            let html = `
-                <div class="player-manage-item">
-                    <div>
-                        <strong style="color:#2ed573">${escapeHtml(myName)} (Chủ phòng)</strong>
-                        <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${myBatteryStatus}</div>
-                    </div>
-                </div>
-            `;
-
-            for (let id in otherPlayers) {
-                let p = otherPlayers[id];
+        for (let id in publicServers) {
+            let s = publicServers[id];
+            if (now - s.lastPing < 8000) {
+                count++;
                 html += `
-                    <div class="player-manage-item">
-                        <div>
-                            <strong style="color:#54a0ff">${escapeHtml(p.name)}</strong>
-                            <div style="font-size: 10px; color: #aaa;">🔋 Pin thiết bị: ${p.battery || 'N/A'}</div>
+                    <div class="server-item">
+                        <div class="server-info">
+                            <span class="server-name">${escapeHtml(s.roomName)} <span style="font-size: 10px; color: #ff9f43;">[${mapNames[s.mapType] || 'Khu vực'}]</span></span>
+                            <span class="server-sub">Chủ phòng: ${escapeHtml(s.hostName)}</span>
                         </div>
-                        <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="kickPlayer('${id}')">Kick</button>
+                        <button class="btn btn-purple" style="padding: 5px 10px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}', '${s.mapType}')">Tham gia</button>
                     </div>
                 `;
             }
-            listContainer.innerHTML = html;
         }
+        if (count === 0) listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 11px; margin-top: 45px;">Chưa có server nào. Hãy tạo Server ngay!</div>`;
+        else listEl.innerHTML = html;
+    }
 
-        function kickPlayer(targetId) {
-            if (!isHost) return;
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'KICK_PLAYER',
-                targetId: targetId
-            }));
-            delete otherPlayers[targetId];
-            renderHostPlayerList();
-            updateOnlineCount();
-        }
+    function createNewServer() {
+        const userIn = document.getElementById('username-input').value.trim();
+        const serverIn = document.getElementById('servername-input').value.trim();
+        if (!userIn || !serverIn) return alert("Vui lòng nhập Tên của bạn và Tên Server!");
 
-        /* --- CHAT SYSTEM --- */
-        function sendChat() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (!text) return;
+        myName = userIn;
+        localStorage.setItem('cozy_lounge_username', myName);
 
-            appendChatMessage(myName, text, true);
+        currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
+        isHost = true;
+        currentRoomMap = selectedMapType;
 
-            myChatBubble.text = text;
-            if (myChatBubble.timer) clearTimeout(myChatBubble.timer);
-            myChatBubble.timer = setTimeout(() => { myChatBubble.text = ""; }, 4000);
+        document.getElementById('host-panel-btn').style.display = 'inline-block';
+        enterScene(serverIn);
 
-            if (client && client.connected && currentRoomId) {
-                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                    type: 'PLAYER_CHAT',
-                    sender: myClientId,
-                    name: myName,
-                    text: text
+        setInterval(() => {
+            if (isHost && client && client.connected) {
+                client.publish(LOBBY_TOPIC, JSON.stringify({
+                    type: 'SERVER_HEARTBEAT', roomId: currentRoomId, roomName: serverIn, hostName: myName, mapType: currentRoomMap
                 }));
             }
-            input.value = '';
+        }, 3000);
+    }
+
+    function joinServer(roomId, roomName, mapType) {
+        const userIn = document.getElementById('username-input').value.trim() || ("Khách_" + Math.floor(Math.random()*100));
+        myName = userIn;
+        localStorage.setItem('cozy_lounge_username', myName);
+
+        currentRoomId = roomId;
+        currentRoomMap = mapType || 'CAMPFIRE';
+        isHost = false;
+
+        enterScene(roomName);
+    }
+
+    function enterScene(roomName) {
+        document.getElementById('lobby-overlay').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'flex';
+        document.getElementById('display-room-name').innerText = `Server: ${roomName}`;
+
+        client.subscribe(`cozy-lounge-v3/room/${currentRoomId}`);
+        
+        initCanvasSize();
+        myPos.x = canvas.width / 2;
+        myPos.y = canvas.height / 2 + 50;
+        myPos.targetX = myPos.x;
+        myPos.targetY = myPos.y;
+
+        broadcastMyPosition();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function leaveServer() {
+        if (client && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_LEAVE', sender: myClientId
+            }));
+        }
+        location.reload();
+    }
+
+    function broadcastMyPosition() {
+        if (client && client.connected && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_MOVE', sender: myClientId, name: myName, x: myPos.x, y: myPos.y, color: myColor, battery: myBatteryStatus, hp: duelState.myHp
+            }));
+        }
+    }
+
+    function updateOnlineCount() {
+        let count = Object.keys(otherPlayers).length + 1;
+        document.getElementById('online-count').innerText = `👥 ${count} Trực tuyến`;
+    }
+
+    // --- HỆ THỐNG THÁCH ĐẤU & CHIẾN ĐẤU (DUEL CORE) ---
+    class Bullet {
+        constructor(x, y, targetX, targetY, damage, shooterId) {
+            this.x = x;
+            this.y = y;
+            this.damage = damage;
+            this.shooterId = shooterId;
+            this.radius = 5;
+            this.speed = 12;
+
+            const angle = Math.atan2(targetY - y, targetX - x);
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
         }
 
-        function appendChatMessage(sender, text, isMe = false) {
-            const box = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = 'msg-item';
-            div.innerHTML = `<span class="msg-sender" style="color:${isMe ? '#ff9f43':'#54a0ff'}">${escapeHtml(sender)}:</span><span class="msg-text">${escapeHtml(text)}</span>`;
-            box.appendChild(div);
-            box.scrollTop = box.scrollHeight;
+        update() { this.x += this.vx; this.y += this.vy; }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#fbbf24";
+            ctx.fill();
+        }
+    }
+
+    function checkProximityAndInvite() {
+        if (duelState.inBattle || duelState.isInviteLocked) {
+            document.getElementById('invite-btn').style.display = 'none';
+            return;
         }
 
-        function escapeHtml(str) {
-            return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+        nearestPlayerId = null;
+        let minDist = 90; // Khoảng cách tới gần để thách đấu
+
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            let d = Math.hypot(myPos.x - p.x, myPos.y - p.y);
+            if (d < minDist) {
+                minDist = d;
+                nearestPlayerId = id;
+            }
         }
 
-        canvas.addEventListener('pointerdown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            myPos.targetX = (e.clientX - rect.left);
-            myPos.targetY = (e.clientY - rect.top);
+        if (nearestPlayerId) {
+            document.getElementById('invite-btn').style.display = 'block';
+        } else {
+            document.getElementById('invite-btn').style.display = 'none';
+        }
+    }
+
+    function sendDuelInvite() {
+        if (!nearestPlayerId || duelState.isInviteLocked) return;
+        duelState.isInviteLocked = true;
+        duelState.partnerId = nearestPlayerId;
+        document.getElementById('invite-btn').style.display = 'none';
+
+        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+            type: 'DUEL_INVITE', sender: myClientId, senderName: myName, targetId: nearestPlayerId
+        }));
+    }
+
+    function acceptDuelInvite() {
+        document.getElementById('invite-toast').style.display = 'none';
+        duelState.partnerId = duelState.pendingInviterId;
+        duelState.isInviteLocked = true;
+
+        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+            type: 'DUEL_RESPONSE', sender: myClientId, targetId: duelState.partnerId, accepted: true
+        }));
+
+        startBattleSession(false);
+    }
+
+    function denyDuelInvite() {
+        document.getElementById('invite-toast').style.display = 'none';
+        if (duelState.pendingInviterId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'DUEL_RESPONSE', sender: myClientId, targetId: duelState.pendingInviterId, accepted: false
+            }));
+        }
+        duelState.pendingInviterId = null;
+    }
+
+    function startBattleSession(isHostOfDuel) {
+        duelState.inBattle = true;
+        duelState.round = 1;
+
+        // Lưu vị trí cũ trước khi thách đấu
+        duelState.prePos = { x: myPos.x, y: myPos.y };
+
+        resetDuelRound(isHostOfDuel);
+
+        document.getElementById('duel-hud').style.display = 'block';
+        updateDuelHUD();
+    }
+
+    function resetDuelRound(isHostOfDuel = true) {
+        duelState.myHp = 100;
+        bullets = [];
+
+        if (otherPlayers[duelState.partnerId]) {
+            otherPlayers[duelState.partnerId].hp = 100;
+        }
+
+        // Đưa 2 người xuất hiện 2 bên màn hình để chiến đấu
+        if (isHostOfDuel) {
+            myPos.x = canvas.width * 0.2; myPos.y = canvas.height / 2;
+        } else {
+            myPos.x = canvas.width * 0.8; myPos.y = canvas.height / 2;
+        }
+        myPos.targetX = myPos.x; myPos.targetY = myPos.y;
+
+        if (duelState.round === 1) {
+            // Ván 1: Súng Lục Bạc, Dame 45
+            duelState.myWeapon = { name: "Súng Lục Bạc", damage: 45, color: "#cbd5e1" };
+        } else {
+            // Ván cuối: Súng & Dame Ngẫu Nhiên
+            const w1 = RANDOM_WEAPONS[Math.floor(Math.random() * RANDOM_WEAPONS.length)];
+            const w2 = RANDOM_WEAPONS[Math.floor(Math.random() * RANDOM_WEAPONS.length)];
+            const d1 = Math.floor(Math.random() * 45) + 35; // Dame 35 - 80
+            const d2 = Math.floor(Math.random() * 45) + 35;
+
+            duelState.myWeapon = { name: w1.name, damage: d1, color: w1.color };
+
+            // Gửi thông số súng đối thủ cho đối phương
+            if (isHostOfDuel) {
+                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                    type: 'DUEL_ROUND_NEXT', sender: myClientId, targetId: duelState.partnerId, partnerWeapon: { name: w2.name, damage: d2, color: w2.color }
+                }));
+            }
+        }
+        broadcastMyPosition();
+    }
+
+    function updateDuelHUD() {
+        const info = document.getElementById('duel-round-info');
+        if (duelState.round === 1) {
+            info.innerHTML = `VÁN 1: <span style="color:#cbd5e1">Súng Lục Bạc</span> (Dame: 45)`;
+        } else {
+            info.innerHTML = `TRẬN CUỐI: <span style="color:${duelState.myWeapon.color}">${duelState.myWeapon.name}</span> (${duelState.myWeapon.damage} Dame)`;
+        }
+    }
+
+    // XỬ LÝ BẮN ĐẠN LIÊN TỤC KHI NHẤP/CHẠM MÀN HÌNH
+    let isMouseDown = false;
+    let pointerPos = { x: 0, y: 0 };
+    let lastShootTime = 0;
+
+    function handleShootStart(e) {
+        if (!duelState.inBattle) return;
+        isMouseDown = true;
+        updatePointerPos(e);
+    }
+    function handleShootEnd() { isMouseDown = false; }
+
+    function updatePointerPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches && e.touches.length > 0) {
+            pointerPos.x = e.touches[0].clientX - rect.left;
+            pointerPos.y = e.touches[0].clientY - rect.top;
+        } else {
+            pointerPos.x = e.clientX - rect.left;
+            pointerPos.y = e.clientY - rect.top;
+        }
+    }
+
+    canvas.addEventListener('mousedown', handleShootStart);
+    window.addEventListener('mouseup', handleShootEnd);
+    canvas.addEventListener('mousemove', updatePointerPos);
+
+    canvas.addEventListener('touchstart', (e) => { handleShootStart(e); }, { passive: true });
+    window.addEventListener('touchend', handleShootEnd);
+    canvas.addEventListener('touchmove', updatePointerPos, { passive: true });
+
+    function processContinuousShooting(now) {
+        if (!duelState.inBattle || !isMouseDown || duelState.myHp <= 0) return;
+
+        if (now - lastShootTime >= 160) { // Tốc độ bắn đạn
+            lastShootTime = now;
+            
+            // Bắn đạn trên màn hình mình
+            bullets.push(new Bullet(myPos.x, myPos.y, pointerPos.x, pointerPos.y, duelState.myWeapon.damage, myClientId));
+
+            // Gửi dữ liệu viên đạn sang đối thủ qua MQTT
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'DUEL_SHOOT', sender: myClientId, targetId: duelState.partnerId, x: myPos.x, y: myPos.y, targetX: pointerPos.x, targetY: pointerPos.y, damage: duelState.myWeapon.damage
+            }));
+        }
+    }
+
+    function updateBulletsAndCollisions() {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            let b = bullets[i];
+            b.update();
+            b.draw();
+
+            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                bullets.splice(i, 1);
+                continue;
+            }
+
+            // Kiểm tra đạn trúng bản thân
+            if (b.shooterId !== myClientId && duelState.myHp > 0) {
+                let dist = Math.hypot(b.x - myPos.x, b.y - myPos.y);
+                if (dist < 18 + b.radius) {
+                    duelState.myHp = Math.max(0, duelState.myHp - b.damage);
+                    bullets.splice(i, 1);
+
+                    // Đồng bộ máu
+                    client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                        type: 'DUEL_HP_SYNC', sender: myClientId, targetId: duelState.partnerId, hp: duelState.myHp
+                    }));
+
+                    if (duelState.myHp <= 0) {
+                        handleMyDeath();
+                    }
+                }
+            }
+        }
+    }
+
+    function handleMyDeath() {
+        if (duelState.round === 1) {
+            // Chuyển sang ván 2 (Ván cuối)
+            setTimeout(() => {
+                duelState.round = 2;
+                resetDuelRound(false);
+                updateDuelHUD();
+            }, 1000);
+        } else {
+            // Thua ở ván cuối -> Đối thủ thắng
+            const winnerName = otherPlayers[duelState.partnerId]?.name || "Đối thủ";
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'DUEL_WINNER', sender: myClientId, targetId: duelState.partnerId, winnerName: winnerName
+            }));
+            finishDuelGame(winnerName);
+        }
+    }
+
+    function finishDuelGame(winnerName) {
+        duelState.inBattle = false;
+        document.getElementById('duel-hud').style.display = 'none';
+
+        // Hiển thị Banner người thắng trong 3 giây
+        const banner = document.getElementById('win-banner');
+        banner.innerText = `"${winnerName}" đã thắng!!`;
+        banner.style.display = 'block';
+
+        setTimeout(() => {
+            banner.style.display = 'none';
+
+            // Đưa người chơi trở về vị trí cũ trước khi thách đấu
+            myPos.x = duelState.prePos.x;
+            myPos.y = duelState.prePos.y;
+            myPos.targetX = myPos.x; myPos.targetY = myPos.y;
+            duelState.myHp = 100;
+
+            // Mở lại khóa lời mời thách đấu
+            duelState.isInviteLocked = false;
+            duelState.partnerId = null;
+            broadcastMyPosition();
+        }, 3000);
+    }
+
+    function handleOpponentLeftMidGame() {
+        alert("Đối thủ đã thoát trang web hoặc ngắt kết nối!");
+        finishDuelGame(myName);
+    }
+
+    /* --- BẢNG QUẢN LÝ CỦA HOST --- */
+    function openHostModal() {
+        if (!isHost) return;
+        renderHostPlayerList();
+        document.getElementById('host-modal').style.display = 'flex';
+    }
+
+    function closeHostModal() { document.getElementById('host-modal').style.display = 'none'; }
+
+    function renderHostPlayerList() {
+        const listContainer = document.getElementById('host-player-list');
+        let html = `
+            <div class="player-manage-item">
+                <div>
+                    <strong style="color:#2ed573">${escapeHtml(myName)} (Chủ phòng)</strong>
+                    <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${myBatteryStatus}</div>
+                </div>
+            </div>
+        `;
+
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            html += `
+                <div class="player-manage-item">
+                    <div>
+                        <strong style="color:#54a0ff">${escapeHtml(p.name)}</strong>
+                        <div style="font-size: 10px; color: #aaa;">🔋 Pin thiết bị: ${p.battery || 'N/A'}</div>
+                    </div>
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="kickPlayer('${id}')">Kick</button>
+                </div>
+            `;
+        }
+        listContainer.innerHTML = html;
+    }
+
+    function kickPlayer(targetId) {
+        if (!isHost) return;
+        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+            type: 'KICK_PLAYER', targetId: targetId
+        }));
+        delete otherPlayers[targetId];
+        renderHostPlayerList();
+        updateOnlineCount();
+    }
+
+    /* --- CHAT SYSTEM --- */
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendChatMessage(myName, text, true);
+
+        myChatBubble.text = text;
+        if (myChatBubble.timer) clearTimeout(myChatBubble.timer);
+        myChatBubble.timer = setTimeout(() => { myChatBubble.text = ""; }, 4000);
+
+        if (client && client.connected && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_CHAT', sender: myClientId, name: myName, text: text
+            }));
+        }
+        input.value = '';
+    }
+
+    function appendChatMessage(sender, text, isMe = false) {
+        const box = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'msg-item';
+        div.innerHTML = `<span class="msg-sender" style="color:${isMe ? '#ff9f43':'#54a0ff'}">${escapeHtml(sender)}:</span><span class="msg-text">${escapeHtml(text)}</span>`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+        if (duelState.inBattle) return; // Nếu đang đấu súng thì ưu tiên nhấp để bắn đạn
+        const rect = canvas.getBoundingClientRect();
+        myPos.targetX = (e.clientX - rect.left);
+        myPos.targetY = (e.clientY - rect.top);
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const step = 15;
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') myPos.targetY -= step;
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') myPos.targetY += step;
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') myPos.targetX -= step;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') myPos.targetX += step;
+        if (e.key === 'Enter') sendChat();
+    });
+
+    // --- MAIN GAME LOOP ---
+    function gameLoop(timestamp) {
+        if (Math.hypot(myPos.targetX - myPos.x, myPos.targetY - myPos.y) > 2) {
+            myPos.x += (myPos.targetX - myPos.x) * 0.15;
+            myPos.y += (myPos.targetY - myPos.y) * 0.15;
+            broadcastMyPosition();
+        }
+
+        // Vẽ background map
+        if (currentRoomMap === 'CAMPFIRE') drawCampfireMap();
+        else if (currentRoomMap === 'BEACH') drawBeachMap();
+        else if (currentRoomMap === 'FOREST') drawForestMap();
+        else if (currentRoomMap === 'NEON') drawNeonMap();
+
+        checkProximityAndInvite();
+        processContinuousShooting(timestamp);
+
+        // Vẽ những người chơi khác
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            drawAvatar(p.x, p.y, p.name, p.color, p.chatBubble, p.hp);
+        }
+
+        // Vẽ nhân vật bản thân
+        drawAvatar(myPos.x, myPos.y, myName + " (Bạn)", myColor, myChatBubble.text, duelState.myHp);
+
+        if (duelState.inBattle) {
+            updateBulletsAndCollisions();
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // --- BẢN ĐỒ & VẼ CẢNH ---
+    function drawCampfireMap() {
+        ctx.fillStyle = '#080612'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let groundY = canvas.height * 0.45;
+        let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+        grad.addColorStop(0, '#121026'); grad.addColorStop(1, '#080612');
+        ctx.fillStyle = grad; ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+        let fx = canvas.width / 2, fy = canvas.height / 2 + 20;
+        let glow = ctx.createRadialGradient(fx, fy, 10, fx, fy, 120);
+        glow.addColorStop(0, 'rgba(255, 159, 67, 0.35)'); glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
+        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(fx, fy, 120, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(fx, fy, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawBeachMap() {
+        let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
+        skyGrad.addColorStop(0, '#ff7675'); skyGrad.addColorStop(1, '#6c5ce7');
+        ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+        ctx.fillStyle = '#0984e3'; ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.2);
+        ctx.fillStyle = '#ffeaa7'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+        ctx.fillStyle = '#fdcb6e'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height*0.5, 30, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawForestMap() {
+        ctx.fillStyle = '#051923'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#003554'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
+        particles.forEach(p => {
+            p.y -= 0.3; if (p.y < 0) p.y = canvas.height;
+            ctx.fillStyle = `rgba(0, 255, 136, ${Math.abs(Math.sin(Date.now()*0.003 + p.alpha))})`;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, Math.PI*2); ctx.fill();
         });
+    }
 
-        window.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT') return;
-            const step = 20;
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') myPos.targetY -= step;
-            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') myPos.targetY += step;
-            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') myPos.targetX -= step;
-            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') myPos.targetX += step;
-            if (e.key === 'Enter') sendChat();
-        });
+    function drawNeonMap() {
+        ctx.fillStyle = '#0d0221'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#02010a'; ctx.fillRect(0, canvas.height*0.5, canvas.width, canvas.height*0.5);
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.3)'; ctx.lineWidth = 1;
+        for(let x = 0; x < canvas.width; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, canvas.height*0.5); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for(let y = canvas.height*0.5; y < canvas.height; y += 25) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+    }
 
-        /* --- VẼ 4 KHU VỰC KHÁC NHAU --- */
-        function gameLoop() {
-            if (Math.hypot(myPos.targetX - myPos.x, myPos.targetY - myPos.y) > 2) {
-                myPos.x += (myPos.targetX - myPos.x) * 0.15;
-                myPos.y += (myPos.targetY - myPos.y) * 0.15;
-                broadcastMyPosition();
-            }
+    // VẼ NHÂN VẬT & MÁU
+    function drawAvatar(x, y, name, color, chatText, hp = 100) {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath(); ctx.ellipse(x, y + 14, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
 
-            // Vẽ background tùy chọn Map
-            if (currentRoomMap === 'CAMPFIRE') drawCampfireMap();
-            else if (currentRoomMap === 'BEACH') drawBeachMap();
-            else if (currentRoomMap === 'FOREST') drawForestMap();
-            else if (currentRoomMap === 'NEON') drawNeonMap();
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 
-            // Vẽ người chơi khác
-            for (let id in otherPlayers) {
-                let p = otherPlayers[id];
-                drawAvatar(p.x, p.y, p.name, p.color, p.chatBubble);
-            }
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(name, x, y + 26);
 
-            // Vẽ nhân vật bản thân
-            drawAvatar(myPos.x, myPos.y, myName + " (Bạn)", myColor, myChatBubble.text);
-
-            requestAnimationFrame(gameLoop);
+        // Thanh máu khi đang thách đấu
+        if (duelState.inBattle) {
+            const barW = 40, barH = 5;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(x - barW/2, y - 24, barW, barH);
+            ctx.fillStyle = hp > 40 ? '#10b981' : '#ef4444';
+            ctx.fillRect(x - barW/2, y - 24, barW * (Math.max(0, hp) / 100), barH);
         }
 
-        // 1. 🔥 LỬA TRẠI ĐÊM
-        function drawCampfireMap() {
-            ctx.fillStyle = '#080612';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (chatText) {
+            ctx.font = '12px sans-serif';
+            let textWidth = ctx.measureText(chatText).width;
+            let pad = 8, bx = x - textWidth/2 - pad, by = y - 45, bw = textWidth + pad * 2, bh = 22;
 
-            let groundY = canvas.height * 0.45;
-            let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
-            grad.addColorStop(0, '#121026'); grad.addColorStop(1, '#080612');
-            ctx.fillStyle = grad; ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
 
-            let fx = canvas.width / 2, fy = canvas.height / 2 + 20;
-            let glow = ctx.createRadialGradient(fx, fy, 10, fx, fy, 120);
-            glow.addColorStop(0, 'rgba(255, 159, 67, 0.35)'); glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
-            ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(fx, fy, 120, 0, Math.PI*2); ctx.fill();
-
-            ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(fx, fy, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.textAlign = 'center';
+            ctx.fillText(chatText, x, by + 15);
         }
+    }
 
-        // 2. 🏖️ BÃI BIỂN HOÀNG HÔN
-        function drawBeachMap() {
-            let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
-            skyGrad.addColorStop(0, '#ff7675'); skyGrad.addColorStop(1, '#6c5ce7');
-            ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendChat();
+        e.stopPropagation();
+    });
 
-            // Mặt nước & Bãi cát
-            ctx.fillStyle = '#0984e3'; ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.2);
-            ctx.fillStyle = '#ffeaa7'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
-
-            // Mặt trời
-            ctx.fillStyle = '#fdcb6e'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height*0.5, 30, 0, Math.PI*2); ctx.fill();
+    // TỰ ĐỘNG THOÁT KHỎI PHÒNG VÀ HỦY TRẬN ĐẤU KHI LOAD LẠI TRANG HOẶC TẮT TAB
+    window.addEventListener('beforeunload', () => {
+        if (client && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_LEAVE', sender: myClientId
+            }));
         }
-
-        // 3. 🌲 KHU RỪNG KỲ ẢO
-        function drawForestMap() {
-            ctx.fillStyle = '#051923'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#003554'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
-
-            // Đom đóm phát sáng
-            particles.forEach(p => {
-                p.y -= 0.3; if (p.y < 0) p.y = canvas.height;
-                ctx.fillStyle = `rgba(0, 255, 136, ${Math.abs(Math.sin(Date.now()*0.003 + p.alpha))})`;
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, Math.PI*2); ctx.fill();
-            });
-        }
-
-        // 4. 🌃 THÀNH PHỐ NEON
-        function drawNeonMap() {
-            ctx.fillStyle = '#0d0221'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#02010a'; ctx.fillRect(0, canvas.height*0.5, canvas.width, canvas.height*0.5);
-
-            // Lưới Neon trên mặt đất
-            ctx.strokeStyle = 'rgba(255, 0, 127, 0.3)'; ctx.lineWidth = 1;
-            for(let x = 0; x < canvas.width; x += 40) {
-                ctx.beginPath(); ctx.moveTo(x, canvas.height*0.5); ctx.lineTo(x, canvas.height); ctx.stroke();
-            }
-            for(let y = canvas.height*0.5; y < canvas.height; y += 25) {
-                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-            }
-        }
-
-        // HÀM VẼ NHÂN VẬT & BONG BÓNG CHAT
-        function drawAvatar(x, y, name, color, chatText) {
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
-            ctx.beginPath(); ctx.ellipse(x, y + 12, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
-
-            ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-            ctx.fillText(name, x, y + 26);
-
-            if (chatText) {
-                ctx.font = '12px sans-serif';
-                let textWidth = ctx.measureText(chatText).width;
-                let pad = 8, bx = x - textWidth/2 - pad, by = y - 45, bw = textWidth + pad * 2, bh = 22;
-
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
-
-                ctx.fillStyle = '#000'; ctx.textAlign = 'center';
-                ctx.fillText(chatText, x, by + 15);
-            }
-        }
-
-        document.getElementById('chat-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendChat();
-            e.stopPropagation();
-        });
-    </script>
+    });
+</script>
 </body>
 </html>
