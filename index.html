@@ -2,91 +2,122 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mê Cung Nửa Trái Tim - 2 Player Online</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', sans-serif; }
-        body { background: #0f0c1b; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 10px; }
 
-        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 12, 27, 0.96); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        .lobby-box { background: #1a1528; border: 2px solid #5f27cd; padding: 30px; border-radius: 16px; width: 90%; max-width: 420px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-        .lobby-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ff4757; }
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #0f0c1b; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 10px; overflow-x: hidden; }
+
+        /* Sảnh chờ */
+        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 12, 27, 0.98); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        .lobby-box { background: #1a1528; border: 2px solid #5f27cd; padding: 25px 20px; border-radius: 16px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        .lobby-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #ff4757; }
         
         .input-group { margin: 15px 0; display: flex; gap: 10px; }
-        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 16px; text-align: center; font-weight: bold; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 16px; text-align: center; font-weight: bold; text-transform: uppercase; }
         
-        #top-bar { background: #1a1528; border: 2px solid #3a2e56; padding: 12px 20px; border-radius: 12px; display: flex; gap: 20px; align-items: center; justify-content: space-between; width: 100%; max-width: 600px; margin-bottom: 12px; }
+        /* Bar thông tin game */
+        #top-bar { background: #1a1528; border: 2px solid #3a2e56; padding: 10px 15px; border-radius: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; width: 100%; max-width: 450px; margin-bottom: 10px; }
         .info-box { text-align: center; }
-        .info-label { font-size: 11px; color: #a093c4; text-transform: uppercase; }
-        .info-value { font-size: 20px; font-weight: bold; color: #ff4757; }
+        .info-label { font-size: 10px; color: #a093c4; text-transform: uppercase; }
+        .info-value { font-size: 16px; font-weight: bold; color: #ff4757; }
 
-        #game-container { position: relative; }
-        canvas { background: #151022; border: 3px solid #3a2e56; border-radius: 12px; cursor: pointer; }
+        #game-container { position: relative; width: 100%; max-width: 450px; display: flex; justify-content: center; }
+        canvas { background: #151022; border: 3px solid #3a2e56; border-radius: 12px; touch-action: none; max-width: 100%; height: auto; }
 
-        .btn { background: #ff4757; color: white; border: none; padding: 12px 20px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 0 #b32b37; }
-        .btn:hover { background: #ff6b81; }
+        /* Buttons */
+        .btn { background: #ff4757; color: white; border: none; padding: 12px 18px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 0 #b32b37; }
         .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b32b37; }
         .btn-purple { background: #5f27cd; box-shadow: 0 4px 0 #341f97; }
-        .btn-purple:hover { background: #341f97; }
-        
-        #toast { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 71, 87, 0.95); color: #fff; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 13px; display: none; z-index: 10; }
-        #room-display { background: #281e3f; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 20px; color: #2ed573; margin: 10px 0; border: 1px dashed #2ed573; }
-        #lobby-status { margin-top: 15px; color: #ffa502; font-size: 14px; font-weight: bold; line-height: 1.4; }
+        .btn:disabled { background: #4b4b4b; box-shadow: none; opacity: 0.6; }
+
+        #toast { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 71, 87, 0.95); color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 12px; display: none; z-index: 10; whitespace: nowrap; }
+        #room-display { background: #281e3f; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 20px; color: #2ed573; margin: 10px 0; border: 1px dashed #2ed573; letter-spacing: 2px; }
+        #lobby-status { margin-top: 12px; color: #ffa502; font-size: 13px; font-weight: bold; line-height: 1.4; min-height: 36px; }
+
+        /* Phím ảo di chuyển cho Điện thoại (Virtual D-Pad) */
+        #dpad-container { margin-top: 12px; display: none; flex-direction: column; align-items: center; gap: 6px; }
+        .dpad-row { display: flex; gap: 8px; }
+        .dpad-btn { width: 55px; height: 50px; background: #2a223d; border: 2px solid #5f27cd; color: #fff; font-size: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 3px 0 #1a1428; }
+        .dpad-btn:active { background: #5f27cd; transform: translateY(2px); box-shadow: none; }
     </style>
 </head>
 <body>
 
-    <!-- Sảnh Chờ Kết Nối Online -->
+    <!-- SẢNH CHỜ -->
     <div id="lobby-overlay">
         <div class="lobby-box">
-            <div class="lobby-title">💖 KẾT NỐI ONLINE 2 PLAYER</div>
-            <p style="color: #a093c4; font-size: 14px; margin-bottom: 20px;">Chơi cùng bạn bè ở 2 máy khác nhau</p>
+            <div class="lobby-title">💖 MÊ CUNG NỬA TRÁI TIM</div>
             
-            <button class="btn btn-purple" style="width: 100%;" onclick="createRoom()">👑 Tạo Phòng (Người Xây)</button>
-            
-            <div style="margin: 15px 0; color: #5f27cd; font-weight: bold;">— HOẶC —</div>
+            <button class="btn btn-purple" id="btn-create" style="width: 100%;" onclick="createRoom()">👑 Tạo Phòng Mới (Người Xây)</button>
+            <div style="margin: 12px 0; color: #5f27cd; font-weight: bold; font-size: 12px;">— HOẶC —</div>
             
             <div class="input-group">
-                <input type="text" id="room-input" placeholder="Nhập mã phòng...">
-                <button class="btn" onclick="joinRoom()">🔍 Vào</button>
+                <input type="text" id="room-input" placeholder="Nhập Mã Phòng..." maxlength="10">
+                <button class="btn" id="btn-join" onclick="joinRoom()">🔍 Vào</button>
             </div>
             
-            <div id="lobby-status"></div>
+            <div id="lobby-status">Vui lòng chọn Tạo phòng hoặc Nhập mã để chơi online.</div>
         </div>
     </div>
 
-    <!-- Thanh Thông Tin Game -->
+    <!-- THANH THÔNG TIN -->
     <div id="top-bar">
         <div class="info-box">
             <div class="info-label">Vai Trò</div>
             <div class="info-value" id="role-text" style="color: #2ed573;">-</div>
         </div>
         <div class="info-box">
-            <div class="info-label">Điểm Người Xây</div>
+            <div class="info-label">Điểm Số</div>
             <div class="info-value" id="score-val">0</div>
         </div>
         <div class="info-box">
-            <div class="info-label">Mã Phòng</div>
-            <div class="info-value" id="game-room-id" style="color: #ffa502; font-size: 16px;">-</div>
+            <div class="info-label">Phòng</div>
+            <div class="info-value" id="game-room-id" style="color: #ffa502; font-size: 14px;">-</div>
         </div>
     </div>
 
     <div id="game-container">
-        <div id="toast">⚠️ Không thể chặn hết đường đi!</div>
+        <div id="toast">⚠️ Không thể chặn toàn bộ đường đi!</div>
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <div style="margin-top: 15px; display: flex; gap: 15px;">
-        <button class="btn btn-purple" id="btn-start" style="display: none;" onclick="startPlayMode()">🚀 Bắt Đầu Trận</button>
+    <div style="margin-top: 10px;">
+        <button class="btn btn-purple" id="btn-start" style="display: none;" onclick="startPlayMode()">🚀 Bắt Đầu Trận Đấu</button>
+    </div>
+
+    <!-- D-PAD BẤM CẢM ỨNG CHO ĐIỆN THOẠI -->
+    <div id="dpad-container">
+        <div class="dpad-row">
+            <div class="dpad-btn" onclick="moveSeeker(-1, 0)">⬆️</div>
+        </div>
+        <div class="dpad-row">
+            <div class="dpad-btn" onclick="moveSeeker(0, -1)">⬅️</div>
+            <div class="dpad-btn" onclick="moveSeeker(1, 0)">⬇️</div>
+            <div class="dpad-btn" onclick="moveSeeker(0, 1)">➡️</div>
+        </div>
     </div>
 
     <script>
-        const COLS = 15, ROWS = 15, CELL_SIZE = 32, TARGET_SCORE = 10000;
+        const COLS = 15, ROWS = 15, CELL_SIZE = 30, TARGET_SCORE = 10000;
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         canvas.width = COLS * CELL_SIZE;
         canvas.height = ROWS * CELL_SIZE;
+
+        // CẤU HÌNH STUN SERVER CỦA GOOGLE ĐỂ THÔNG TƯỜNG LỬA
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
+                ]
+            }
+        };
 
         let grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
         let startPos = { r: 1, c: 1 }, heartPos = { r: ROWS - 2, c: COLS - 2 };
@@ -103,44 +134,47 @@
             statusDiv.innerHTML = msg;
         }
 
-        // --- TẠO PHÒNG (HOST) ---
+        function setButtonsDisabled(disabled) {
+            document.getElementById('btn-create').disabled = disabled;
+            document.getElementById('btn-join').disabled = disabled;
+        }
+
+        // TẠO PHÒNG
         function createRoom() {
+            setButtonsDisabled(true);
             const randomCode = Math.floor(1000 + Math.random() * 9000);
             const roomId = `HEART-${randomCode}`;
             
-            updateStatus("Đang khởi tạo máy chủ...");
-            peer = new Peer(roomId);
+            updateStatus("Đang đăng ký phòng...");
+            peer = new Peer(roomId, PEER_CONFIG);
 
             peer.on('open', (id) => {
                 myRole = 'BUILDER';
                 document.getElementById('role-text').innerText = "NGƯỜI XÂY";
                 document.getElementById('game-room-id').innerText = id;
-                updateStatus(`Mã phòng của bạn:<div id="room-display">${id}</div>Đang chờ người chơi thứ 2 vào...`);
+                updateStatus(`Mã phòng của bạn:<div id="room-display">${id}</div>Đang chờ người thứ 2 tham gia...`);
             });
 
             peer.on('connection', (connection) => {
                 conn = connection;
                 setupDataListener();
-                
-                // Gửi dữ liệu bản đồ hiện tại cho người mới vào
-                conn.on('open', () => {
-                    conn.send({ type: 'INIT_SYNC', grid: grid });
-                    enterGameScreen();
-                });
+                updateStatus("Đã kết nối! Đang đồng bộ...");
             });
 
             peer.on('error', (err) => {
-                updateStatus("Lỗi kết nối máy chủ PeerJS! Vui lòng thử lại.", true);
+                setButtonsDisabled(false);
+                updateStatus("Lỗi kết nối máy chủ PeerJS!", true);
             });
         }
 
-        // --- VÀO PHÒNG (GUEST) ---
+        // VÀO PHÒNG
         function joinRoom() {
             const roomId = document.getElementById('room-input').value.trim().toUpperCase();
-            if (!roomId) return alert("Vui lòng nhập mã phòng!");
+            if (!roomId) return alert("Vui lòng nhập Mã Phòng!");
 
-            updateStatus("Đang tìm phòng...");
-            peer = new Peer();
+            setButtonsDisabled(true);
+            updateStatus("Đang kết nối...");
+            peer = new Peer(PEER_CONFIG);
 
             peer.on('open', () => {
                 myRole = 'SEEKER';
@@ -152,12 +186,53 @@
                 setupDataListener();
 
                 conn.on('open', () => {
-                    updateStatus("Đã kết nối! Đang đồng bộ game...");
+                    updateStatus("Đã nối thông! Đang tải bản đồ...");
+                    conn.send({ type: 'CLIENT_READY' });
                 });
             });
 
-            peer.on('error', (err) => {
-                updateStatus("Không tìm thấy phòng! Hãy kiểm tra lại mã phòng.", true);
+            peer.on('error', () => {
+                setButtonsDisabled(false);
+                updateStatus("Không tìm thấy phòng! Kiểm tra lại Mã.", true);
+            });
+        }
+
+        // LẮNG NGHE DỮ LIỆU
+        function setupDataListener() {
+            conn.on('data', (data) => {
+                if (data.type === 'CLIENT_READY' && myRole === 'BUILDER') {
+                    conn.send({ type: 'INIT_SYNC', grid: grid });
+                    enterGameScreen();
+                } else if (data.type === 'INIT_SYNC') {
+                    grid = data.grid;
+                    enterGameScreen();
+                } else if (data.type === 'GRID_UPDATE') {
+                    grid = data.grid;
+                    draw();
+                } else if (data.type === 'START_PLAY') {
+                    mode = 'PLAY';
+                    seekerPos = { ...startPos };
+                    if (myRole === 'SEEKER') {
+                        document.getElementById('dpad-container').style.display = 'flex';
+                    }
+                    draw();
+                } else if (data.type === 'SEEKER_MOVE') {
+                    seekerPos = data.pos;
+                    draw();
+                } else if (data.type === 'SCORE_UPDATE') {
+                    score = data.score;
+                    document.getElementById('score-val').innerText = score;
+                } else if (data.type === 'GAME_OVER') {
+                    mode = 'END';
+                    clearInterval(timerId);
+                    document.getElementById('dpad-container').style.display = 'none';
+                    alert(data.msg);
+                }
+            });
+
+            conn.on('close', () => {
+                alert("Đối phương đã ngắt kết nối!");
+                location.reload();
             });
         }
 
@@ -169,38 +244,7 @@
             draw();
         }
 
-        // --- LẮNG NGHE DỮ LIỆU ---
-        function setupDataListener() {
-            conn.on('data', (data) => {
-                if (data.type === 'INIT_SYNC') {
-                    grid = data.grid;
-                    enterGameScreen();
-                } else if (data.type === 'GRID_UPDATE') {
-                    grid = data.grid;
-                    draw();
-                } else if (data.type === 'START_PLAY') {
-                    mode = 'PLAY';
-                    seekerPos = { ...startPos };
-                    draw();
-                } else if (data.type === 'SEEKER_MOVE') {
-                    seekerPos = data.pos;
-                    draw();
-                } else if (data.type === 'SCORE_UPDATE') {
-                    score = data.score;
-                    document.getElementById('score-val').innerText = score;
-                } else if (data.type === 'GAME_OVER') {
-                    mode = 'END';
-                    clearInterval(timerId);
-                    alert(data.msg);
-                }
-            });
-
-            conn.on('close', () => {
-                alert("Đối phương đã ngắt kết nối!");
-            });
-        }
-
-        // --- KIỂM TRA ĐƯỜNG ĐI (BFS) ---
+        // TÌM ĐƯỜNG BFS
         function hasPath(start, goal, currentGrid) {
             let queue = [{ r: start.r, c: start.c }];
             let visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
@@ -223,13 +267,16 @@
             return false;
         }
 
-        // Tương tác đặt tường
+        // TƯƠNG TÁC ĐẶT TƯỜNG (HỖ TRỢ CẢ CHUỘT VÀ CẢM ỨNG ĐIỆN THOẠI)
         canvas.addEventListener('pointerdown', (e) => {
             if (myRole !== 'BUILDER' || mode !== 'BUILD') return;
 
             const rect = canvas.getBoundingClientRect();
-            const c = Math.floor((e.clientX - rect.left) / CELL_SIZE);
-            const r = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const c = Math.floor(((e.clientX - rect.left) * scaleX) / CELL_SIZE);
+            const r = Math.floor(((e.clientY - rect.top) * scaleY) / CELL_SIZE);
 
             if ((r === startPos.r && c === startPos.c) || (r === heartPos.r && c === heartPos.c)) return;
 
@@ -246,6 +293,7 @@
             }
         });
 
+        // BẮT ĐẦU TRẬN
         function startPlayMode() {
             if (myRole !== 'BUILDER') return;
             mode = 'PLAY';
@@ -262,7 +310,7 @@
                     if (score >= TARGET_SCORE) {
                         mode = 'END';
                         clearInterval(timerId);
-                        let msg = "🎉 NGƯỜI XÂY THẮNG! Người tìm đã lạc quá lâu!";
+                        let msg = "🎉 NGƯỜI XÂY THẮNG! Người tìm đã hết thời gian!";
                         alert(msg);
                         if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
                     }
@@ -271,34 +319,35 @@
             draw();
         }
 
-        // Di chuyển Người Tìm
-        window.addEventListener('keydown', (e) => {
+        // HÀM DI CHUYỂN NGUỜI TÌM (DÙNG CHO CẢ BÀN PHÍM VÀ PHÍM ẢO D-PAD)
+        function moveSeeker(dr, dc) {
             if (myRole !== 'SEEKER' || mode !== 'PLAY') return;
 
-            let dr = 0, dc = 0;
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') dr = -1;
-            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') dr = 1;
-            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') dc = -1;
-            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') dc = 1;
+            let nr = seekerPos.r + dr, nc = seekerPos.c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] !== 1) {
+                seekerPos = { r: nr, c: nc };
+                if (conn && conn.open) conn.send({ type: 'SEEKER_MOVE', pos: seekerPos });
 
-            if (dr !== 0 || dc !== 0) {
-                let nr = seekerPos.r + dr, nc = seekerPos.c + dc;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] !== 1) {
-                    seekerPos = { r: nr, c: nc };
-                    if (conn && conn.open) conn.send({ type: 'SEEKER_MOVE', pos: seekerPos });
-
-                    if (seekerPos.r === heartPos.r && seekerPos.c === heartPos.c) {
-                        mode = 'END';
-                        let msg = "💖 NGƯỜI TÌM THẮNG! Đã tìm thấy Nửa Trái Tim!";
-                        alert(msg);
-                        if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
-                    }
+                if (seekerPos.r === heartPos.r && seekerPos.c === heartPos.c) {
+                    mode = 'END';
+                    document.getElementById('dpad-container').style.display = 'none';
+                    let msg = "💖 NGƯỜI TÌM THẮNG! Đã tìm thấy Nửa Trái Tim!";
+                    alert(msg);
+                    if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
                 }
-                draw();
             }
+            draw();
+        }
+
+        // LẮNG NGHE BÀN PHÍM PC
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') moveSeeker(-1, 0);
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') moveSeeker(1, 0);
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveSeeker(0, -1);
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveSeeker(0, 1);
         });
 
-        // Vẽ Game
+        // VẼ MÀN HÌNH
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const FOG_RADIUS = 2.5;
@@ -335,7 +384,7 @@
 
                     if (r === heartPos.r && c === heartPos.c) {
                         ctx.fillStyle = '#ff4757';
-                        ctx.font = '18px sans-serif';
+                        ctx.font = '16px sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText('💔', x + CELL_SIZE/2, y + CELL_SIZE/2);
