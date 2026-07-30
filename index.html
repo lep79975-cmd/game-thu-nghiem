@@ -3,462 +3,494 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mê Cung Nửa Trái Tim - Online Siêu Tốc + Chat</title>
+    <title>Cozy Night Lounge - Khung Cảnh Trò Chuyện Trực Tuyến</title>
 
     <!-- Thư viện MQTT WebSocket -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background: #0f0c1b; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 10px; overflow-x: hidden; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background: #090714; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
 
-        /* Sảnh chờ */
-        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 12, 27, 0.98); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        .lobby-box { background: #1a1528; border: 2px solid #5f27cd; padding: 25px 20px; border-radius: 16px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-        .lobby-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #ff4757; }
+        /* SẢNH LỰA CHỌN SERVER */
+        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9, 7, 20, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
+        .lobby-card { background: #151226; border: 1px solid #3d3266; border-radius: 20px; padding: 25px; width: 90%; max-width: 480px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 15px; }
+        .lobby-title { font-size: 22px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
         
-        .input-group { margin: 15px 0; display: flex; gap: 10px; }
-        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 16px; text-align: center; font-weight: bold; text-transform: uppercase; user-select: text; -webkit-user-select: text; }
+        .input-group { display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 12px 15px; border-radius: 10px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; }
+        input[type="text"]:focus { border-color: #ff9f43; }
+
+        .btn { background: #ff9f43; color: #000; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { background: #ffb164; transform: translateY(-1px); }
+        .btn-purple { background: #54a0ff; color: #fff; }
+        .btn-purple:hover { background: #2e86de; }
+
+        /* DANH SÁCH SERVER */
+        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 12px; padding: 10px; height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .server-item { background: #1d1735; border: 1px solid #3a305e; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+        .server-info { display: flex; flex-direction: column; gap: 2px; }
+        .server-name { font-weight: bold; font-size: 14px; color: #54a0ff; }
+        .server-sub { font-size: 11px; color: #8c7ae6; }
         
-        /* Bar thông tin game */
-        #top-bar { background: #1a1528; border: 2px solid #3a2e56; padding: 10px 15px; border-radius: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; width: 100%; max-width: 450px; margin-bottom: 10px; }
-        .info-box { text-align: center; }
-        .info-label { font-size: 10px; color: #a093c4; text-transform: uppercase; }
-        .info-value { font-size: 16px; font-weight: bold; color: #ff4757; }
-
-        #game-container { position: relative; width: 100%; max-width: 450px; display: flex; justify-content: center; }
-        canvas { background: #151022; border: 3px solid #3a2e56; border-radius: 12px; touch-action: none; max-width: 100%; height: auto; }
-
-        /* Nút bấm */
-        .btn { background: #ff4757; color: white; border: none; padding: 12px 18px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 0 #b32b37; }
-        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b32b37; }
-        .btn-purple { background: #5f27cd; box-shadow: 0 4px 0 #341f97; }
-        .btn:disabled { background: #4b4b4b; box-shadow: none; opacity: 0.6; cursor: not-allowed; }
-
-        #toast { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 71, 87, 0.95); color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 12px; display: none; z-index: 10; white-space: nowrap; }
-        #room-display { background: #281e3f; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 20px; color: #2ed573; margin: 10px 0; border: 1px dashed #2ed573; letter-spacing: 2px; }
-        #lobby-status { margin-top: 12px; color: #ffa502; font-size: 13px; font-weight: bold; line-height: 1.4; min-height: 36px; }
-
-        /* D-Pad cho Điện thoại */
-        #dpad-container { margin-top: 12px; display: none; flex-direction: column; align-items: center; gap: 6px; }
-        .dpad-row { display: flex; gap: 8px; }
-        .dpad-btn { width: 55px; height: 50px; background: #2a223d; border: 2px solid #5f27cd; color: #fff; font-size: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 3px 0 #1a1428; }
-        .dpad-btn:active { background: #5f27cd; transform: translateY(2px); box-shadow: none; }
-
-        /* --- KHUNG CHAT TRỰC TUYẾN --- */
-        #chat-container { width: 100%; max-width: 450px; margin-top: 12px; background: #1a1528; border: 2px solid #3a2e56; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        #chat-messages { height: 110px; overflow-y: auto; background: #0f0c1b; border-radius: 8px; padding: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; border: 1px solid #281e3f; }
+        /* MÀN HÌNH CHÍNH GAME */
+        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 800px; height: 100vh; justify-content: center; padding: 10px; gap: 10px; }
         
-        .chat-msg { word-break: break-word; line-height: 1.3; font-size: 13px; }
-        .chat-msg .sender { font-weight: bold; margin-right: 4px; }
-        .chat-msg.me { text-align: right; }
-        .chat-msg.me .sender { color: #2ed573; }
-        .chat-msg.other .sender { color: #ff4757; }
-        .chat-msg .text { color: #e0e0e0; background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 6px; display: inline-block; text-align: left; }
+        #top-bar { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; }
+        .room-title-text { font-size: 15px; font-weight: bold; color: #ff9f43; }
         
-        .chat-input-group { display: flex; gap: 8px; }
-        #chat-input { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 14px; text-align: left; text-transform: none; }
-        #chat-input:focus { border-color: #5f27cd; outline: none; }
-        .btn-chat-send { padding: 8px 14px; font-size: 13px; }
+        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        canvas { width: 100%; height: 100%; display: block; background: #05040a; }
+
+        /* KHUNG CHAT */
+        #chat-box { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        #chat-messages { height: 90px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+        .msg-item { line-height: 1.3; }
+        .msg-sender { font-weight: bold; color: #54a0ff; margin-right: 5px; }
+        .msg-text { color: #e1b12c; }
+
+        .chat-input-row { display: flex; gap: 8px; }
+        #chat-input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 13px; }
+
+        /* Nút thoát */
+        .btn-exit { background: #ee5253; color: white; padding: 6px 12px; font-size: 12px; border-radius: 6px; }
     </style>
 </head>
 <body>
 
-    <!-- SẢNH CHỜ -->
+    <!-- SẢNH TẠO / CHỌN SERVER -->
     <div id="lobby-overlay">
-        <div class="lobby-box">
-            <div class="lobby-title">💖 MÊ CUNG NỬA TRÁI TIM</div>
+        <div class="lobby-card">
+            <div class="lobby-title">✨ COZY NIGHT LOUNGE ✨</div>
             
-            <button class="btn btn-purple" id="btn-create" style="width: 100%;" onclick="createRoom()">👑 Tạo Phòng Mới (Người Xây)</button>
-            <div style="margin: 12px 0; color: #5f27cd; font-weight: bold; font-size: 12px;">— HOẶC —</div>
-            
-            <div class="input-group">
-                <input type="text" id="room-input" placeholder="Nhập Mã Phòng..." maxlength="10">
-                <button class="btn" id="btn-join" onclick="joinRoom()">🔍 Vào</button>
+            <!-- Tạo Server -->
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 12px; color: #aaa;">Tên của bạn & Server mới:</label>
+                <div class="input-group">
+                    <input type="text" id="username-input" placeholder="Tên của bạn..." maxlength="12">
+                    <input type="text" id="servername-input" placeholder="Tên Server..." maxlength="15">
+                </div>
+                <button class="btn" onclick="createNewServer()">🔥 Tạo Server & Vào Ngay</button>
             </div>
-            
-            <div id="lobby-status">Chọn Tạo phòng hoặc Nhập mã để kết nối tức thì.</div>
+
+            <hr style="border: 0; border-top: 1px solid #282142;">
+
+            <!-- Danh sách Server -->
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 12px; color: #aaa;">Danh Sách Server Đang Hoạt Động:</label>
+                    <span style="font-size: 10px; color: #54a0ff;">Tự động cập nhật 🟢</span>
+                </div>
+                <div class="server-list-box" id="server-list">
+                    <div style="text-align: center; color: #666; font-size: 12px; margin-top: 60px;">Đang quét tìm các server xung quanh...</div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- THANH THÔNG TIN -->
-    <div id="top-bar">
-        <div class="info-box">
-            <div class="info-label">Vai Trò</div>
-            <div class="info-value" id="role-text" style="color: #2ed573;">-</div>
+    <!-- MÀN HÌNH KHUNG CẢNH GAME -->
+    <div id="game-ui">
+        <div id="top-bar">
+            <div>
+                <span class="room-title-text" id="display-room-name">Server: Lounge</span>
+                <span style="font-size: 12px; color: #8c7ae6; margin-left: 10px;" id="online-count">👥 1 Trực tuyến</span>
+            </div>
+            <button class="btn btn-exit" onclick="leaveServer()">Thoát Server</button>
         </div>
-        <div class="info-box">
-            <div class="info-label">Điểm Số</div>
-            <div class="info-value" id="score-val">0</div>
-        </div>
-        <div class="info-box">
-            <div class="info-label">Phòng</div>
-            <div class="info-value" id="game-room-id" style="color: #ffa502; font-size: 14px;">-</div>
-        </div>
-    </div>
 
-    <div id="game-container">
-        <div id="toast">⚠️ Không thể chặn toàn bộ đường đi!</div>
-        <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <div style="margin-top: 10px;">
-        <button class="btn btn-purple" id="btn-start" style="display: none;" onclick="startPlayMode()">🚀 Bắt Đầu Trận Đấu</button>
-    </div>
-
-    <!-- PHÍM D-PAD ĐIỆN THOẠI -->
-    <div id="dpad-container">
-        <div class="dpad-row">
-            <div class="dpad-btn" onclick="moveSeeker(-1, 0)">⬆️</div>
+        <div id="canvas-wrapper">
+            <canvas id="loungeCanvas"></canvas>
         </div>
-        <div class="dpad-row">
-            <div class="dpad-btn" onclick="moveSeeker(0, -1)">⬅️</div>
-            <div class="dpad-btn" onclick="moveSeeker(1, 0)">⬇️</div>
-            <div class="dpad-btn" onclick="moveSeeker(0, 1)">➡️</div>
-        </div>
-    </div>
 
-    <!-- KHUNG CHAT TRÒ CHUYỆN -->
-    <div id="chat-container">
-        <div id="chat-messages">
-            <div class="chat-msg" style="color: #a093c4; font-style: italic;">💬 Tin nhắn trò chuyện sẽ hiển thị ở đây...</div>
-        </div>
-        <div class="chat-input-group">
-            <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="100">
-            <button class="btn btn-purple btn-chat-send" onclick="sendChatMessage()">Gửi</button>
+        <div id="chat-box">
+            <div id="chat-messages">
+                <div style="color: #666; font-style: italic; font-size: 11px;">Chạm vào màn hình hoặc dùng phím WASD để di chuyển nhân vật!</div>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-input" placeholder="Nhập tin nhắn trò chuyện..." maxlength="60">
+                <button class="btn btn-purple" onclick="sendChat()">Gửi</button>
+            </div>
         </div>
     </div>
 
     <script>
-        const COLS = 15, ROWS = 15, CELL_SIZE = 30, TARGET_SCORE = 10000;
-        const canvas = document.getElementById('gameCanvas');
+        // CẤU HÌNH BAN ĐẦU
+        const LOBBY_TOPIC = "cozy-lounge-v2/public-lobby";
+        const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
+        const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+
+        let client = null;
+        let currentRoomId = null;
+        let isHost = false;
+        let myName = "Người Chơi";
+
+        // VỊ TRÍ & NGUYÊN BẢN BẢN ĐỒ
+        let myPos = { x: 400, y: 300, targetX: 400, targetY: 300 };
+        let otherPlayers = {}; // Danh sách người chơi khác
+        let publicServers = {}; // Danh sách Server công khai
+        let myChatBubble = { text: "", timer: null };
+
+        // CANVAS GRAPHICS
+        const canvas = document.getElementById('loungeCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = COLS * CELL_SIZE;
-        canvas.height = ROWS * CELL_SIZE;
+        let stars = [], embers = [];
 
-        const myClientId = 'user_' + Math.random().toString(36).substr(2, 9);
-        
-        let grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
-        let startPos = { r: 1, c: 1 }, heartPos = { r: ROWS - 2, c: COLS - 2 };
-        let seekerPos = { ...startPos };
-
-        let myRole = ''; 
-        let mode = 'BUILD'; 
-        let score = 0, timerId = null;
-        let client = null, currentTopic = '';
-
-        function updateStatus(msg, isError = false) {
-            const statusDiv = document.getElementById('lobby-status');
-            statusDiv.style.color = isError ? '#ff4757' : '#ffa502';
-            statusDiv.innerHTML = msg;
+        function initCanvasSize() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            // Tạo bầu trời sao
+            stars = [];
+            for(let i = 0; i < 60; i++) {
+                stars.push({ x: Math.random() * canvas.width, y: Math.random() * (canvas.height * 0.5), r: Math.random() * 1.5, alpha: Math.random() });
+            }
+            // Tạo tàn lửa
+            embers = [];
+            for(let i = 0; i < 20; i++) {
+                embers.push({ x: canvas.width/2 + (Math.random()*20 - 10), y: canvas.height/2 + 20, vx: (Math.random()-0.5)*0.8, vy: -Math.random()*1.5 - 0.5, size: Math.random()*3 + 1, alpha: 1 });
+            }
         }
+        window.addEventListener('resize', initCanvasSize);
 
-        function setButtonsDisabled(disabled) {
-            document.getElementById('btn-create').disabled = disabled;
-            document.getElementById('btn-join').disabled = disabled;
-        }
+        // KẾT NỐI WEBSOCKET MQTT
+        client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
 
-        // KẾT NỐI MẠNG
-        function initWebSocket(roomId, callback) {
-            updateStatus("Đang nối tới máy chủ WebSocket...");
-            client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
+        client.on('connect', () => {
+            // Lắng nghe danh sách Server công khai từ sảnh chính
+            client.subscribe(LOBBY_TOPIC);
+        });
 
-            client.on('connect', () => {
-                currentTopic = `heart-maze-game/${roomId}`;
-                client.subscribe(currentTopic, { qos: 1 }, (err) => {
-                    if (!err) {
-                        callback();
-                    } else {
-                        updateStatus("Lỗi đăng ký phòng!", true);
-                        setButtonsDisabled(false);
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+
+                // Quét Server công khai
+                if (topic === LOBBY_TOPIC && data.type === 'SERVER_HEARTBEAT') {
+                    publicServers[data.roomId] = { ...data, lastPing: Date.now() };
+                    renderServerList();
+                    return;
+                }
+
+                // Xử lý sự kiện trong phòng
+                if (topic === `cozy-lounge-v2/room/${currentRoomId}`) {
+                    if (data.sender === myClientId) return;
+
+                    if (data.type === 'PLAYER_MOVE') {
+                        otherPlayers[data.sender] = { ...otherPlayers[data.sender], ...data };
+                        updateOnlineCount();
+                    } 
+                    else if (data.type === 'PLAYER_CHAT') {
+                        if (otherPlayers[data.sender]) {
+                            otherPlayers[data.sender].chatBubble = data.text;
+                            setTimeout(() => { if(otherPlayers[data.sender]) otherPlayers[data.sender].chatBubble = ""; }, 4000);
+                        }
+                        appendChatMessage(data.name, data.text);
                     }
-                });
-            });
-
-            client.on('message', (topic, message) => {
-                try {
-                    const data = JSON.parse(message.toString());
-                    if (data.sender === myClientId) return; 
-
-                    handleNetworkData(data);
-                } catch (e) {
-                    console.error("Lỗi đọc dữ liệu:", e);
+                    else if (data.type === 'PLAYER_LEAVE') {
+                        delete otherPlayers[data.sender];
+                        updateOnlineCount();
+                    }
                 }
-            });
+            } catch(e){}
+        });
 
-            client.on('error', () => {
-                updateStatus("Lỗi kết nối mạng! Kiểm tra internet.", true);
-                setButtonsDisabled(false);
-            });
-        }
+        // HIỂN THỊ DANH SÁCH SERVER
+        function renderServerList() {
+            const listEl = document.getElementById('server-list');
+            const now = Date.now();
+            let html = '';
+            let count = 0;
 
-        function sendMsg(data) {
-            if (client && client.connected) {
-                data.sender = myClientId;
-                client.publish(currentTopic, JSON.stringify(data), { qos: 1 });
-            }
-        }
-
-        function createRoom() {
-            setButtonsDisabled(true);
-            const randomCode = Math.floor(1000 + Math.random() * 9000);
-            const roomId = `HEART-${randomCode}`;
-
-            initWebSocket(roomId, () => {
-                myRole = 'BUILDER';
-                document.getElementById('role-text').innerText = "NGƯỜI XÂY";
-                document.getElementById('game-room-id').innerText = roomId;
-                updateStatus(`Mã phòng của bạn:<div id="room-display">${roomId}</div>Đang chờ người chơi khác vào...`);
-            });
-        }
-
-        function joinRoom() {
-            const roomId = document.getElementById('room-input').value.trim().toUpperCase();
-            if (!roomId) return alert("Vui lòng nhập Mã Phòng!");
-
-            setButtonsDisabled(true);
-            initWebSocket(roomId, () => {
-                myRole = 'SEEKER';
-                document.getElementById('role-text').innerText = "NGƯỜI TÌM";
-                document.getElementById('role-text').style.color = "#ff4757";
-                document.getElementById('game-room-id').innerText = roomId;
-
-                updateStatus("Đã vào phòng! Đang lấy dữ liệu...");
-                sendMsg({ type: 'CLIENT_READY' });
-            });
-        }
-
-        // XỬ LÝ NHẬN DỮ LIỆU
-        function handleNetworkData(data) {
-            if (data.type === 'CLIENT_READY' && myRole === 'BUILDER') {
-                sendMsg({ type: 'INIT_SYNC', grid: grid });
-                enterGameScreen();
-            } 
-            else if (data.type === 'INIT_SYNC') {
-                grid = data.grid;
-                enterGameScreen();
-            } 
-            else if (data.type === 'GRID_UPDATE') {
-                grid = data.grid;
-                draw();
-            } 
-            else if (data.type === 'START_PLAY') {
-                mode = 'PLAY';
-                seekerPos = { ...startPos };
-                if (myRole === 'SEEKER') {
-                    document.getElementById('dpad-container').style.display = 'flex';
+            for (let id in publicServers) {
+                let s = publicServers[id];
+                if (now - s.lastPing < 8000) { // Loại bỏ server offline quá 8 giây
+                    count++;
+                    html += `
+                        <div class="server-item">
+                            <div class="server-info">
+                                <span class="server-name">🔥 ${escapeHtml(s.roomName)}</span>
+                                <span class="server-sub">Chủ phòng: ${escapeHtml(s.hostName)}</span>
+                            </div>
+                            <button class="btn btn-purple" style="padding: 6px 12px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}')">Tham gia</button>
+                        </div>
+                    `;
                 }
-                draw();
-            } 
-            else if (data.type === 'SEEKER_MOVE') {
-                seekerPos = data.pos;
-                draw();
-            } 
-            else if (data.type === 'SCORE_UPDATE') {
-                score = data.score;
-                document.getElementById('score-val').innerText = score;
-            } 
-            else if (data.type === 'GAME_OVER') {
-                mode = 'END';
-                if (timerId) clearInterval(timerId);
-                document.getElementById('dpad-container').style.display = 'none';
-                alert(data.msg);
             }
-            // NHẬN TIN NHẮN CHAT
-            else if (data.type === 'CHAT_MSG') {
-                appendChatMessage(data.roleName, data.text, false);
+
+            if (count === 0) {
+                listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 12px; margin-top: 60px;">Chưa có server nào. Hãy bấm tạo Server mới!</div>`;
+            } else {
+                listEl.innerHTML = html;
             }
         }
 
-        // --- XỬ LÝ CHAT ---
-        function sendChatMessage() {
+        // TẠO SERVER MỚI
+        function createNewServer() {
+            const userIn = document.getElementById('username-input').value.trim();
+            const serverIn = document.getElementById('servername-input').value.trim();
+
+            if (!userIn || !serverIn) return alert("Vui lòng nhập Tên của bạn và Tên Server!");
+
+            myName = userIn;
+            currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
+            isHost = true;
+
+            enterScene(serverIn);
+
+            // Host phát nhịp tim (Heartbeat) quảng bá server ra danh sách công khai mỗi 3 giây
+            setInterval(() => {
+                if (isHost && client && client.connected) {
+                    client.publish(LOBBY_TOPIC, JSON.stringify({
+                        type: 'SERVER_HEARTBEAT',
+                        roomId: currentRoomId,
+                        roomName: serverIn,
+                        hostName: myName
+                    }));
+                }
+            }, 3000);
+        }
+
+        // THAM GIA SERVER CO CÓ SẴN
+        function joinServer(roomId, roomName) {
+            const userIn = document.getElementById('username-input').value.trim() || ("Khách_" + Math.floor(Math.random()*100));
+            myName = userIn;
+            currentRoomId = roomId;
+            isHost = false;
+
+            enterScene(roomName);
+        }
+
+        // VÀO MÀN HÌNH GAME
+        function enterScene(roomName) {
+            document.getElementById('lobby-overlay').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'flex';
+            document.getElementById('display-room-name').innerText = `Server: ${roomName}`;
+
+            client.subscribe(`cozy-lounge-v2/room/${currentRoomId}`);
+            
+            initCanvasSize();
+            myPos.x = canvas.width / 2 + (Math.random()*100 - 50);
+            myPos.y = canvas.height / 2 + 80;
+            myPos.targetX = myPos.x;
+            myPos.targetY = myPos.y;
+
+            // Gửi thông báo vị trí bản thân
+            broadcastMyPosition();
+            
+            // Chạy Loop hoạt họa
+            requestAnimationFrame(gameLoop);
+        }
+
+        // RỜI PHÒNG
+        function leaveServer() {
+            if (client && currentRoomId) {
+                client.publish(`cozy-lounge-v2/room/${currentRoomId}`, JSON.stringify({
+                    type: 'PLAYER_LEAVE', sender: myClientId
+                }));
+            }
+            location.reload();
+        }
+
+        function broadcastMyPosition() {
+            if (client && client.connected && currentRoomId) {
+                client.publish(`cozy-lounge-v2/room/${currentRoomId}`, JSON.stringify({
+                    type: 'PLAYER_MOVE',
+                    sender: myClientId,
+                    name: myName,
+                    x: myPos.x,
+                    y: myPos.y,
+                    color: myColor
+                }));
+            }
+        }
+
+        function updateOnlineCount() {
+            let count = Object.keys(otherPlayers).length + 1;
+            document.getElementById('online-count').innerText = `👥 ${count} Trực tuyến`;
+        }
+
+        // GỬI CHAT
+        function sendChat() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if (!text) return;
 
-            const roleName = myRole === 'BUILDER' ? 'Người Xây' : 'Người Tìm';
-            appendChatMessage(roleName, text, true);
-            sendMsg({ type: 'CHAT_MSG', roleName: roleName, text: text });
+            appendChatMessage(myName, text, true);
+
+            myChatBubble.text = text;
+            if (myChatBubble.timer) clearTimeout(myChatBubble.timer);
+            myChatBubble.timer = setTimeout(() => { myChatBubble.text = ""; }, 4000);
+
+            if (client && client.connected && currentRoomId) {
+                client.publish(`cozy-lounge-v2/room/${currentRoomId}`, JSON.stringify({
+                    type: 'PLAYER_CHAT',
+                    sender: myClientId,
+                    name: myName,
+                    text: text
+                }));
+            }
             input.value = '';
         }
 
-        function appendChatMessage(sender, text, isMe) {
-            const chatMsgs = document.getElementById('chat-messages');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `chat-msg ${isMe ? 'me' : 'other'}`;
-            msgDiv.innerHTML = `<span class="sender">${sender}:</span><span class="text">${escapeHtml(text)}</span>`;
-            chatMsgs.appendChild(msgDiv);
-            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        function appendChatMessage(sender, text, isMe = false) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'msg-item';
+            div.innerHTML = `<span class="msg-sender" style="color:${isMe ? '#ff9f43':'#54a0ff'}">${escapeHtml(sender)}:</span><span class="msg-text">${escapeHtml(text)}</span>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
         }
 
-        function escapeHtml(string) {
-            return String(string).replace(/[&<>"']/g, function(s) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s];
-            });
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
         }
 
-        // Bấm Enter trong ô Chat để gửi
-        document.getElementById('chat-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                sendChatMessage();
-            }
-            e.stopPropagation(); // Ngăn không cho phím gõ lọt ra điều khiển game
-        });
-
-        function enterGameScreen() {
-            document.getElementById('lobby-overlay').style.display = 'none';
-            if (myRole === 'BUILDER') {
-                document.getElementById('btn-start').style.display = 'inline-block';
-            }
-            draw();
-        }
-
-        function hasPath(start, goal, currentGrid) {
-            let queue = [{ r: start.r, c: start.c }];
-            let visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
-            visited[start.r][start.c] = true;
-            const dr = [-1, 1, 0, 0], dc = [0, 0, -1, 1];
-
-            while (queue.length > 0) {
-                let curr = queue.shift();
-                if (curr.r === goal.r && curr.c === goal.c) return true;
-                for (let i = 0; i < 4; i++) {
-                    let nr = curr.r + dr[i], nc = curr.c + dc[i];
-                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                        if (!visited[nr][nc] && currentGrid[nr][nc] !== 1) {
-                            visited[nr][nc] = true;
-                            queue.push({ r: nr, c: nc });
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
+        // BẤM VÀO CANVAS ĐỂ DI CHUYỂN
         canvas.addEventListener('pointerdown', (e) => {
-            if (myRole !== 'BUILDER' || mode !== 'BUILD') return;
-
             const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-
-            const c = Math.floor(((e.clientX - rect.left) * scaleX) / CELL_SIZE);
-            const r = Math.floor(((e.clientY - rect.top) * scaleY) / CELL_SIZE);
-
-            if ((r === startPos.r && c === startPos.c) || (r === heartPos.r && c === heartPos.c)) return;
-
-            let prev = grid[r][c];
-            grid[r][c] = prev === 1 ? 0 : 1;
-
-            if (grid[r][c] === 1 && !hasPath(startPos, heartPos, grid)) {
-                grid[r][c] = 0;
-                document.getElementById('toast').style.display = 'block';
-                setTimeout(() => document.getElementById('toast').style.display = 'none', 1500);
-            } else {
-                draw();
-                sendMsg({ type: 'GRID_UPDATE', grid: grid });
-            }
+            myPos.targetX = (e.clientX - rect.left);
+            myPos.targetY = (e.clientY - rect.top);
         });
 
-        function startPlayMode() {
-            if (myRole !== 'BUILDER') return;
-            mode = 'PLAY';
-            seekerPos = { ...startPos };
-            document.getElementById('btn-start').style.display = 'none';
-            sendMsg({ type: 'START_PLAY' });
-
-            timerId = setInterval(() => {
-                if (mode === 'PLAY') {
-                    score += 50;
-                    document.getElementById('score-val').innerText = score;
-                    sendMsg({ type: 'SCORE_UPDATE', score: score });
-
-                    if (score >= TARGET_SCORE) {
-                        mode = 'END';
-                        clearInterval(timerId);
-                        let msg = "🎉 NGƯỜI XÂY THẮNG! Người tìm đã hết thời gian!";
-                        alert(msg);
-                        sendMsg({ type: 'GAME_OVER', msg: msg });
-                    }
-                }
-            }, 100);
-            draw();
-        }
-
-        function moveSeeker(dr, dc) {
-            if (myRole !== 'SEEKER' || mode !== 'PLAY') return;
-
-            let nr = seekerPos.r + dr, nc = seekerPos.c + dc;
-            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] !== 1) {
-                seekerPos = { r: nr, c: nc };
-                sendMsg({ type: 'SEEKER_MOVE', pos: seekerPos });
-
-                if (seekerPos.r === heartPos.r && seekerPos.c === heartPos.c) {
-                    mode = 'END';
-                    document.getElementById('dpad-container').style.display = 'none';
-                    let msg = "💖 NGƯỜI TÌM THẮNG! Đã tìm thấy Nửa Trái Tim!";
-                    alert(msg);
-                    sendMsg({ type: 'GAME_OVER', msg: msg });
-                }
-            }
-            draw();
-        }
-
-        // BÀN PHÍM PC (Chỉ di chuyển khi KHÔNG gõ trong ô chat)
+        // DI CHUYỂN BẰNG BÀN PHÍM PC
         window.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT') return; 
-
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') moveSeeker(-1, 0);
-            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') moveSeeker(1, 0);
-            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveSeeker(0, -1);
-            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveSeeker(0, 1);
+            if (e.target.tagName === 'INPUT') return;
+            const step = 20;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') myPos.targetY -= step;
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') myPos.targetY += step;
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') myPos.targetX -= step;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') myPos.targetX += step;
+            
+            if (e.key === 'Enter') sendChat();
         });
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const FOG_RADIUS = 2.5;
+        // VẼ KHUNG CẢNH GAME (GAME LOOP)
+        function gameLoop() {
+            // Nội suy di chuyển mượt
+            if (Math.hypot(myPos.targetX - myPos.x, myPos.targetY - myPos.y) > 2) {
+                myPos.x += (myPos.targetX - myPos.x) * 0.15;
+                myPos.y += (myPos.targetY - myPos.y) * 0.15;
+                broadcastMyPosition();
+            }
 
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c < COLS; c++) {
-                    let x = c * CELL_SIZE, y = r * CELL_SIZE;
+            // 1. Vẽ Bầu trời đêm & Sao lấp lánh
+            ctx.fillStyle = '#080612';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    let isVisible = true;
-                    if (myRole === 'SEEKER' && mode === 'PLAY') {
-                        isVisible = Math.hypot(r - seekerPos.r, c - seekerPos.c) <= FOG_RADIUS;
-                    }
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(Date.now()*0.002 + s.alpha))})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
 
-                    if (!isVisible) {
-                        ctx.fillStyle = '#0a0812';
-                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
-                        continue;
-                    }
+            // 2. Vẽ Mặt đất thảm cỏ đêm
+            let groundY = canvas.height * 0.45;
+            let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+            grad.addColorStop(0, '#121026');
+            grad.addColorStop(1, '#080612');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-                    if (grid[r][c] === 1) {
-                        ctx.fillStyle = '#3a2e56';
-                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
-                    } else {
-                        ctx.fillStyle = (r + c) % 2 === 0 ? '#1c162e' : '#151022';
-                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
-                    }
+            // 3. Vẽ Lửa Trại ở Trung Tâm
+            let fireX = canvas.width / 2;
+            let fireY = canvas.height / 2 + 30;
 
-                    if (r === seekerPos.r && c === seekerPos.c) {
-                        ctx.fillStyle = '#2ed573';
-                        ctx.beginPath();
-                        ctx.arc(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/3, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
+            // Ánh sáng lửa trại lan tỏa
+            let glow = ctx.createRadialGradient(fireX, fireY, 10, fireX, fireY, 120);
+            glow.addColorStop(0, 'rgba(255, 159, 67, 0.3)');
+            glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(fireX, fireY, 120, 0, Math.PI*2);
+            ctx.fill();
 
-                    if (r === heartPos.r && c === heartPos.c) {
-                        ctx.fillStyle = '#ff4757';
-                        ctx.font = '16px sans-serif';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('💔', x + CELL_SIZE/2, y + CELL_SIZE/2);
-                    }
+            // Khúc gỗ lửa
+            ctx.fillStyle = '#5e35b1';
+            ctx.fillRect(fireX - 15, fireY + 5, 30, 8);
+
+            // Ngọn lửa
+            ctx.fillStyle = '#ff9f43';
+            ctx.beginPath();
+            ctx.arc(fireX, fireY, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2);
+            ctx.fill();
+
+            // Tàn lửa bay
+            embers.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.015;
+                if (p.alpha <= 0) {
+                    p.x = fireX + (Math.random()*20 - 10);
+                    p.y = fireY;
+                    p.alpha = 1;
                 }
+                ctx.fillStyle = `rgba(255, 234, 167, ${p.alpha})`;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+
+            // 4. Vẽ Người chơi khác
+            for (let id in otherPlayers) {
+                let p = otherPlayers[id];
+                drawAvatar(p.x, p.y, p.name, p.color, p.chatBubble);
+            }
+
+            // 5. Vẽ Nhân vật của bản thân
+            drawAvatar(myPos.x, myPos.y, myName + " (Bạn)", myColor, myChatBubble.text);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // HÀM VẼ NHÂN VẬT & BONG BÓNG CHAT
+        function drawAvatar(x, y, name, color, chatText) {
+            // Bóng dưới chân
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + 12, 14, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Thân nhân vật (Hình tròn phát sáng nhẹ)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Tên nhân vật
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(name, x, y + 28);
+
+            // Bong bóng thoại Chat trên đầu
+            if (chatText) {
+                ctx.font = '12px sans-serif';
+                let textWidth = ctx.measureText(chatText).width;
+                let pad = 8;
+                let bx = x - textWidth/2 - pad;
+                let by = y - 45;
+                let bw = textWidth + pad * 2;
+                let bh = 22;
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, 6);
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.textAlign = 'center';
+                ctx.fillText(chatText, x, by + 15);
             }
         }
-        draw();
+
+        // Bấm Enter để gửi tin nhắn
+        document.getElementById('chat-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChat();
+            e.stopPropagation();
+        });
     </script>
 </body>
 </html>
