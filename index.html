@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mê Cung Nửa Trái Tim - Online Siêu Tốc</title>
+    <title>Mê Cung Nửa Trái Tim - Online Siêu Tốc + Chat</title>
 
-    <!-- Thư viện MQTT WebSocket (Thay thế hoàn toàn PeerJS) -->
+    <!-- Thư viện MQTT WebSocket -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
@@ -18,7 +18,7 @@
         .lobby-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #ff4757; }
         
         .input-group { margin: 15px 0; display: flex; gap: 10px; }
-        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 16px; text-align: center; font-weight: bold; text-transform: uppercase; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 16px; text-align: center; font-weight: bold; text-transform: uppercase; user-select: text; -webkit-user-select: text; }
         
         /* Bar thông tin game */
         #top-bar { background: #1a1528; border: 2px solid #3a2e56; padding: 10px 15px; border-radius: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; width: 100%; max-width: 450px; margin-bottom: 10px; }
@@ -35,7 +35,7 @@
         .btn-purple { background: #5f27cd; box-shadow: 0 4px 0 #341f97; }
         .btn:disabled { background: #4b4b4b; box-shadow: none; opacity: 0.6; cursor: not-allowed; }
 
-        #toast { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 71, 87, 0.95); color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 12px; display: none; z-index: 10; whitespace: nowrap; }
+        #toast { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 71, 87, 0.95); color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 12px; display: none; z-index: 10; white-space: nowrap; }
         #room-display { background: #281e3f; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 20px; color: #2ed573; margin: 10px 0; border: 1px dashed #2ed573; letter-spacing: 2px; }
         #lobby-status { margin-top: 12px; color: #ffa502; font-size: 13px; font-weight: bold; line-height: 1.4; min-height: 36px; }
 
@@ -44,6 +44,22 @@
         .dpad-row { display: flex; gap: 8px; }
         .dpad-btn { width: 55px; height: 50px; background: #2a223d; border: 2px solid #5f27cd; color: #fff; font-size: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 3px 0 #1a1428; }
         .dpad-btn:active { background: #5f27cd; transform: translateY(2px); box-shadow: none; }
+
+        /* --- KHUNG CHAT TRỰC TUYẾN --- */
+        #chat-container { width: 100%; max-width: 450px; margin-top: 12px; background: #1a1528; border: 2px solid #3a2e56; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        #chat-messages { height: 110px; overflow-y: auto; background: #0f0c1b; border-radius: 8px; padding: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; border: 1px solid #281e3f; }
+        
+        .chat-msg { word-break: break-word; line-height: 1.3; font-size: 13px; }
+        .chat-msg .sender { font-weight: bold; margin-right: 4px; }
+        .chat-msg.me { text-align: right; }
+        .chat-msg.me .sender { color: #2ed573; }
+        .chat-msg.other .sender { color: #ff4757; }
+        .chat-msg .text { color: #e0e0e0; background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 6px; display: inline-block; text-align: left; }
+        
+        .chat-input-group { display: flex; gap: 8px; }
+        #chat-input { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #3a2e56; background: #0f0c1b; color: #fff; font-size: 14px; text-align: left; text-transform: none; }
+        #chat-input:focus { border-color: #5f27cd; outline: none; }
+        .btn-chat-send { padding: 8px 14px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -102,6 +118,17 @@
         </div>
     </div>
 
+    <!-- KHUNG CHAT TRÒ CHUYỆN -->
+    <div id="chat-container">
+        <div id="chat-messages">
+            <div class="chat-msg" style="color: #a093c4; font-style: italic;">💬 Tin nhắn trò chuyện sẽ hiển thị ở đây...</div>
+        </div>
+        <div class="chat-input-group">
+            <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="100">
+            <button class="btn btn-purple btn-chat-send" onclick="sendChatMessage()">Gửi</button>
+        </div>
+    </div>
+
     <script>
         const COLS = 15, ROWS = 15, CELL_SIZE = 30, TARGET_SCORE = 10000;
         const canvas = document.getElementById('gameCanvas');
@@ -109,7 +136,6 @@
         canvas.width = COLS * CELL_SIZE;
         canvas.height = ROWS * CELL_SIZE;
 
-        // TẠO CLIENT ID DUY NHẤT CHO MỖI MÁY
         const myClientId = 'user_' + Math.random().toString(36).substr(2, 9);
         
         let grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
@@ -132,10 +158,9 @@
             document.getElementById('btn-join').disabled = disabled;
         }
 
-        // KẾT NỐI ĐẾN MÁY CHỦ WEBSOCKET MẠNH NHẤT (EMQX CLOUD)
+        // KẾT NỐI MẠNG
         function initWebSocket(roomId, callback) {
             updateStatus("Đang nối tới máy chủ WebSocket...");
-            // Server WebSocket công cộng mã hóa SSL (wss://) cực nhanh và không bao giờ bị chặn
             client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
 
             client.on('connect', () => {
@@ -153,7 +178,7 @@
             client.on('message', (topic, message) => {
                 try {
                     const data = JSON.parse(message.toString());
-                    if (data.sender === myClientId) return; // Bỏ qua tin nhắn do chính mình gửi
+                    if (data.sender === myClientId) return; 
 
                     handleNetworkData(data);
                 } catch (e) {
@@ -167,7 +192,6 @@
             });
         }
 
-        // GỬI DỮ LIỆU ĐẾN MÁY KIA
         function sendMsg(data) {
             if (client && client.connected) {
                 data.sender = myClientId;
@@ -175,7 +199,6 @@
             }
         }
 
-        // TẠO PHÒNG
         function createRoom() {
             setButtonsDisabled(true);
             const randomCode = Math.floor(1000 + Math.random() * 9000);
@@ -189,7 +212,6 @@
             });
         }
 
-        // VÀO PHÒNG
         function joinRoom() {
             const roomId = document.getElementById('room-input').value.trim().toUpperCase();
             if (!roomId) return alert("Vui lòng nhập Mã Phòng!");
@@ -206,7 +228,7 @@
             });
         }
 
-        // XỬ LÝ DỮ LIỆU NHẬN ĐƯỢC
+        // XỬ LÝ NHẬN DỮ LIỆU
         function handleNetworkData(data) {
             if (data.type === 'CLIENT_READY' && myRole === 'BUILDER') {
                 sendMsg({ type: 'INIT_SYNC', grid: grid });
@@ -242,7 +264,46 @@
                 document.getElementById('dpad-container').style.display = 'none';
                 alert(data.msg);
             }
+            // NHẬN TIN NHẮN CHAT
+            else if (data.type === 'CHAT_MSG') {
+                appendChatMessage(data.roleName, data.text, false);
+            }
         }
+
+        // --- XỬ LÝ CHAT ---
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const roleName = myRole === 'BUILDER' ? 'Người Xây' : 'Người Tìm';
+            appendChatMessage(roleName, text, true);
+            sendMsg({ type: 'CHAT_MSG', roleName: roleName, text: text });
+            input.value = '';
+        }
+
+        function appendChatMessage(sender, text, isMe) {
+            const chatMsgs = document.getElementById('chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-msg ${isMe ? 'me' : 'other'}`;
+            msgDiv.innerHTML = `<span class="sender">${sender}:</span><span class="text">${escapeHtml(text)}</span>`;
+            chatMsgs.appendChild(msgDiv);
+            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        }
+
+        function escapeHtml(string) {
+            return String(string).replace(/[&<>"']/g, function(s) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s];
+            });
+        }
+
+        // Bấm Enter trong ô Chat để gửi
+        document.getElementById('chat-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+            e.stopPropagation(); // Ngăn không cho phím gõ lọt ra điều khiển game
+        });
 
         function enterGameScreen() {
             document.getElementById('lobby-overlay').style.display = 'none';
@@ -252,7 +313,6 @@
             draw();
         }
 
-        // TÌM ĐƯỜNG BFS
         function hasPath(start, goal, currentGrid) {
             let queue = [{ r: start.r, c: start.c }];
             let visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
@@ -275,7 +335,6 @@
             return false;
         }
 
-        // TƯƠNG TÁC ĐẶT TƯỜNG (CHẠM & CLICK)
         canvas.addEventListener('pointerdown', (e) => {
             if (myRole !== 'BUILDER' || mode !== 'BUILD') return;
 
@@ -301,7 +360,6 @@
             }
         });
 
-        // BẤM BẮT ĐẦU TRẬN
         function startPlayMode() {
             if (myRole !== 'BUILDER') return;
             mode = 'PLAY';
@@ -327,7 +385,6 @@
             draw();
         }
 
-        // DI CHUYỂN NGUỜI TÌM
         function moveSeeker(dr, dc) {
             if (myRole !== 'SEEKER' || mode !== 'PLAY') return;
 
@@ -347,15 +404,16 @@
             draw();
         }
 
-        // BÀN PHÍM PC
+        // BÀN PHÍM PC (Chỉ di chuyển khi KHÔNG gõ trong ô chat)
         window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return; 
+
             if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') moveSeeker(-1, 0);
             if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') moveSeeker(1, 0);
             if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveSeeker(0, -1);
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveSeeker(0, 1);
         });
 
-        // VẼ MÀN HÌNH
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const FOG_RADIUS = 2.5;
