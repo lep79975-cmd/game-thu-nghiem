@@ -3,57 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cozy Night Lounge - Khung Cảnh Trò Chuyện Trực Tuyến</title>
+    <title>Cozy Lounge - Trò Chuyện Trực Tuyến Đa Khu Vực</title>
 
     <!-- Thư viện MQTT WebSocket -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; }
         body { background: #090714; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
 
         /* SẢNH LỰA CHỌN SERVER */
         #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9, 7, 20, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
-        .lobby-card { background: #151226; border: 1px solid #3d3266; border-radius: 20px; padding: 25px; width: 90%; max-width: 480px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 15px; }
-        .lobby-title { font-size: 22px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
+        .lobby-card { background: #151226; border: 1px solid #3d3266; border-radius: 20px; padding: 20px; width: 92%; max-width: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 12px; max-height: 95vh; overflow-y: auto; }
+        .lobby-title { font-size: 20px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
         
-        .input-group { display: flex; gap: 10px; }
-        input[type="text"] { flex: 1; padding: 12px 15px; border-radius: 10px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; }
-        input[type="text"]:focus { border-color: #ff9f43; }
+        .input-group { display: flex; gap: 8px; }
+        input[type="text"], select { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 13px; outline: none; user-select: text; -webkit-user-select: text; }
+        input[type="text"]:focus, select:focus { border-color: #ff9f43; }
 
-        .btn { background: #ff9f43; color: #000; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-        .btn:hover { background: #ffb164; transform: translateY(-1px); }
+        .btn { background: #ff9f43; color: #000; border: none; padding: 10px 16px; font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { background: #ffb164; }
         .btn-purple { background: #54a0ff; color: #fff; }
         .btn-purple:hover { background: #2e86de; }
+        .btn-danger { background: #ee5253; color: #fff; }
+
+        /* CHỌN KHU VỰC GRID */
+        .map-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+        .map-card { background: #0d0a1a; border: 2px solid #282142; border-radius: 8px; padding: 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .map-card.selected { border-color: #ff9f43; background: #251b38; }
+        .map-card-title { font-size: 12px; font-weight: bold; color: #fff; }
 
         /* DANH SÁCH SERVER */
-        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 12px; padding: 10px; height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-        .server-item { background: #1d1735; border: 1px solid #3a305e; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 10px; padding: 8px; height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .server-item { background: #1d1735; border: 1px solid #3a305e; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
         .server-info { display: flex; flex-direction: column; gap: 2px; }
-        .server-name { font-weight: bold; font-size: 14px; color: #54a0ff; }
-        .server-sub { font-size: 11px; color: #8c7ae6; }
+        .server-name { font-weight: bold; font-size: 13px; color: #54a0ff; }
+        .server-sub { font-size: 10px; color: #8c7ae6; }
         
         /* MÀN HÌNH CHÍNH GAME */
         #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 800px; height: 100vh; justify-content: center; padding: 10px; gap: 10px; }
         
-        #top-bar { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; }
-        .room-title-text { font-size: 15px; font-weight: bold; color: #ff9f43; }
+        #top-bar { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .room-title-text { font-size: 14px; font-weight: bold; color: #ff9f43; }
         
-        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 480px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         canvas { width: 100%; height: 100%; display: block; background: #05040a; }
 
         /* KHUNG CHAT */
         #chat-box { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        #chat-messages { height: 90px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+        #chat-messages { height: 80px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
         .msg-item { line-height: 1.3; }
         .msg-sender { font-weight: bold; color: #54a0ff; margin-right: 5px; }
         .msg-text { color: #e1b12c; }
 
         .chat-input-row { display: flex; gap: 8px; }
-        #chat-input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 13px; }
+        #chat-input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 12px; }
 
-        /* Nút thoát */
-        .btn-exit { background: #ee5253; color: white; padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+        /* MODAL BẢNG QUẢN LÝ CỦA HOST */
+        #host-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
+        .host-card { background: #151226; border: 1px solid #54a0ff; border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+        .player-manage-item { display: flex; justify-content: space-between; align-items: center; background: #0d0a1a; padding: 8px 12px; border-radius: 8px; border: 1px solid #282142; }
     </style>
 </head>
 <body>
@@ -61,16 +70,33 @@
     <!-- SẢNH TẠO / CHỌN SERVER -->
     <div id="lobby-overlay">
         <div class="lobby-card">
-            <div class="lobby-title">✨ COZY NIGHT LOUNGE ✨</div>
+            <div class="lobby-title">✨ COZY LOUNGE ✨</div>
             
-            <!-- Tạo Server -->
+            <!-- Nhập thông tin & chọn Khu vực -->
             <div style="display: flex; flex-direction: column; gap: 6px;">
-                <label style="font-size: 12px; color: #aaa;">Tên của bạn & Server mới:</label>
+                <label style="font-size: 11px; color: #aaa;">Tên của bạn & Tên Server:</label>
                 <div class="input-group">
-                    <input type="text" id="username-input" placeholder="Tên của bạn..." maxlength="12">
+                    <input type="text" id="username-input" placeholder="Tên người chơi..." maxlength="12">
                     <input type="text" id="servername-input" placeholder="Tên Server..." maxlength="15">
                 </div>
-                <button class="btn" onclick="createNewServer()">🔥 Tạo Server & Vào Ngay</button>
+
+                <label style="font-size: 11px; color: #aaa; margin-top: 4px;">Chọn Khu Vực Khung Cảnh:</label>
+                <div class="map-selector">
+                    <div class="map-card selected" onclick="selectMap('CAMPFIRE', this)">
+                        <div class="map-card-title">🔥 Lửa Trại Đêm</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('BEACH', this)">
+                        <div class="map-card-title">🏖️ Biển Hoàng Hôn</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('FOREST', this)">
+                        <div class="map-card-title">🌲 Rừng Kỳ Ảo</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('NEON', this)">
+                        <div class="map-card-title">🌃 Thành Phố Neon</div>
+                    </div>
+                </div>
+
+                <button class="btn" style="margin-top: 6px;" onclick="createNewServer()">🚀 Tạo Server & Vào Ngay</button>
             </div>
 
             <hr style="border: 0; border-top: 1px solid #282142;">
@@ -78,11 +104,11 @@
             <!-- Danh sách Server -->
             <div style="display: flex; flex-direction: column; gap: 6px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 12px; color: #aaa;">Danh Sách Server Đang Hoạt Động:</label>
-                    <span style="font-size: 10px; color: #54a0ff;">Tự động cập nhật 🟢</span>
+                    <label style="font-size: 11px; color: #aaa;">Danh Sách Server Online:</label>
+                    <span style="font-size: 10px; color: #54a0ff;">🟢 Tự cập nhật</span>
                 </div>
                 <div class="server-list-box" id="server-list">
-                    <div style="text-align: center; color: #666; font-size: 12px; margin-top: 60px;">Đang quét tìm các server xung quanh...</div>
+                    <div style="text-align: center; color: #666; font-size: 11px; margin-top: 50px;">Đang tìm các server xung quanh...</div>
                 </div>
             </div>
         </div>
@@ -93,9 +119,12 @@
         <div id="top-bar">
             <div>
                 <span class="room-title-text" id="display-room-name">Server: Lounge</span>
-                <span style="font-size: 12px; color: #8c7ae6; margin-left: 10px;" id="online-count">👥 1 Trực tuyến</span>
+                <span style="font-size: 11px; color: #8c7ae6; margin-left: 8px;" id="online-count">👥 1 Trực tuyến</span>
             </div>
-            <button class="btn btn-exit" onclick="leaveServer()">Thoát Server</button>
+            <div style="display: flex; gap: 6px;">
+                <button class="btn btn-purple" id="host-panel-btn" style="display: none; padding: 5px 10px; font-size: 11px;" onclick="openHostModal()">⚙️ Quản Lý</button>
+                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 11px;" onclick="leaveServer()">Thoát</button>
+            </div>
         </div>
 
         <div id="canvas-wrapper">
@@ -107,15 +136,29 @@
                 <div style="color: #666; font-style: italic; font-size: 11px;">Chạm vào màn hình hoặc dùng phím WASD để di chuyển nhân vật!</div>
             </div>
             <div class="chat-input-row">
-                <input type="text" id="chat-input" placeholder="Nhập tin nhắn trò chuyện..." maxlength="60">
+                <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="60">
                 <button class="btn btn-purple" onclick="sendChat()">Gửi</button>
             </div>
         </div>
     </div>
 
+    <!-- MODAL QUẢN LÝ DÀNH CHO HOST -->
+    <div id="host-modal">
+        <div class="host-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: #54a0ff; font-size: 16px;">👑 Quản Lý Server (Host)</h3>
+                <span style="cursor: pointer; font-size: 18px;" onclick="closeHostModal()">✖</span>
+            </div>
+            <div style="font-size: 12px; color: #aaa;">Danh sách người chơi & tình trạng thiết bị:</div>
+            <div id="host-player-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
+                <!-- render player list here -->
+            </div>
+            <button class="btn btn-purple" onclick="closeHostModal()">Đóng</button>
+        </div>
+    </div>
+
     <script>
-        // CẤU HÌNH BAN ĐẦU
-        const LOBBY_TOPIC = "cozy-lounge-v2/public-lobby";
+        const LOBBY_TOPIC = "cozy-lounge-v3/public-lobby";
         const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
         const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
 
@@ -123,41 +166,67 @@
         let currentRoomId = null;
         let isHost = false;
         let myName = "Người Chơi";
+        let selectedMapType = 'CAMPFIRE'; // 'CAMPFIRE', 'BEACH', 'FOREST', 'NEON'
+        let currentRoomMap = 'CAMPFIRE';
 
-        // VỊ TRÍ & NGUYÊN BẢN BẢN ĐỒ
+        // Lấy thông tin PIN điện thoại/thiết bị
+        let myBatteryStatus = "N/A";
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(battery => {
+                myBatteryStatus = Math.round(battery.level * 100) + "%";
+                battery.addEventListener('levelchange', () => {
+                    myBatteryStatus = Math.round(battery.level * 100) + "%";
+                });
+            }).catch(() => {});
+        }
+
+        // TỰ ĐỘNG LƯU & TẢI TÊN TỪ LOCALSTORAGE
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedName = localStorage.getItem('cozy_lounge_username');
+            if (savedName) {
+                document.getElementById('username-input').value = savedName;
+            }
+        });
+
+        // VỊ TRÍ & BẢN ĐỒ
         let myPos = { x: 400, y: 300, targetX: 400, targetY: 300 };
-        let otherPlayers = {}; // Danh sách người chơi khác
-        let publicServers = {}; // Danh sách Server công khai
+        let otherPlayers = {}; 
+        let publicServers = {}; 
         let myChatBubble = { text: "", timer: null };
 
-        // CANVAS GRAPHICS
         const canvas = document.getElementById('loungeCanvas');
         const ctx = canvas.getContext('2d');
-        let stars = [], embers = [];
+        let particles = [];
+
+        function selectMap(mapType, el) {
+            selectedMapType = mapType;
+            document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+        }
 
         function initCanvasSize() {
             const rect = canvas.parentElement.getBoundingClientRect();
             canvas.width = rect.width;
             canvas.height = rect.height;
             
-            // Tạo bầu trời sao
-            stars = [];
-            for(let i = 0; i < 60; i++) {
-                stars.push({ x: Math.random() * canvas.width, y: Math.random() * (canvas.height * 0.5), r: Math.random() * 1.5, alpha: Math.random() });
-            }
-            // Tạo tàn lửa
-            embers = [];
-            for(let i = 0; i < 20; i++) {
-                embers.push({ x: canvas.width/2 + (Math.random()*20 - 10), y: canvas.height/2 + 20, vx: (Math.random()-0.5)*0.8, vy: -Math.random()*1.5 - 0.5, size: Math.random()*3 + 1, alpha: 1 });
+            // Tạo các hạt môi trường tùy map
+            particles = [];
+            for(let i = 0; i < 50; i++) {
+                particles.push({ 
+                    x: Math.random() * canvas.width, 
+                    y: Math.random() * canvas.height, 
+                    r: Math.random() * 2 + 1, 
+                    vy: Math.random() * 1 + 0.2,
+                    alpha: Math.random() 
+                });
             }
         }
         window.addEventListener('resize', initCanvasSize);
 
-        // KẾT NỐI WEBSOCKET MQTT
+        // KẾT NỐI WEBSOCKET
         client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
 
         client.on('connect', () => {
-            // Lắng nghe danh sách Server công khai từ sảnh chính
             client.subscribe(LOBBY_TOPIC);
         });
 
@@ -165,20 +234,34 @@
             try {
                 const data = JSON.parse(message.toString());
 
-                // Quét Server công khai
                 if (topic === LOBBY_TOPIC && data.type === 'SERVER_HEARTBEAT') {
                     publicServers[data.roomId] = { ...data, lastPing: Date.now() };
                     renderServerList();
                     return;
                 }
 
-                // Xử lý sự kiện trong phòng
-                if (topic === `cozy-lounge-v2/room/${currentRoomId}`) {
+                if (topic === `cozy-lounge-v3/room/${currentRoomId}`) {
+                    // XỬ LÝ KICK NGƯỜI CHƠI
+                    if (data.type === 'KICK_PLAYER') {
+                        if (data.targetId === myClientId) {
+                            alert("⚠️ Bạn đã bị chủ phòng mời ra khỏi server!");
+                            location.reload();
+                        } else {
+                            delete otherPlayers[data.targetId];
+                            updateOnlineCount();
+                            if (isHost) renderHostPlayerList();
+                        }
+                        return;
+                    }
+
                     if (data.sender === myClientId) return;
 
                     if (data.type === 'PLAYER_MOVE') {
                         otherPlayers[data.sender] = { ...otherPlayers[data.sender], ...data };
                         updateOnlineCount();
+                        if (isHost && document.getElementById('host-modal').style.display === 'flex') {
+                            renderHostPlayerList();
+                        }
                     } 
                     else if (data.type === 'PLAYER_CHAT') {
                         if (otherPlayers[data.sender]) {
@@ -190,42 +273,38 @@
                     else if (data.type === 'PLAYER_LEAVE') {
                         delete otherPlayers[data.sender];
                         updateOnlineCount();
+                        if (isHost) renderHostPlayerList();
                     }
                 }
             } catch(e){}
         });
 
-        // HIỂN THỊ DANH SÁCH SERVER
         function renderServerList() {
             const listEl = document.getElementById('server-list');
             const now = Date.now();
-            let html = '';
-            let count = 0;
+            let html = '', count = 0;
+
+            const mapNames = { 'CAMPFIRE': '🔥 Lửa Trại', 'BEACH': '🏖️ Bãi Biển', 'FOREST': '🌲 Rừng Rậm', 'NEON': '🌃 Thành Phố' };
 
             for (let id in publicServers) {
                 let s = publicServers[id];
-                if (now - s.lastPing < 8000) { // Loại bỏ server offline quá 8 giây
+                if (now - s.lastPing < 8000) {
                     count++;
                     html += `
                         <div class="server-item">
                             <div class="server-info">
-                                <span class="server-name">🔥 ${escapeHtml(s.roomName)}</span>
+                                <span class="server-name">${escapeHtml(s.roomName)} <span style="font-size: 10px; color: #ff9f43;">[${mapNames[s.mapType] || 'Khu vực'}]</span></span>
                                 <span class="server-sub">Chủ phòng: ${escapeHtml(s.hostName)}</span>
                             </div>
-                            <button class="btn btn-purple" style="padding: 6px 12px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}')">Tham gia</button>
+                            <button class="btn btn-purple" style="padding: 5px 10px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}', '${s.mapType}')">Tham gia</button>
                         </div>
                     `;
                 }
             }
-
-            if (count === 0) {
-                listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 12px; margin-top: 60px;">Chưa có server nào. Hãy bấm tạo Server mới!</div>`;
-            } else {
-                listEl.innerHTML = html;
-            }
+            if (count === 0) listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 11px; margin-top: 50px;">Chưa có server nào. Hãy tạo Server ngay!</div>`;
+            else listEl.innerHTML = html;
         }
 
-        // TẠO SERVER MỚI
         function createNewServer() {
             const userIn = document.getElementById('username-input').value.trim();
             const serverIn = document.getElementById('servername-input').value.trim();
@@ -233,59 +312,60 @@
             if (!userIn || !serverIn) return alert("Vui lòng nhập Tên của bạn và Tên Server!");
 
             myName = userIn;
+            localStorage.setItem('cozy_lounge_username', myName); // Lưu tên vào LocalStorage
+
             currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
             isHost = true;
+            currentRoomMap = selectedMapType;
 
+            document.getElementById('host-panel-btn').style.display = 'inline-block';
             enterScene(serverIn);
 
-            // Host phát nhịp tim (Heartbeat) quảng bá server ra danh sách công khai mỗi 3 giây
             setInterval(() => {
                 if (isHost && client && client.connected) {
                     client.publish(LOBBY_TOPIC, JSON.stringify({
                         type: 'SERVER_HEARTBEAT',
                         roomId: currentRoomId,
                         roomName: serverIn,
-                        hostName: myName
+                        hostName: myName,
+                        mapType: currentRoomMap
                     }));
                 }
             }, 3000);
         }
 
-        // THAM GIA SERVER CO CÓ SẴN
-        function joinServer(roomId, roomName) {
+        function joinServer(roomId, roomName, mapType) {
             const userIn = document.getElementById('username-input').value.trim() || ("Khách_" + Math.floor(Math.random()*100));
             myName = userIn;
+            localStorage.setItem('cozy_lounge_username', myName);
+
             currentRoomId = roomId;
+            currentRoomMap = mapType || 'CAMPFIRE';
             isHost = false;
 
             enterScene(roomName);
         }
 
-        // VÀO MÀN HÌNH GAME
         function enterScene(roomName) {
             document.getElementById('lobby-overlay').style.display = 'none';
             document.getElementById('game-ui').style.display = 'flex';
             document.getElementById('display-room-name').innerText = `Server: ${roomName}`;
 
-            client.subscribe(`cozy-lounge-v2/room/${currentRoomId}`);
+            client.subscribe(`cozy-lounge-v3/room/${currentRoomId}`);
             
             initCanvasSize();
-            myPos.x = canvas.width / 2 + (Math.random()*100 - 50);
-            myPos.y = canvas.height / 2 + 80;
+            myPos.x = canvas.width / 2;
+            myPos.y = canvas.height / 2 + 50;
             myPos.targetX = myPos.x;
             myPos.targetY = myPos.y;
 
-            // Gửi thông báo vị trí bản thân
             broadcastMyPosition();
-            
-            // Chạy Loop hoạt họa
             requestAnimationFrame(gameLoop);
         }
 
-        // RỜI PHÒNG
         function leaveServer() {
             if (client && currentRoomId) {
-                client.publish(`cozy-lounge-v2/room/${currentRoomId}`, JSON.stringify({
+                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
                     type: 'PLAYER_LEAVE', sender: myClientId
                 }));
             }
@@ -294,13 +374,14 @@
 
         function broadcastMyPosition() {
             if (client && client.connected && currentRoomId) {
-                client.publish(`cozy-lounge-v2/room/${currentRoomId}`, JSON.stringify({
+                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
                     type: 'PLAYER_MOVE',
                     sender: myClientId,
                     name: myName,
                     x: myPos.x,
                     y: myPos.y,
-                    color: myColor
+                    color: myColor,
+                    battery: myBatteryStatus
                 }));
             }
         }
@@ -310,7 +391,55 @@
             document.getElementById('online-count').innerText = `👥 ${count} Trực tuyến`;
         }
 
-        // GỬI CHAT
+        /* --- BẢNG BẢNG QUẢN LÝ CỦA HOST --- */
+        function openHostModal() {
+            if (!isHost) return;
+            renderHostPlayerList();
+            document.getElementById('host-modal').style.display = 'flex';
+        }
+
+        function closeHostModal() {
+            document.getElementById('host-modal').style.display = 'none';
+        }
+
+        function renderHostPlayerList() {
+            const listContainer = document.getElementById('host-player-list');
+            let html = `
+                <div class="player-manage-item">
+                    <div>
+                        <strong style="color:#2ed573">${escapeHtml(myName)} (Chủ phòng)</strong>
+                        <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${myBatteryStatus}</div>
+                    </div>
+                </div>
+            `;
+
+            for (let id in otherPlayers) {
+                let p = otherPlayers[id];
+                html += `
+                    <div class="player-manage-item">
+                        <div>
+                            <strong style="color:#54a0ff">${escapeHtml(p.name)}</strong>
+                            <div style="font-size: 10px; color: #aaa;">🔋 Pin thiết bị: ${p.battery || 'N/A'}</div>
+                        </div>
+                        <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="kickPlayer('${id}')">Kick</button>
+                    </div>
+                `;
+            }
+            listContainer.innerHTML = html;
+        }
+
+        function kickPlayer(targetId) {
+            if (!isHost) return;
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'KICK_PLAYER',
+                targetId: targetId
+            }));
+            delete otherPlayers[targetId];
+            renderHostPlayerList();
+            updateOnlineCount();
+        }
+
+        /* --- CHAT SYSTEM --- */
         function sendChat() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
@@ -323,7 +452,7 @@
             myChatBubble.timer = setTimeout(() => { myChatBubble.text = ""; }, 4000);
 
             if (client && client.connected && currentRoomId) {
-                client.publish(`cozy-lounge-v2/room/${currentRoomId}`, JSON.stringify({
+                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
                     type: 'PLAYER_CHAT',
                     sender: myClientId,
                     name: myName,
@@ -346,14 +475,12 @@
             return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
         }
 
-        // BẤM VÀO CANVAS ĐỂ DI CHUYỂN
         canvas.addEventListener('pointerdown', (e) => {
             const rect = canvas.getBoundingClientRect();
             myPos.targetX = (e.clientX - rect.left);
             myPos.targetY = (e.clientY - rect.top);
         });
 
-        // DI CHUYỂN BẰNG BÀN PHÍM PC
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
             const step = 20;
@@ -361,132 +488,119 @@
             if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') myPos.targetY += step;
             if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') myPos.targetX -= step;
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') myPos.targetX += step;
-            
             if (e.key === 'Enter') sendChat();
         });
 
-        // VẼ KHUNG CẢNH GAME (GAME LOOP)
+        /* --- VẼ 4 KHU VỰC KHÁC NHAU --- */
         function gameLoop() {
-            // Nội suy di chuyển mượt
             if (Math.hypot(myPos.targetX - myPos.x, myPos.targetY - myPos.y) > 2) {
                 myPos.x += (myPos.targetX - myPos.x) * 0.15;
                 myPos.y += (myPos.targetY - myPos.y) * 0.15;
                 broadcastMyPosition();
             }
 
-            // 1. Vẽ Bầu trời đêm & Sao lấp lánh
-            ctx.fillStyle = '#080612';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Vẽ background tùy chọn Map
+            if (currentRoomMap === 'CAMPFIRE') drawCampfireMap();
+            else if (currentRoomMap === 'BEACH') drawBeachMap();
+            else if (currentRoomMap === 'FOREST') drawForestMap();
+            else if (currentRoomMap === 'NEON') drawNeonMap();
 
-            stars.forEach(s => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(Date.now()*0.002 + s.alpha))})`;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // 2. Vẽ Mặt đất thảm cỏ đêm
-            let groundY = canvas.height * 0.45;
-            let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
-            grad.addColorStop(0, '#121026');
-            grad.addColorStop(1, '#080612');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-
-            // 3. Vẽ Lửa Trại ở Trung Tâm
-            let fireX = canvas.width / 2;
-            let fireY = canvas.height / 2 + 30;
-
-            // Ánh sáng lửa trại lan tỏa
-            let glow = ctx.createRadialGradient(fireX, fireY, 10, fireX, fireY, 120);
-            glow.addColorStop(0, 'rgba(255, 159, 67, 0.3)');
-            glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(fireX, fireY, 120, 0, Math.PI*2);
-            ctx.fill();
-
-            // Khúc gỗ lửa
-            ctx.fillStyle = '#5e35b1';
-            ctx.fillRect(fireX - 15, fireY + 5, 30, 8);
-
-            // Ngọn lửa
-            ctx.fillStyle = '#ff9f43';
-            ctx.beginPath();
-            ctx.arc(fireX, fireY, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2);
-            ctx.fill();
-
-            // Tàn lửa bay
-            embers.forEach(p => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.alpha -= 0.015;
-                if (p.alpha <= 0) {
-                    p.x = fireX + (Math.random()*20 - 10);
-                    p.y = fireY;
-                    p.alpha = 1;
-                }
-                ctx.fillStyle = `rgba(255, 234, 167, ${p.alpha})`;
-                ctx.fillRect(p.x, p.y, p.size, p.size);
-            });
-
-            // 4. Vẽ Người chơi khác
+            // Vẽ người chơi khác
             for (let id in otherPlayers) {
                 let p = otherPlayers[id];
                 drawAvatar(p.x, p.y, p.name, p.color, p.chatBubble);
             }
 
-            // 5. Vẽ Nhân vật của bản thân
+            // Vẽ nhân vật bản thân
             drawAvatar(myPos.x, myPos.y, myName + " (Bạn)", myColor, myChatBubble.text);
 
             requestAnimationFrame(gameLoop);
         }
 
+        // 1. 🔥 LỬA TRẠI ĐÊM
+        function drawCampfireMap() {
+            ctx.fillStyle = '#080612';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let groundY = canvas.height * 0.45;
+            let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+            grad.addColorStop(0, '#121026'); grad.addColorStop(1, '#080612');
+            ctx.fillStyle = grad; ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+            let fx = canvas.width / 2, fy = canvas.height / 2 + 20;
+            let glow = ctx.createRadialGradient(fx, fy, 10, fx, fy, 120);
+            glow.addColorStop(0, 'rgba(255, 159, 67, 0.35)'); glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
+            ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(fx, fy, 120, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(fx, fy, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2); ctx.fill();
+        }
+
+        // 2. 🏖️ BÃI BIỂN HOÀNG HÔN
+        function drawBeachMap() {
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
+            skyGrad.addColorStop(0, '#ff7675'); skyGrad.addColorStop(1, '#6c5ce7');
+            ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+
+            // Mặt nước & Bãi cát
+            ctx.fillStyle = '#0984e3'; ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.2);
+            ctx.fillStyle = '#ffeaa7'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+
+            // Mặt trời
+            ctx.fillStyle = '#fdcb6e'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height*0.5, 30, 0, Math.PI*2); ctx.fill();
+        }
+
+        // 3. 🌲 KHU RỪNG KỲ ẢO
+        function drawForestMap() {
+            ctx.fillStyle = '#051923'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#003554'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
+
+            // Đom đóm phát sáng
+            particles.forEach(p => {
+                p.y -= 0.3; if (p.y < 0) p.y = canvas.height;
+                ctx.fillStyle = `rgba(0, 255, 136, ${Math.abs(Math.sin(Date.now()*0.003 + p.alpha))})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, Math.PI*2); ctx.fill();
+            });
+        }
+
+        // 4. 🌃 THÀNH PHỐ NEON
+        function drawNeonMap() {
+            ctx.fillStyle = '#0d0221'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#02010a'; ctx.fillRect(0, canvas.height*0.5, canvas.width, canvas.height*0.5);
+
+            // Lưới Neon trên mặt đất
+            ctx.strokeStyle = 'rgba(255, 0, 127, 0.3)'; ctx.lineWidth = 1;
+            for(let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, canvas.height*0.5); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for(let y = canvas.height*0.5; y < canvas.height; y += 25) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+        }
+
         // HÀM VẼ NHÂN VẬT & BONG BÓNG CHAT
         function drawAvatar(x, y, name, color, chatText) {
-            // Bóng dưới chân
             ctx.fillStyle = 'rgba(0,0,0,0.4)';
-            ctx.beginPath();
-            ctx.ellipse(x, y + 12, 14, 6, 0, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.ellipse(x, y + 12, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
 
-            // Thân nhân vật (Hình tròn phát sáng nhẹ)
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, y, 14, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 
-            // Tên nhân vật
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 11px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(name, x, y + 28);
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(name, x, y + 26);
 
-            // Bong bóng thoại Chat trên đầu
             if (chatText) {
                 ctx.font = '12px sans-serif';
                 let textWidth = ctx.measureText(chatText).width;
-                let pad = 8;
-                let bx = x - textWidth/2 - pad;
-                let by = y - 45;
-                let bw = textWidth + pad * 2;
-                let bh = 22;
+                let pad = 8, bx = x - textWidth/2 - pad, by = y - 45, bw = textWidth + pad * 2, bh = 22;
 
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                ctx.beginPath();
-                ctx.roundRect(bx, by, bw, bh, 6);
-                ctx.fill();
+                ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
 
-                ctx.fillStyle = '#000';
-                ctx.textAlign = 'center';
+                ctx.fillStyle = '#000'; ctx.textAlign = 'center';
                 ctx.fillText(chatText, x, by + 15);
             }
         }
 
-        // Bấm Enter để gửi tin nhắn
         document.getElementById('chat-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendChat();
             e.stopPropagation();
