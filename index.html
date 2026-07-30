@@ -4,14 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mê Cung Nửa Trái Tim - 2 Player Online</title>
-    <!-- Thư viện PeerJS kết nối 2 máy trực tiếp (P2P) -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', sans-serif; }
         body { background: #0f0c1b; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 10px; }
 
-        /* Modal Sảnh Chờ (Lobby) */
-        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 12, 27, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 12, 27, 0.96); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .lobby-box { background: #1a1528; border: 2px solid #5f27cd; padding: 30px; border-radius: 16px; width: 90%; max-width: 420px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
         .lobby-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ff4757; }
         
@@ -33,7 +31,8 @@
         .btn-purple:hover { background: #341f97; }
         
         #toast { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(255, 71, 87, 0.95); color: #fff; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 13px; display: none; z-index: 10; }
-        #room-display { background: #281e3f; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 18px; color: #2ed573; margin: 10px 0; }
+        #room-display { background: #281e3f; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 20px; color: #2ed573; margin: 10px 0; border: 1px dashed #2ed573; }
+        #lobby-status { margin-top: 15px; color: #ffa502; font-size: 14px; font-weight: bold; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -46,21 +45,21 @@
             
             <button class="btn btn-purple" style="width: 100%;" onclick="createRoom()">👑 Tạo Phòng (Người Xây)</button>
             
-            <div style="margin: 20px 0; color: #5f27cd; font-weight: bold;">— HOẶC —</div>
+            <div style="margin: 15px 0; color: #5f27cd; font-weight: bold;">— HOẶC —</div>
             
             <div class="input-group">
                 <input type="text" id="room-input" placeholder="Nhập mã phòng...">
                 <button class="btn" onclick="joinRoom()">🔍 Vào</button>
             </div>
             
-            <div id="lobby-status" style="margin-top: 15px; color: #ffa502; font-size: 14px; font-weight: bold;"></div>
+            <div id="lobby-status"></div>
         </div>
     </div>
 
     <!-- Thanh Thông Tin Game -->
     <div id="top-bar">
         <div class="info-box">
-            <div class="info-label">Vai Trò Dòng Game</div>
+            <div class="info-label">Vai Trò</div>
             <div class="info-value" id="role-text" style="color: #2ed573;">-</div>
         </div>
         <div class="info-box">
@@ -93,65 +92,90 @@
         let startPos = { r: 1, c: 1 }, heartPos = { r: ROWS - 2, c: COLS - 2 };
         let seekerPos = { ...startPos };
 
-        let myRole = ''; // 'BUILDER' hoặc 'SEEKER'
-        let mode = 'BUILD'; // 'BUILD', 'PLAY', 'END'
+        let myRole = ''; 
+        let mode = 'BUILD'; 
         let score = 0, timerId = null;
-
         let peer = null, conn = null;
 
-        // --- HỆ THỐNG KẾT NỐI PEERJS ---
+        function updateStatus(msg, isError = false) {
+            const statusDiv = document.getElementById('lobby-status');
+            statusDiv.style.color = isError ? '#ff4757' : '#ffa502';
+            statusDiv.innerHTML = msg;
+        }
+
+        // --- TẠO PHÒNG (HOST) ---
         function createRoom() {
             const randomCode = Math.floor(1000 + Math.random() * 9000);
             const roomId = `HEART-${randomCode}`;
             
-            document.getElementById('lobby-status').innerText = "Đang tạo phòng...";
+            updateStatus("Đang khởi tạo máy chủ...");
             peer = new Peer(roomId);
 
             peer.on('open', (id) => {
                 myRole = 'BUILDER';
                 document.getElementById('role-text').innerText = "NGƯỜI XÂY";
                 document.getElementById('game-room-id').innerText = id;
-                document.getElementById('lobby-status').innerHTML = `Mã phòng: <div id="room-display">${id}</div>Gửi mã này cho bạn bè!`;
+                updateStatus(`Mã phòng của bạn:<div id="room-display">${id}</div>Đang chờ người chơi thứ 2 vào...`);
             });
 
             peer.on('connection', (connection) => {
                 conn = connection;
                 setupDataListener();
-                document.getElementById('lobby-overlay').style.display = 'none';
-                document.getElementById('btn-start').style.display = 'inline-block';
-            });
-        }
-
-        function joinRoom() {
-            const roomId = document.getElementById('room-input').value.trim().toUpperCase();
-            if (!roomId) return alert("Vui lòng nhập mã phòng!");
-
-            document.getElementById('lobby-status').innerText = "Đang kết nối...";
-            peer = new Peer();
-
-            peer.on('open', () => {
-                conn = peer.connect(roomId);
-                setupDataListener();
-
+                
+                // Gửi dữ liệu bản đồ hiện tại cho người mới vào
                 conn.on('open', () => {
-                    myRole = 'SEEKER';
-                    document.getElementById('role-text').innerText = "NGƯỜI TÌM";
-                    document.getElementById('role-text').style.color = "#ff4757";
-                    document.getElementById('game-room-id').innerText = roomId;
-                    document.getElementById('lobby-overlay').style.display = 'none';
+                    conn.send({ type: 'INIT_SYNC', grid: grid });
+                    enterGameScreen();
                 });
             });
 
             peer.on('error', (err) => {
-                alert("Không tìm thấy phòng! Kiểm tra lại mã phòng.");
-                document.getElementById('lobby-status').innerText = "";
+                updateStatus("Lỗi kết nối máy chủ PeerJS! Vui lòng thử lại.", true);
             });
         }
 
-        // Lắng nghe dữ liệu giữa 2 máy
+        // --- VÀO PHÒNG (GUEST) ---
+        function joinRoom() {
+            const roomId = document.getElementById('room-input').value.trim().toUpperCase();
+            if (!roomId) return alert("Vui lòng nhập mã phòng!");
+
+            updateStatus("Đang tìm phòng...");
+            peer = new Peer();
+
+            peer.on('open', () => {
+                myRole = 'SEEKER';
+                document.getElementById('role-text').innerText = "NGƯỜI TÌM";
+                document.getElementById('role-text').style.color = "#ff4757";
+                document.getElementById('game-room-id').innerText = roomId;
+
+                conn = peer.connect(roomId, { reliable: true });
+                setupDataListener();
+
+                conn.on('open', () => {
+                    updateStatus("Đã kết nối! Đang đồng bộ game...");
+                });
+            });
+
+            peer.on('error', (err) => {
+                updateStatus("Không tìm thấy phòng! Hãy kiểm tra lại mã phòng.", true);
+            });
+        }
+
+        function enterGameScreen() {
+            document.getElementById('lobby-overlay').style.display = 'none';
+            if (myRole === 'BUILDER') {
+                document.getElementById('btn-start').style.display = 'inline-block';
+            }
+            draw();
+        }
+
+        // --- LẮNG NGHE DỮ LIỆU ---
         function setupDataListener() {
             conn.on('data', (data) => {
-                if (data.type === 'GRID_UPDATE') {
+                if (data.type === 'INIT_SYNC') {
+                    grid = data.grid;
+                    enterGameScreen();
+                } else if (data.type === 'GRID_UPDATE') {
                     grid = data.grid;
                     draw();
                 } else if (data.type === 'START_PLAY') {
@@ -170,9 +194,13 @@
                     alert(data.msg);
                 }
             });
+
+            conn.on('close', () => {
+                alert("Đối phương đã ngắt kết nối!");
+            });
         }
 
-        // --- THUẬT TOÁN TÌM ĐƯỜNG & TƯƠNG TÁC ---
+        // --- KIỂM TRA ĐƯỜNG ĐI (BFS) ---
         function hasPath(start, goal, currentGrid) {
             let queue = [{ r: start.r, c: start.c }];
             let visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
@@ -195,7 +223,7 @@
             return false;
         }
 
-        // Đặt tường (Chỉ dành cho Người Xây)
+        // Tương tác đặt tường
         canvas.addEventListener('pointerdown', (e) => {
             if (myRole !== 'BUILDER' || mode !== 'BUILD') return;
 
@@ -214,7 +242,7 @@
                 setTimeout(() => document.getElementById('toast').style.display = 'none', 1500);
             } else {
                 draw();
-                conn.send({ type: 'GRID_UPDATE', grid: grid });
+                if (conn && conn.open) conn.send({ type: 'GRID_UPDATE', grid: grid });
             }
         });
 
@@ -223,28 +251,27 @@
             mode = 'PLAY';
             seekerPos = { ...startPos };
             document.getElementById('btn-start').style.display = 'none';
-            conn.send({ type: 'START_PLAY' });
+            if (conn && conn.open) conn.send({ type: 'START_PLAY' });
 
-            // Người Xây tính điểm
             timerId = setInterval(() => {
                 if (mode === 'PLAY') {
                     score += 50;
                     document.getElementById('score-val').innerText = score;
-                    conn.send({ type: 'SCORE_UPDATE', score: score });
+                    if (conn && conn.open) conn.send({ type: 'SCORE_UPDATE', score: score });
 
                     if (score >= TARGET_SCORE) {
                         mode = 'END';
                         clearInterval(timerId);
                         let msg = "🎉 NGƯỜI XÂY THẮNG! Người tìm đã lạc quá lâu!";
                         alert(msg);
-                        conn.send({ type: 'GAME_OVER', msg: msg });
+                        if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
                     }
                 }
             }, 100);
             draw();
         }
 
-        // Di chuyển (Chỉ dành cho Người Tìm)
+        // Di chuyển Người Tìm
         window.addEventListener('keydown', (e) => {
             if (myRole !== 'SEEKER' || mode !== 'PLAY') return;
 
@@ -258,13 +285,13 @@
                 let nr = seekerPos.r + dr, nc = seekerPos.c + dc;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] !== 1) {
                     seekerPos = { r: nr, c: nc };
-                    conn.send({ type: 'SEEKER_MOVE', pos: seekerPos });
+                    if (conn && conn.open) conn.send({ type: 'SEEKER_MOVE', pos: seekerPos });
 
                     if (seekerPos.r === heartPos.r && seekerPos.c === heartPos.c) {
                         mode = 'END';
                         let msg = "💖 NGƯỜI TÌM THẮNG! Đã tìm thấy Nửa Trái Tim!";
                         alert(msg);
-                        conn.send({ type: 'GAME_OVER', msg: msg });
+                        if (conn && conn.open) conn.send({ type: 'GAME_OVER', msg: msg });
                     }
                 }
                 draw();
@@ -280,7 +307,6 @@
                 for (let c = 0; c < COLS; c++) {
                     let x = c * CELL_SIZE, y = r * CELL_SIZE;
 
-                    // Người tìm sẽ bị Sương mù phủ bóng
                     let isVisible = true;
                     if (myRole === 'SEEKER' && mode === 'PLAY') {
                         isVisible = Math.hypot(r - seekerPos.r, c - seekerPos.c) <= FOG_RADIUS;
@@ -300,7 +326,6 @@
                         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
                     }
 
-                    // Vẽ vị trí Người Tìm
                     if (r === seekerPos.r && c === seekerPos.c) {
                         ctx.fillStyle = '#2ed573';
                         ctx.beginPath();
@@ -308,7 +333,6 @@
                         ctx.fill();
                     }
 
-                    // Vẽ Nửa Tim
                     if (r === heartPos.r && c === heartPos.c) {
                         ctx.fillStyle = '#ff4757';
                         ctx.font = '18px sans-serif';
