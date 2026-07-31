@@ -3,107 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Lounge - 2D Style & Camera Movement</title>
+    <title>3D Lounge - Enhanced Mobile & Smooth Sync</title>
 
-    <!-- Thư viện Three.js (3D Engine) & MQTT -->
+    <!-- Thư viện Three.js & MQTT -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background: #090714; color: #fff; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #090714; color: #fff; touch-action: none; }
 
-        /* Canvas 3D chứa toàn màn hình */
+        /* Canvas 3D */
         #webgl-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
 
-        /* GIAO DIỆN SẢNH (LOBBY OVERLAY) */
+        /* GIAO DIỆN SẢNH (LOBBY UI) */
         #lobby-ui {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10;
             pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 15px;
         }
         .interactive { pointer-events: auto; }
 
-        /* THANH CÔNG CỤ TẬP TRUNG TẠI SẢNH */
         .lobby-top-bar {
-            display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap;
-            background: rgba(15, 23, 42, 0.85); padding: 10px 16px; border-radius: 50px;
-            border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px);
-            max-width: 95%; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap;
+            background: rgba(15, 23, 42, 0.9); padding: 12px 18px; border-radius: 30px;
+            border: 1.5px solid rgba(59, 130, 246, 0.5); backdrop-filter: blur(12px);
+            max-width: 95%; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
 
         .name-input {
-            background: #0f172a; border: 1px solid #3b82f6; color: #fff; padding: 6px 12px;
-            border-radius: 20px; outline: none; font-size: 13px; width: 140px; text-align: center;
+            background: #0f172a; border: 1.5px solid #3b82f6; color: #fff; padding: 8px 14px;
+            border-radius: 20px; outline: none; font-size: 14px; width: 150px; text-align: center; font-weight: bold;
         }
 
         .btn {
-            background: #3b82f6; color: #fff; border: none; padding: 8px 14px; border-radius: 20px;
-            font-weight: bold; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+            background: #3b82f6; color: #fff; border: none; padding: 10px 16px; border-radius: 20px;
+            font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
-        .btn:hover { transform: scale(1.05); filter: brightness(1.1); }
+        .btn:active { transform: scale(0.95); }
         .btn-green { background: #10b981; }
         .btn-purple { background: #8b5cf6; }
         .btn-orange { background: #f59e0b; }
         .btn-danger { background: #ef4444; }
 
-        /* HUD TRONG GAME CỦA PHONG CÁCH 2D */
+        /* HUD IN-GAME */
         #game-hud {
             position: fixed; top: 12px; left: 12px; right: 12px; z-index: 20; display: none;
             justify-content: space-between; align-items: center; pointer-events: none;
         }
-        .hud-card { background: rgba(15, 23, 42, 0.85); padding: 8px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; font-weight: bold; }
+        .hud-card { background: rgba(15, 23, 42, 0.9); padding: 10px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.3); font-size: 13px; font-weight: bold; text-shadow: 0 1px 2px #000; }
 
-        /* KHUNG CHAT TRỰC TIẾP GIỐNG GAME 2D */
+        /* CHAT OVERLAY */
         #chat-overlay {
-            position: fixed; bottom: 15px; left: 15px; width: 320px; z-index: 25; display: none;
-            flex-direction: column; gap: 6px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 14px; padding: 10px; backdrop-filter: blur(8px);
+            position: fixed; bottom: 20px; left: 15px; width: 300px; max-width: 80vw; z-index: 25; display: none;
+            flex-direction: column; gap: 8px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px; padding: 12px; backdrop-filter: blur(10px);
         }
-        #chat-messages { height: 90px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-        .msg-item { line-height: 1.3; }
+        #chat-messages { height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+        .msg-item { line-height: 1.4; word-break: break-word; }
         .msg-sender { font-weight: bold; color: #38bdf8; margin-right: 4px; }
         .msg-text { color: #f1f5f9; }
         .chat-input-row { display: flex; gap: 6px; }
-        #chat-input { flex: 1; padding: 6px 10px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 12px; outline: none; }
+        #chat-input { flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 12px; outline: none; }
 
-        /* MODAL POPUP */
+        /* MODAL POPUPS */
         .modal {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7);
-            z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px);
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75);
+            z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(6px);
         }
         .modal-card {
-            background: #1e293b; border: 1px solid #475569; border-radius: 20px; padding: 20px;
-            width: 90%; max-width: 440px; display: flex; flex-direction: column; gap: 12px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8); color: #fff;
+            background: #1e293b; border: 1.5px solid #475569; border-radius: 24px; padding: 22px;
+            width: 90%; max-width: 450px; display: flex; flex-direction: column; gap: 14px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.9); color: #fff;
         }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: bold; }
-        .close-btn { cursor: pointer; font-size: 18px; color: #94a3b8; } .close-btn:hover { color: #fff; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: bold; }
+        .close-btn { cursor: pointer; font-size: 20px; color: #94a3b8; padding: 4px; } .close-btn:hover { color: #fff; }
 
-        .server-list { background: #0f172a; border-radius: 10px; height: 160px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-        .server-item { background: #334155; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .server-list { background: #0f172a; border-radius: 12px; height: 180px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #334155; }
+        .server-item { background: #334155; padding: 10px 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
 
-        .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 6px; }
-        .color-box { height: 36px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 6px; }
+        .color-box { height: 42px; border-radius: 10px; cursor: pointer; border: 2.5px solid transparent; transition: 0.2s; }
         .color-box.selected { border-color: #fff; transform: scale(1.1); }
 
-        /* ĐIỀU KHIỂN CẢM ỨNG MOBILE */
+        /* ĐIỀU KHIỂN CẢM ỨNG MOBILE (BÊN TRÁI: WASD, BÊN PHẢI: ACTION) */
         #mobile-controls {
-            position: fixed; bottom: 20px; right: 20px; z-index: 30; display: none;
-            gap: 15px; pointer-events: none; align-items: flex-end;
+            position: fixed; bottom: 20px; left: 0; right: 0; z-index: 30; display: none;
+            justify-content: space-between; padding: 0 20px; pointer-events: none; align-items: flex-end;
         }
+        .touch-dpad { display: grid; grid-template-columns: repeat(3, 50px); gap: 6px; pointer-events: auto; }
         .touch-btn {
-            width: 55px; height: 55px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5);
-            border-radius: 50%; display: flex; justify-content: center; align-items: center;
-            font-size: 18px; font-weight: bold; color: #fff; pointer-events: auto; backdrop-filter: blur(4px);
+            width: 50px; height: 50px; background: rgba(15, 23, 42, 0.75); border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 16px; display: flex; justify-content: center; align-items: center;
+            font-size: 20px; font-weight: bold; color: #fff; pointer-events: auto; backdrop-filter: blur(8px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        .touch-btn:active { background: rgba(255,255,255,0.5); transform: scale(0.95); }
+        .touch-btn:active { background: rgba(59, 130, 246, 0.8); transform: scale(0.92); }
+        .touch-action-group { display: flex; flex-direction: column; gap: 12px; align-items: flex-end; pointer-events: auto; }
 
         @media (hover: hover) and (pointer: fine) { #mobile-controls { display: none !important; } }
     </style>
 </head>
 <body>
 
-    <!-- CANVAS ENGINE 3D -->
+    <!-- CANVAS 3D ENGINE -->
     <div id="webgl-container"></div>
 
     <!-- UI SẢNH LOBBY -->
@@ -112,11 +115,11 @@
             <input type="text" id="player-name-input" class="name-input" value="Bóng Roblox" maxlength="12" placeholder="Tên nhân vật...">
             <button class="btn btn-purple" onclick="openAvatarModal()">🎨 Đổi Màu</button>
             <button class="btn btn-orange" onclick="toggleCameraMode()" id="cam-toggle-btn">📷 Cam: 2D Top-Down</button>
-            <button class="btn btn-green" onclick="openServerModal()">🌐 Chọn Server</button>
+            <button class="btn btn-green" onclick="openServerModal()">⚡ Tìm Server Tốc Độ</button>
         </div>
 
-        <div style="text-align: center; color: rgba(255,255,255,0.7); font-size: 12px; text-shadow: 0 2px 4px #000;">
-            💡 <b>Di chuyển:</b> Dùng <b>WASD</b> (Luôn di chuyển theo hướng Cam nhìn), Giữ Chuột Phải/Kéo để xoay Cam.
+        <div style="text-align: center; color: rgba(255,255,255,0.8); font-size: 13px; text-shadow: 0 2px 4px #000; padding-bottom: 10px;">
+            💡 <b>PC:</b> Dùng <b>WASD</b> di chuyển, Giữ Chuột Phải/Kéo để xoay góc nhìn | <b>Mobile:</b> Nút di chuyển Trái, Vuốt màn hình để xoay Cam.
         </div>
     </div>
 
@@ -127,10 +130,10 @@
         <button class="btn btn-danger interactive" onclick="leaveServer()">Thoát</button>
     </div>
 
-    <!-- KHUNG CHAT TRỰC TIẾP -->
+    <!-- KHUNG CHAT -->
     <div id="chat-overlay" class="interactive">
         <div id="chat-messages">
-            <div style="color: #94a3b8; font-style: italic;">Sử dụng WASD để di chuyển. Nhập tin nhắn bên dưới để chat!</div>
+            <div style="color: #94a3b8; font-style: italic;">Chào mừng! Nhập tin nhắn bên dưới để trò chuyện trực tiếp.</div>
         </div>
         <div class="chat-input-row">
             <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="50">
@@ -138,22 +141,28 @@
         </div>
     </div>
 
-    <!-- ĐIỀU KHIỂN CẢM ỨNG MOBILE -->
+    <!-- ĐIỀU KHIỂN MOBILE TỐI ƯU CHUẨN PC -->
     <div id="mobile-controls">
-        <div style="display:grid; grid-template-columns: repeat(3, 45px); gap: 4px; pointer-events: auto;">
-            <div></div><div class="touch-btn" style="width:45px;height:45px;" id="btn-up">▲</div><div></div>
-            <div class="touch-btn" style="width:45px;height:45px;" id="btn-left">◄</div>
-            <div class="touch-btn" style="width:45px;height:45px;" id="btn-down">▼</div>
-            <div class="touch-btn" style="width:45px;height:45px;" id="btn-right">►</div>
+        <!-- D-PAD BÊN TRÁI -->
+        <div class="touch-dpad">
+            <div></div><div class="touch-btn" id="btn-up">▲</div><div></div>
+            <div class="touch-btn" id="btn-left">◄</div>
+            <div class="touch-btn" id="btn-down">▼</div>
+            <div class="touch-btn" id="btn-right">►</div>
         </div>
-        <div class="touch-btn" style="width:65px; height:65px; background: #10b981;" id="btn-jump">NHẢY</div>
+
+        <!-- HÀNH ĐỘNG BÊN PHẢI -->
+        <div class="touch-action-group">
+            <button class="btn btn-orange" style="padding:10px 14px; border-radius:14px;" onclick="toggleCameraMode()">📷 Cam</button>
+            <div class="touch-btn" style="width:70px; height:70px; background: #10b981; border-radius: 50%; font-size: 15px;" id="btn-jump">NHẢY</div>
+        </div>
     </div>
 
     <!-- MODAL SERVER -->
     <div class="modal interactive" id="server-modal">
         <div class="modal-card">
             <div class="modal-header">
-                <span>🌐 Danh Sách Server Online</span>
+                <span>🌐 Tìm Server Nhanh</span>
                 <span class="close-btn" onclick="closeServerModal()">✖</span>
             </div>
             
@@ -162,8 +171,13 @@
                 <button class="btn btn-green" onclick="createNewServer()">🚀 Tạo Phòng</button>
             </div>
 
+            <div style="display:flex; justify-shadow:space-between; align-items:center;">
+                <span style="font-size:12px; color:#94a3b8;">Danh sách Server đang chạy:</span>
+                <button class="btn btn-purple" style="font-size:11px; padding:4px 10px;" onclick="requestServerList()">🔄 Tải lại</button>
+            </div>
+
             <div class="server-list" id="server-list-box">
-                <div style="text-align:center; color:#64748b; margin-top:50px; font-size:12px;">Đang tìm phòng...</div>
+                <div style="text-align:center; color:#64748b; margin-top:60px; font-size:13px;">Đang quét tìm phòng...</div>
             </div>
         </div>
     </div>
@@ -172,7 +186,7 @@
     <div class="modal interactive" id="avatar-modal">
         <div class="modal-card">
             <div class="modal-header">
-                <span>🎨 Tùy Chỉnh Màu Bóng</span>
+                <span>🎨 Chọn Màu Bóng Nhân Vật</span>
                 <span class="close-btn" onclick="closeAvatarModal()">✖</span>
             </div>
             <div class="color-picker-grid" id="color-picker"></div>
@@ -181,8 +195,8 @@
     </div>
 
 <script>
-    /* --- CẤU HÌNH MQTT MULTIPLAYER --- */
-    const LOBBY_TOPIC = "cozy-lounge-v5/3d-lobby";
+    /* --- CẤU HÌNH MULTIPLAYER MQTT --- */
+    const LOBBY_TOPIC = "cozy-lounge-v6/3d-lobby";
     const myClientId = 'user_3d_' + Math.random().toString(36).substr(2, 6);
     let myColor = '#3b82f6';
     let myName = "Bóng Roblox";
@@ -191,16 +205,16 @@
 
     const availableColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#ffffff', '#1e293b'];
 
-    /* --- THREE.JS 3D ENGINE --- */
+    /* --- ENGINE 3D THREE.JS --- */
     let scene, camera, renderer;
     let myBallGroup, otherPlayers = {}, publicServers = {};
     
     // Góc xoay Camera
-    let cameraAngleYaw = 0; // Xoay ngang
-    let cameraAnglePitch = 1.1; // Góc nghiêng từ trên xuống (Chế độ Top-Down 2.5D mặc định)
+    let cameraAngleYaw = 0;
+    let cameraAnglePitch = 1.1; // Góc 2.5D mượt
     let is2DTopDownMode = true;
 
-    // Vật lý nhân vật
+    // Vật lý
     let pos = { x: 0, y: 1, z: 0 };
     let velocityY = 0;
     let isGrounded = true;
@@ -218,6 +232,7 @@
         
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
@@ -229,14 +244,12 @@
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(30, 50, 20);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
         scene.add(dirLight);
 
-        // Tạo Sân bóng đá phong cách 2D/3D kết hợp
         createFootballPitch();
 
-        // Tạo nhân vật bản thân
         myBallGroup = create3DBallMesh(myColor, myName);
         scene.add(myBallGroup);
 
@@ -244,7 +257,7 @@
         setupInteraction();
     }
 
-    /* --- SÂN BÓNG ĐÁ 3D HỌA TIẾT KẺ Ô 2D --- */
+    /* --- SÂN BÓNG ĐÁ --- */
     function createFootballPitch() {
         const fieldGeo = new THREE.PlaneGeometry(80, 120);
         const fieldMat = new THREE.MeshStandardMaterial({ color: 0x2ed573, roughness: 0.5 });
@@ -253,7 +266,6 @@
         field.receiveShadow = true;
         scene.add(field);
 
-        // Đất xung quanh sân
         const groundGeo = new THREE.PlaneGeometry(250, 250);
         const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
         const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -261,7 +273,6 @@
         ground.position.y = -0.05;
         scene.add(ground);
 
-        // Vạch kẻ sân bóng trắng
         const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const centerCircleGeo = new THREE.RingGeometry(9.8, 10, 32);
         const centerCircle = new THREE.Mesh(centerCircleGeo, lineMat);
@@ -285,18 +296,16 @@
         scene.add(goalGroup);
     }
 
-    /* --- MÔ HÌNH NHÂN VẬT 3D CÓ THỂ ĐỔI MÀU & CHAT BUBBLE --- */
+    /* --- MÔ HÌNH BÓNG 3D --- */
     function create3DBallMesh(colorHex, labelText) {
         const group = new THREE.Group();
 
-        // Quả bóng
         const ballGeo = new THREE.SphereGeometry(1, 32, 32);
         const ballMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorHex), roughness: 0.3, metalness: 0.1 });
         const ballMesh = new THREE.Mesh(ballGeo, ballMat);
         ballMesh.castShadow = true;
         group.add(ballMesh);
 
-        // Mắt & Miệng (Định hướng mặt trước nhân vật)
         const eyeGeo = new THREE.SphereGeometry(0.15, 16, 16);
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(0.35, 0.2, 0.85);
@@ -308,10 +317,8 @@
 
         group.add(leftEye, rightEye, mouth);
 
-        // Tên hiển thị trên đầu
         const nameSprite = createTextSprite(labelText);
         nameSprite.position.set(0, 1.8, 0);
-        nameSprite.name = "nameTag";
         group.add(nameSprite);
 
         return group;
@@ -320,7 +327,7 @@
     function createTextSprite(text) {
         const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 64;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
         ctx.roundRect(10, 10, 236, 44, 20); ctx.fill();
         ctx.font = 'Bold 22px sans-serif'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
         ctx.fillText(text, 128, 40);
@@ -331,7 +338,7 @@
         return sprite;
     }
 
-    /* --- ĐIỀU KHIỂN & CƠ CHẾ DI CHUYỂN HƯỚNG THEO CAMERA --- */
+    /* --- ĐIỀU KHIỂN & SỰ KIỆN CHẠY MOBILE / PC --- */
     function setupInteraction() {
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
@@ -353,27 +360,45 @@
             if (e.code === 'Space') keys.space = false;
         });
 
-        // Xoay Camera khi di chuyển chuột
-        let isMouseDown = false, prevMouseX = 0, prevMouseY = 0;
-        window.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.interactive')) return;
-            isMouseDown = true; prevMouseX = e.clientX; prevMouseY = e.clientY;
-        });
-        window.addEventListener('mouseup', () => isMouseDown = false);
-        window.addEventListener('mousemove', (e) => {
-            if (!isMouseDown) return;
-            const deltaX = e.clientX - prevMouseX;
-            const deltaY = e.clientY - prevMouseY;
+        // Xoay Camera Chuột/Touch
+        let isPointerDown = false, prevX = 0, prevY = 0;
+        
+        const onPointerStart = (x, y, target) => {
+            if (target.closest('.interactive') || target.closest('#mobile-controls')) return;
+            isPointerDown = true; prevX = x; prevY = y;
+        };
+
+        const onPointerMove = (x, y) => {
+            if (!isPointerDown) return;
+            const deltaX = x - prevX;
+            const deltaY = y - prevY;
             cameraAngleYaw -= deltaX * 0.005;
             cameraAnglePitch += deltaY * 0.005;
             cameraAnglePitch = Math.max(0.2, Math.min(Math.PI / 2 - 0.05, cameraAnglePitch));
-            prevMouseX = e.clientX; prevMouseY = e.clientY;
-        });
+            prevX = x; prevY = y;
+        };
 
-        // Gắn nút cảm ứng Mobile
+        window.addEventListener('mousedown', (e) => onPointerStart(e.clientX, e.clientY, e.target));
+        window.addEventListener('mousemove', (e) => onPointerMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', () => isPointerDown = false);
+
+        // Hỗ trợ Vuốt Camera trên Điện Thoại
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) onPointerStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => isPointerDown = false);
+
+        // Nút Cảm Ứng D-pad Mobile
         bindTouch('btn-up', 'w'); bindTouch('btn-down', 's');
         bindTouch('btn-left', 'a'); bindTouch('btn-right', 'd');
-        document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
+        
+        const jumpBtn = document.getElementById('btn-jump');
+        jumpBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (isGrounded) { velocityY = jumpPower; isGrounded = false; }
         });
@@ -387,25 +412,22 @@
     }
 
     function updatePhysics(delta) {
-        // --- CƠ CHẾ DI CHUYỂN CHUẨN THEO HƯỚNG CAMERA (CAMERA-RELATIVE MOVEMENT) ---
         let moveX = 0, moveZ = 0;
-        if (keys.w) moveZ -= 1; // Tiến tới phía cam nhìn
-        if (keys.s) moveZ += 1; // Lùi lại phía người chơi
-        if (keys.a) moveX -= 1; // Sang trái góc nhìn cam
-        if (keys.d) moveX += 1; // Sang phải góc nhìn cam
+        if (keys.w) moveZ -= 1;
+        if (keys.s) moveZ += 1;
+        if (keys.a) moveX -= 1;
+        if (keys.d) moveX += 1;
 
         if (moveX !== 0 || moveZ !== 0) {
             const length = Math.hypot(moveX, moveZ);
             moveX /= length; moveZ /= length;
 
-            // Tính toán Vector di chuyển thực tế theo góc Yaw của Camera
             const worldMoveX = moveX * Math.cos(cameraAngleYaw) + moveZ * Math.sin(cameraAngleYaw);
             const worldMoveZ = -moveX * Math.sin(cameraAngleYaw) + moveZ * Math.cos(cameraAngleYaw);
 
             pos.x += worldMoveX * speed * delta;
             pos.z += worldMoveZ * speed * delta;
 
-            // Xoay mặt quả bóng về hướng đang lao tới
             const targetRotation = Math.atan2(worldMoveX, worldMoveZ);
             myBallGroup.rotation.y = targetRotation;
         }
@@ -420,61 +442,98 @@
 
         myBallGroup.position.set(pos.x, pos.y, pos.z);
 
-        // Vị trí Camera bám đuổi theo nhân vật
+        // Camera theo chân nhân vật
         const camDistance = is2DTopDownMode ? 22 : 14;
         camera.position.x = pos.x + camDistance * Math.sin(cameraAngleYaw) * Math.cos(cameraAnglePitch);
         camera.position.y = pos.y + camDistance * Math.sin(cameraAnglePitch);
         camera.position.z = pos.z + camDistance * Math.cos(cameraAngleYaw) * Math.cos(cameraAnglePitch);
         camera.lookAt(pos.x, pos.y + 0.5, pos.z);
+
+        // --- NÂNG CẤP LERP INTERPOLATION 0.1S DÙNG CHO PLAYER KHÁC ---
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            if (p.targetPos) {
+                // Trượt mượt vị trí giữa các gói tin 0.1s
+                p.mesh.position.x += (p.targetPos.x - p.mesh.position.x) * 0.2;
+                p.mesh.position.y += (p.targetPos.y - p.mesh.position.y) * 0.2;
+                p.mesh.position.z += (p.targetPos.z - p.mesh.position.z) * 0.2;
+                p.mesh.rotation.y += (p.targetRotY - p.mesh.rotation.y) * 0.2;
+            }
+        }
     }
 
-    /* --- GAME LOOP --- */
+    /* --- GAME LOOP & SYNC 0.1S AUTOMATIC --- */
     let lastTime = performance.now();
+    let lastBroadcastTime = 0;
+
     function gameLoop(now) {
         const delta = Math.min((now - lastTime) / 1000, 0.1);
         lastTime = now;
 
         updatePhysics(delta);
-        broadcastPosition();
+
+        // AUTO CẬP NHẬT CHÍNH XÁC MỖI 0.1S (100ms)
+        if (now - lastBroadcastTime >= 100) {
+            broadcastPosition();
+            lastBroadcastTime = now;
+        }
 
         renderer.render(scene, camera);
         requestAnimationFrame(gameLoop);
     }
 
-    /* --- WEBSOCKET MQTT CHAT & MULTIPLAYER --- */
+    /* --- MULTIPLAYER MQTT CLIENT --- */
     const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId });
 
-    client.on('connect', () => { client.subscribe(LOBBY_TOPIC); });
+    client.on('connect', () => { 
+        client.subscribe(LOBBY_TOPIC); 
+    });
 
     client.on('message', (topic, message) => {
         try {
             const data = JSON.parse(message.toString());
 
-            if (topic === LOBBY_TOPIC && data.type === 'SERVER_PING') {
-                publicServers[data.roomId] = { ...data, lastPing: Date.now() };
-                renderServerList();
+            // TÌM SERVER SIÊU TỐC: Nhận Yêu cầu tìm server từ client khác -> Trả lời ngay nếu là Host
+            if (topic === LOBBY_TOPIC) {
+                if (data.type === 'REQ_SERVERS' && isHost && currentRoomId) {
+                    client.publish(LOBBY_TOPIC, JSON.stringify({
+                        type: 'SERVER_PING', roomId: currentRoomId, roomName: window.currentRoomName, hostName: myName
+                    }));
+                } 
+                else if (data.type === 'SERVER_PING') {
+                    publicServers[data.roomId] = { ...data, lastPing: Date.now() };
+                    renderServerList();
+                }
                 return;
             }
 
-            if (topic === `cozy-lounge-v5/room/${currentRoomId}`) {
+            // XỬ LÝ TRONG PHÒNG GAME
+            if (topic === `cozy-lounge-v6/room/${currentRoomId}`) {
                 if (data.sender === myClientId) return;
 
                 if (data.type === 'MOVE') {
                     if (!otherPlayers[data.sender]) {
-                        otherPlayers[data.sender] = create3DBallMesh(data.color, data.name);
-                        scene.add(otherPlayers[data.sender]);
+                        const mesh = create3DBallMesh(data.color, data.name);
+                        otherPlayers[data.sender] = {
+                            mesh: mesh,
+                            targetPos: { x: data.x, y: data.y, z: data.z },
+                            targetRotY: data.rotY
+                        };
+                        scene.add(mesh);
                         updateOnlineCount();
+                    } else {
+                        // Cập nhật tọa độ mục tiêu để LERP làm mượt animation
+                        let p = otherPlayers[data.sender];
+                        p.targetPos = { x: data.x, y: data.y, z: data.z };
+                        p.targetRotY = data.rotY;
                     }
-                    let pMesh = otherPlayers[data.sender];
-                    pMesh.position.set(data.x, data.y, data.z);
-                    pMesh.rotation.y = data.rotY;
                 }
                 else if (data.type === 'CHAT') {
                     appendChatMessage(data.name, data.text);
                 }
                 else if (data.type === 'LEAVE') {
                     if (otherPlayers[data.sender]) {
-                        scene.remove(otherPlayers[data.sender]);
+                        scene.remove(otherPlayers[data.sender].mesh);
                         delete otherPlayers[data.sender];
                         updateOnlineCount();
                     }
@@ -483,16 +542,28 @@
         } catch(e){}
     });
 
+    // Phát vị trí theo chu kỳ 0.1s
     function broadcastPosition() {
         if (client && client.connected && currentRoomId) {
-            client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`cozy-lounge-v6/room/${currentRoomId}`, JSON.stringify({
                 type: 'MOVE', sender: myClientId, name: myName, color: myColor,
-                x: pos.x, y: pos.y, z: pos.z, rotY: myBallGroup.rotation.y
+                x: Number(pos.x.toFixed(2)), 
+                y: Number(pos.y.toFixed(2)), 
+                z: Number(pos.z.toFixed(2)), 
+                rotY: Number(myBallGroup.rotation.y.toFixed(2))
             }));
         }
     }
 
-    /* --- HỆ THỐNG CHAT 2D CẢI TIẾN --- */
+    /* --- TÌM SERVER VÀ CHAT --- */
+    function requestServerList() {
+        publicServers = {};
+        renderServerList();
+        if (client && client.connected) {
+            client.publish(LOBBY_TOPIC, JSON.stringify({ type: 'REQ_SERVERS' }));
+        }
+    }
+
     function sendChat() {
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
@@ -501,7 +572,7 @@
         appendChatMessage(myName, text, true);
 
         if (client && client.connected && currentRoomId) {
-            client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`cozy-lounge-v6/room/${currentRoomId}`, JSON.stringify({
                 type: 'CHAT', sender: myClientId, name: myName, text: text
             }));
         }
@@ -522,15 +593,16 @@
         e.stopPropagation();
     });
 
-    /* --- CHỨC NĂNG GIAO DIỆN SẢNH --- */
+    /* --- QUẢN LÝ GIAO DIỆN --- */
     function toggleCameraMode() {
         is2DTopDownMode = !is2DTopDownMode;
+        const btn = document.getElementById('cam-toggle-btn');
         if (is2DTopDownMode) {
-            cameraAnglePitch = 1.1; // Góc nhìn từ trên xuống chuẩn 2D
-            document.getElementById('cam-toggle-btn').innerText = "📷 Cam: 2D Top-Down";
+            cameraAnglePitch = 1.1;
+            btn.innerText = "📷 Cam: 2D Top-Down";
         } else {
-            cameraAnglePitch = 0.3; // Góc nhìn 3D Tự Do / Ngang
-            document.getElementById('cam-toggle-btn').innerText = "📷 Cam: 3D Tự Do";
+            cameraAnglePitch = 0.3;
+            btn.innerText = "📷 Cam: 3D Tự Do";
         }
     }
 
@@ -554,7 +626,10 @@
     }
     function closeAvatarModal() { document.getElementById('avatar-modal').style.display = 'none'; }
 
-    function openServerModal() { document.getElementById('server-modal').style.display = 'flex'; }
+    function openServerModal() { 
+        document.getElementById('server-modal').style.display = 'flex'; 
+        requestServerList();
+    }
     function closeServerModal() { document.getElementById('server-modal').style.display = 'none'; }
 
     function renderServerList() {
@@ -564,20 +639,20 @@
 
         for (let id in publicServers) {
             let s = publicServers[id];
-            if (now - s.lastPing < 8000) {
+            if (now - s.lastPing < 5000) {
                 count++;
                 html += `
                     <div class="server-item">
                         <div>
                             <b>${escapeHtml(s.roomName)}</b>
-                            <div style="font-size:10px; color:#94a3b8;">Host: ${escapeHtml(s.hostName)}</div>
+                            <div style="font-size:11px; color:#94a3b8;">Chủ phòng: ${escapeHtml(s.hostName)}</div>
                         </div>
-                        <button class="btn btn-purple" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}')">Vào</button>
+                        <button class="btn btn-purple" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}')">Vào Ngay</button>
                     </div>
                 `;
             }
         }
-        if (count === 0) listEl.innerHTML = `<div style="text-align:center; color:#64748b; margin-top:50px; font-size:12px;">Chưa có Server. Hãy tạo Server mới!</div>`;
+        if (count === 0) listEl.innerHTML = `<div style="text-align:center; color:#64748b; margin-top:60px; font-size:12px;">Không có Server nào. Tạo Server ngay!</div>`;
         else listEl.innerHTML = html;
     }
 
@@ -586,16 +661,18 @@
         if (!sName) return alert("Vui lòng nhập tên Server!");
 
         currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
+        window.currentRoomName = sName;
         isHost = true;
         enterGameRoom(sName);
 
+        // Ping định kỳ 1s để báo danh nhanh
         setInterval(() => {
             if (isHost && client && client.connected) {
                 client.publish(LOBBY_TOPIC, JSON.stringify({
                     type: 'SERVER_PING', roomId: currentRoomId, roomName: sName, hostName: myName
                 }));
             }
-        }, 3000);
+        }, 1000);
     }
 
     function joinServer(roomId, roomName) {
@@ -619,12 +696,12 @@
         
         if (isMobile()) document.getElementById('mobile-controls').style.display = 'flex';
 
-        client.subscribe(`cozy-lounge-v5/room/${currentRoomId}`);
+        client.subscribe(`cozy-lounge-v6/room/${currentRoomId}`);
     }
 
     function leaveServer() {
         if (client && currentRoomId) {
-            client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`cozy-lounge-v6/room/${currentRoomId}`, JSON.stringify({
                 type: 'LEAVE', sender: myClientId
             }));
         }
@@ -636,7 +713,7 @@
         document.getElementById('hud-online-count').innerText = `👥 ${count} Trực tuyến`;
     }
 
-    function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }
+    function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768; }
     function escapeHtml(str) { return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
     function onWindowResize() {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -644,7 +721,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // CHẠY GAME
+    // KHỞI CHẠY GAME
     init3D();
     requestAnimationFrame(gameLoop);
 </script>
