@@ -2,719 +2,1012 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Obby Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cozy Lounge & 2D Online Duel Game</title>
+
+    <!-- Thư viện MQTT WebSocket -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: #090714; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+
+        /* SẢNH LỰA CHỌN SERVER */
+        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9, 7, 20, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
+        .lobby-card { background: #151226; border: 1px solid #3d3266; border-radius: 20px; padding: 20px; width: 92%; max-width: 520px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 12px; max-height: 95vh; overflow-y: auto; }
+        .lobby-title { font-size: 20px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
+        
+        .input-group { display: flex; gap: 8px; }
+        input[type="text"], select { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 13px; outline: none; user-select: text; -webkit-user-select: text; }
+        input[type="text"]:focus, select:focus { border-color: #ff9f43; }
+
+        .btn { background: #ff9f43; color: #000; border: none; padding: 10px 16px; font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { background: #ffb164; }
+        .btn-purple { background: #54a0ff; color: #fff; }
+        .btn-purple:hover { background: #2e86de; }
+        .btn-danger { background: #ee5253; color: #fff; }
+
+        /* CHỌN KHU VỰC GRID */
+        .map-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 4px; }
+        .map-card { background: #0d0a1a; border: 2px solid #282142; border-radius: 8px; padding: 8px 4px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .map-card.selected { border-color: #ff9f43; background: #251b38; }
+        .map-card-title { font-size: 11px; font-weight: bold; color: #fff; }
+
+        /* DANH SÁCH SERVER */
+        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 10px; padding: 8px; height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .server-item { background: #1d1735; border: 1px solid #3a305e; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
+        .server-info { display: flex; flex-direction: column; gap: 2px; }
+        .server-name { font-weight: bold; font-size: 13px; color: #54a0ff; }
+        .server-sub { font-size: 10px; color: #8c7ae6; }
+        
+        /* MÀN HÌNH CHÍNH GAME */
+        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 900px; height: 100vh; justify-content: center; padding: 10px; gap: 8px; }
+        
+        #top-bar { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .room-title-text { font-size: 14px; font-weight: bold; color: #ff9f43; }
+        
+        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        canvas { width: 100%; height: 100%; display: block; background: #05040a; }
+
+        /* KHUNG CHAT */
+        #chat-box { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+        #chat-messages { height: 75px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .msg-item { line-height: 1.3; }
+        .msg-sender { font-weight: bold; color: #54a0ff; margin-right: 5px; }
+        .msg-text { color: #e1b12c; }
+        .chat-input-row { display: flex; gap: 8px; }
+        #chat-input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 12px; }
+
+        /* --- GIAO DIỆN THÁCH ĐẤU & BẢNG THÔNG BÁO --- */
+        #invite-btn {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 12px 24px; background: #f59e0b; color: #000; border: none;
+            border-radius: 30px; font-weight: 800; font-size: 14px; cursor: pointer; display: none;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5); z-index: 80; transition: transform 0.1s;
         }
-        body {
-            background: #0f172a;
-            color: #f8fafc;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow-x: hidden;
+        #invite-btn:active { transform: translateX(-50%) scale(0.95); }
+
+        #invite-toast {
+            position: absolute; top: 15px; right: 15px;
+            background: rgba(15, 23, 42, 0.95); border: 2px solid #f59e0b;
+            padding: 14px; border-radius: 12px; display: none; width: 230px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.7); z-index: 95; backdrop-filter: blur(4px);
         }
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background: #1e293b;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            min-height: 550px;
+        #invite-toast p { font-size: 13px; margin-bottom: 10px; line-height: 1.3; color: #f3f4f6; }
+        .toast-btns { display: flex; gap: 6px; }
+        .toast-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .toast-accept { background: #10b981; color: white; }
+        .toast-deny { background: #ef4444; color: white; }
+
+        #win-banner {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.95); border: 3px solid #f59e0b;
+            padding: 25px 40px; border-radius: 16px; font-size: 26px; color: #f59e0b;
+            text-align: center; display: none; font-weight: 900; text-shadow: 0 0 15px rgba(245, 158, 11, 0.7);
+            z-index: 100; box-shadow: 0 20px 50px rgba(0,0,0,0.9); width: 80%; max-width: 450px;
         }
-        header {
-            background: #3b82f6;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            font-size: 1.2rem;
+
+        #duel-hud {
+            position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+            display: none; background: rgba(15, 23, 42, 0.85); padding: 8px 20px;
+            border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+            font-weight: bold; text-align: center; z-index: 75; font-size: 13px; color: #fff;
         }
-        .content {
-            padding: 20px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-        .hidden {
-            display: none !important;
-        }
-        input, select, button {
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: 1px solid #475569;
-            background: #0f172a;
-            color: #fff;
-            font-size: 1rem;
-            margin-bottom: 15px;
-            outline: none;
-        }
-        button {
-            background: #3b82f6;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        button:hover {
-            background: #2563eb;
-        }
-        .btn-secondary {
-            background: #64748b;
-        }
-        .btn-secondary:hover {
-            background: #475569;
-        }
-        .btn-danger {
-            background: #ef4444;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-        .menu-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .card {
-            background: #334155;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s, background 0.2s;
-        }
-        .card:hover {
-            transform: translateY(-3px);
-            background: #475569;
-        }
-        /* Canvas Game & Editor Styles */
-        canvas {
-            background: #020617;
-            display: block;
-            margin: 0 auto;
-            border-radius: 8px;
-            border: 2px solid #334155;
-            max-width: 100%;
-        }
-        .toolbar {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-        .tool-btn {
-            padding: 8px 12px;
-            background: #334155;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-        .tool-btn.active {
-            border-color: #3b82f6;
-            background: #1e293b;
-        }
-        /* Mobile Controls */
-        .mobile-controls {
-            display: none;
-            justify-content: space-between;
-            margin-top: 15px;
-            width: 100%;
-        }
-        .mobile-group {
-            display: flex;
-            gap: 10px;
-        }
-        .mob-btn {
-            width: 60px;
-            height: 60px;
-            background: rgba(59, 130, 246, 0.7);
-            border-radius: 50%;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            user-select: none;
-            touch-action: manipulation;
-        }
-        @media (max-width: 768px) {
-            .mobile-controls {
-                display: flex;
-            }
-        }
-        .list-group {
-            max-height: 250px;
-            overflow-y: auto;
-            margin-bottom: 15px;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .list-item {
-            padding: 8px 12px;
-            background: #334155;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+
+        /* MODAL BẢNG QUẢN LÝ CỦA HOST */
+        #host-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
+        .host-card { background: #151226; border: 1px solid #54a0ff; border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+        .player-manage-item { display: flex; justify-content: space-between; align-items: center; background: #0d0a1a; padding: 8px 12px; border-radius: 8px; border: 1px solid #282142; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <header>
-            <span id="header-title">Web Obby Platform</span>
-            <span id="user-display" class="hidden"></span>
-        </header>
+    <!-- SẢNH TẠO / CHỌN SERVER -->
+    <div id="lobby-overlay">
+        <div class="lobby-card">
+            <div class="lobby-title">✨ COZY LOUNGE & MINI-GAMES ✨</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 11px; color: #aaa;">Tên của bạn & Tên Server:</label>
+                <div class="input-group">
+                    <input type="text" id="username-input" placeholder="Tên người chơi..." maxlength="12">
+                    <input type="text" id="servername-input" placeholder="Tên Server..." maxlength="15">
+                </div>
 
-        <div class="content">
-            <!-- 1. MÀN HÌNH ĐĂNG NHẬP -->
-            <div id="login-screen" style="max-width: 400px; margin: auto; width: 100%; text-align: center;">
-                <h2>🎮 Đăng Nhập Game</h2>
-                <p style="color: #94a3b8; margin-bottom: 20px;">Nhập tên nhân vật của bạn để bắt đầu</p>
-                <input type="text" id="username-input" placeholder="Tên người chơi..." style="width: 100%;">
-                <button onclick="login()" style="width: 100%;">Vào Game</button>
+                <label style="font-size: 11px; color: #aaa; margin-top: 4px;">Chọn Khu Vực & Mini-Game:</label>
+                <div class="map-selector">
+                    <div class="map-card selected" onclick="selectMap('CAMPFIRE', this)">
+                        <div class="map-card-title">🔥 Lửa Trại Đêm</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('BEACH', this)">
+                        <div class="map-card-title">🏖️ Biển Hoàng Hôn</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('FOREST', this)">
+                        <div class="map-card-title">🌲 Rừng Kỳ Ảo</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('NEON', this)">
+                        <div class="map-card-title">🌃 Thành Phố Neon</div>
+                    </div>
+                    <!-- MAP MỚI & MINI GAME -->
+                    <div class="map-card" onclick="selectMap('SNOW', this)">
+                        <div class="map-card-title">❄️ Đảo Băng Tuyết</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('LAVA', this)">
+                        <div class="map-card-title">🌋 Núi Lửa Lửa Rơi</div>
+                    </div>
+                    <div class="map-card" onclick="selectMap('SPACE', this)">
+                        <div class="map-card-title">🚀 Trạm Vũ Trụ</div>
+                    </div>
+                </div>
+
+                <button class="btn" style="margin-top: 6px;" onclick="createNewServer()">🚀 Tạo Server & Vào Ngay</button>
             </div>
 
-            <!-- 2. MÀN HÌNH MENU CHÍNH -->
-            <div id="menu-screen" class="hidden">
-                <h2>Xin chào, <span id="welcome-name" style="color: #3b82f6;"></span>!</h2>
-                <div class="menu-grid">
-                    <div class="card" onclick="openGameList()">
-                        <h3>🌍 Khám Phá Obby</h3>
-                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Chơi các màn chơi do người khác tạo</p>
-                    </div>
-                    <div class="card" onclick="openEditor()">
-                        <h3>🛠️ Tạo Obby Của Tôi</h3>
-                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Xây dựng và tùy chỉnh số màn chơi</p>
-                    </div>
-                    <div class="card" onclick="openFriends()">
-                        <h3>👥 Bạn Bè</h3>
-                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Kết bạn và quản lý danh sách</p>
-                    </div>
-                    <div class="card" onclick="logout()" style="border-color: #ef4444;">
-                        <h3>🚪 Đăng Xuất</h3>
-                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Đổi tài khoản khác</p>
-                    </div>
-                </div>
-            </div>
+            <hr style="border: 0; border-top: 1px solid #282142;">
 
-            <!-- 3. MÀN HÌNH DANH SÁCH GAME CÔNG KHAI -->
-            <div id="gamelist-screen" class="hidden">
-                <button class="btn-secondary" onclick="showScreen('menu-screen')">⬅ Quay lại Menu</button>
-                <h3 style="margin: 15px 0;">Danh Sách Obby Công Khai</h3>
-                <div id="public-obbies-list" class="list-group"></div>
-            </div>
-
-            <!-- 4. MÀN HÌNH CHƠI GAME (PLAY) -->
-            <div id="play-screen" class="hidden">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <button class="btn-secondary" onclick="stopGame(); showScreen('menu-screen')">⬅ Thoát</button>
-                    <div id="game-info" style="font-weight: bold; color: #38bdf8;">Màn: 1</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 11px; color: #aaa;">Danh Sách Server Online:</label>
+                    <span style="font-size: 10px; color: #54a0ff;">🟢 Tự cập nhật</span>
                 </div>
-                <canvas id="gameCanvas" width="800" height="400"></canvas>
-                <div class="mobile-controls">
-                    <div class="mobile-group">
-                        <div class="mob-btn" ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false" onmousedown="keys['ArrowLeft']=true" onmouseup="keys['ArrowLeft']=false">⬅</div>
-                        <div class="mob-btn" ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false" onmousedown="keys['ArrowRight']=true" onmouseup="keys['ArrowRight']=false">➡</div>
-                    </div>
-                    <div class="mobile-group">
-                        <div class="mob-btn" ontouchstart="keys['ArrowUp']=true; keys[' ']=true" ontouchend="keys['ArrowUp']=false; keys[' ']=false" onmousedown="keys['ArrowUp']=true; keys[' ']=true" onmouseup="keys['ArrowUp']=false; keys[' ']=false">⬆️</div>
-                    </div>
+                <div class="server-list-box" id="server-list">
+                    <div style="text-align: center; color: #666; font-size: 11px; margin-top: 40px;">Đang tìm các server xung quanh...</div>
                 </div>
-            </div>
-
-            <!-- 5. MÀN HÌNH TẠO OBBY (EDITOR) -->
-            <div id="editor-screen" class="hidden">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-                    <button class="btn-secondary" onclick="showScreen('menu-screen')">⬅ Thoát</button>
-                    <div>
-                        <label>Tên Obby: </label>
-                        <input type="text" id="obby-title" placeholder="VD: Siêu Cấp Obby" style="margin-bottom:0; display:inline-block; width: 200px;">
-                    </div>
-                    <div>
-                        <label>Chọn Màn: </label>
-                        <select id="stage-select" onchange="changeEditorStage()" style="margin-bottom:0; display:inline-block; width: 100px;"></select>
-                        <button onclick="addStage()">➕ Thêm Màn</button>
-                    </div>
-                    <button onclick="publishObby()" style="background: #22c55e; margin-bottom: 0;">🚀 Đăng Công Khai</button>
-                </div>
-
-                <div class="toolbar">
-                    <span><b>Vật liệu:</b></span>
-                    <div class="tool-btn active" onclick="setEditorTool(1, this)" style="background: #64748b;">Khối Thường</div>
-                    <div class="tool-btn" onclick="setEditorTool(2, this)" style="background: #38bdf8;">Khối Băng (Trượt)</div>
-                    <div class="tool-btn" onclick="setEditorTool(3, this)" style="background: #a855f7;">Băng Chuyền</div>
-                    <div class="tool-btn" onclick="setEditorTool(4, this)" style="background: #ef4444;">Lava (Chết)</div>
-                    <div class="tool-btn" onclick="setEditorTool(5, this)" style="background: #eab308;">Checkpoint</div>
-                    <div class="tool-btn" onclick="setEditorTool(6, this)" style="background: #ec4899;">Nút Bấm</div>
-                    <div class="tool-btn" onclick="setEditorTool(7, this)" style="background: #f97316;">Khối Bị Nút</div>
-                    <div class="tool-btn" onclick="setEditorTool(0, this)" style="background: #0f172a;">Xóa (Trống)</div>
-                </div>
-
-                <canvas id="editorCanvas" width="800" height="380"></canvas>
-                <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px; text-align: center;">💡 Nhấp chuột lên lưới để đặt hoặc xóa vật liệu xây dựng obby.</p>
-            </div>
-
-            <!-- 6. MÀN HÌNH BẠN BÈ -->
-            <div id="friends-screen" class="hidden">
-                <button class="btn-secondary" onclick="showScreen('menu-screen')">⬅ Quay lại Menu</button>
-                <h3 style="margin: 15px 0;">Danh Sách Bạn Bè</h3>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="friend-input" placeholder="Nhập tên bạn bè..." style="flex: 1;">
-                    <button onclick="addFriend()">Kết Bạn</button>
-                </div>
-                <div id="friends-list" class="list-group"></div>
             </div>
         </div>
     </div>
 
-    <script>
-        // --- HỆ THỐNG DỮ LIỆU & QUẢN LÝ NGƯỜI DÙNG ---
-        let currentUser = localStorage.getItem('obby_current_user');
-        let dbObbies = JSON.parse(localStorage.getItem('obby_public_games')) || [
-            {
-                id: 1,
-                title: "Màn Thử Thách Mẫu",
-                creator: "Admin",
-                stages: [
-                    [
-                        {t:1, x:0, y:10, w:20, h:2}, // Floor
-                        {t:1, x:5, y:8, w:3, h:1},
-                        {t:2, x:9, y:7, w:4, h:1}, // Ice
-                        {t:4, x:13, y:10, w:3, h:2}, // Lava
-                        {t:5, x:17, y:9, w:1, h:1}, // Checkpoint
-                        {t:1, x:19, y:8, w:2, h:3}  // End goal block
-                    ]
-                ]
-            }
-        ];
+    <!-- MÀN HÌNH CHÍNH GAME -->
+    <div id="game-ui">
+        <div id="top-bar">
+            <div>
+                <span class="room-title-text" id="display-room-name">Server: Lounge</span>
+                <span style="font-size: 11px; color: #8c7ae6; margin-left: 8px;" id="online-count">👥 1 Trực tuyến</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span id="my-score-display" style="font-size: 12px; color: #f1c40f; font-weight: bold;">⭐ Điểm: 0</span>
+                <button class="btn btn-purple" id="host-panel-btn" style="display: none; padding: 5px 10px; font-size: 11px;" onclick="openHostModal()">⚙️ Quản Lý</button>
+                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 11px;" onclick="leaveServer()">Thoát</button>
+            </div>
+        </div>
+
+        <div id="canvas-wrapper">
+            <canvas id="loungeCanvas"></canvas>
+
+            <!-- Giao diện PvP Thách đấu trên Canvas -->
+            <button id="invite-btn" onclick="sendDuelInvite()">⚔️ MỜI THÁCH ĐẤU</button>
+
+            <div id="invite-toast">
+                <p id="invite-text">Player B muốn thách đấu bạn!</p>
+                <div class="toast-btns">
+                    <button class="toast-btn toast-accept" onclick="acceptDuelInvite()">Chấp nhận</button>
+                    <button class="toast-btn toast-deny" onclick="denyDuelInvite()">Từ chối</button>
+                </div>
+            </div>
+
+            <div id="win-banner"></div>
+            <div id="duel-hud"><span id="duel-round-info">VÁN 1: Súng Lục Bạc (Dame: 45)</span></div>
+        </div>
+
+        <div id="chat-box">
+            <div id="chat-messages">
+                <div style="color: #666; font-style: italic; font-size: 11px;">Dùng WASD / Mũi tên để di chuyển. Nhặt vật phẩm Mini-game hoặc Mời người chơi khác Thách Đấu!</div>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="60">
+                <button class="btn btn-purple" onclick="sendChat()">Gửi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL QUẢN LÝ DÀNH CHO HOST -->
+    <div id="host-modal">
+        <div class="host-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: #54a0ff; font-size: 16px;">👑 Quản Lý Server (Host)</h3>
+                <span style="cursor: pointer; font-size: 18px;" onclick="closeHostModal()">✖</span>
+            </div>
+            <div style="font-size: 12px; color: #aaa;">Danh sách người chơi & tình trạng thiết bị:</div>
+            <div id="host-player-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
+            <button class="btn btn-purple" onclick="closeHostModal()">Đóng</button>
+        </div>
+    </div>
+
+<script>
+    const LOBBY_TOPIC = "cozy-lounge-v3/public-lobby";
+    const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
+    const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+
+    let client = null;
+    let currentRoomId = null;
+    let isHost = false;
+    let myName = "Người Chơi";
+    let selectedMapType = 'CAMPFIRE';
+    let currentRoomMap = 'CAMPFIRE';
+
+    let myScore = 0;
+    let speedBoostEndTime = 0;
+
+    let myBatteryStatus = "N/A";
+    if ('getBattery' in navigator) {
+        navigator.getBattery().then(battery => {
+            myBatteryStatus = Math.round(battery.level * 100) + "%";
+            battery.addEventListener('levelchange', () => { myBatteryStatus = Math.round(battery.level * 100) + "%"; });
+        }).catch(() => {});
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedName = localStorage.getItem('cozy_lounge_username');
+        if (savedName) document.getElementById('username-input').value = savedName;
+    });
+
+    // TỌA ĐỘ VÀ DỮ LIỆU GAME
+    let myPos = { x: 400, y: 300, targetX: 400, targetY: 300 };
+    let otherPlayers = {}; 
+    let publicServers = {}; 
+    let myChatBubble = { text: "", timer: null };
+
+    // VẬT PHẨM VÀ BẪY CỦA MINI-GAME
+    let minigameItems = []; // Dành cho SNOW và SPACE
+    let lavaMeteors = [];   // Dành cho LAVA
+
+    // BỘ VŨ KHÍ NGẪU NHIÊN CHO VÁN CUỐI
+    const RANDOM_WEAPONS = [
+        { name: "Súng Laze Cổ Đại", color: "#a855f7" },
+        { name: "Súng Đại Bác Hạng Nặng", color: "#f97316" },
+        { name: "Súng Rồng Lửa", color: "#ef4444" },
+        { name: "Súng Sấm Sét", color: "#06b6d4" },
+        { name: "Súng Quái Thú", color: "#10b981" }
+    ];
+
+    // HỆ THỐNG TRẠNG THÁI THÁCH ĐẤU (DUEL STATE)
+    let duelState = {
+        inBattle: false,
+        partnerId: null,
+        isInviteLocked: false,
+        round: 1,
+        myHp: 100,
+        maxHp: 100,
+        myWeapon: { name: "Súng Lục Bạc", damage: 45 },
+        prePos: { x: 400, y: 300 },
+        pendingInviterId: null
+    };
+
+    let bullets = [];
+    let nearestPlayerId = null;
+
+    const canvas = document.getElementById('loungeCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function selectMap(mapType, el) {
+        selectedMapType = mapType;
+        document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    function initCanvasSize() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
         
-        let usersData = JSON.parse(localStorage.getItem('obby_users_data')) || {};
+        particles = [];
+        for(let i = 0; i < 60; i++) {
+            particles.push({ 
+                x: Math.random() * canvas.width, 
+                y: Math.random() * canvas.height, 
+                r: Math.random() * 2 + 1, 
+                vy: Math.random() * 1 + 0.2,
+                alpha: Math.random() 
+            });
+        }
+    }
+    window.addEventListener('resize', initCanvasSize);
 
-        function initApp() {
-            if (currentUser) {
-                if(!usersData[currentUser]) {
-                    usersData[currentUser] = { friends: [], myObby: { title: "Obby của " + currentUser, stages: [[]] } };
+    // KẾT NỐI WEBSOCKET MQTT
+    client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
+
+    client.on('connect', () => { client.subscribe(LOBBY_TOPIC); });
+
+    client.on('message', (topic, message) => {
+        try {
+            const data = JSON.parse(message.toString());
+
+            if (topic === LOBBY_TOPIC && data.type === 'SERVER_HEARTBEAT') {
+                publicServers[data.roomId] = { ...data, lastPing: Date.now() };
+                renderServerList();
+                return;
+            }
+
+            if (topic === `cozy-lounge-v3/room/${currentRoomId}`) {
+                if (data.type === 'KICK_PLAYER') {
+                    if (data.targetId === myClientId) {
+                        alert("⚠️ Bạn đã bị chủ phòng mời ra khỏi server!");
+                        location.reload();
+                    } else {
+                        delete otherPlayers[data.targetId];
+                        updateOnlineCount();
+                        if (isHost) renderHostPlayerList();
+                    }
+                    return;
                 }
-                document.getElementById('user-display').innerText = `👤 ${currentUser}`;
-                document.getElementById('user-display').classList.remove('hidden');
-                document.getElementById('welcome-name').innerText = currentUser;
-                showScreen('menu-screen');
-            } else {
-                showScreen('login-screen');
-            }
-        }
 
-        function login() {
-            const name = document.getElementById('username-input').value.trim();
-            if (!name) {
-                alert("Vui lòng nhập tên người chơi!");
-                return;
-            }
-            currentUser = name;
-            localStorage.setItem('obby_current_user', currentUser);
-            if(!usersData[currentUser]) {
-                usersData[currentUser] = { friends: [], myObby: { title: "Obby của " + currentUser, stages: [[]] } };
-                saveUserData();
-            }
-            initApp();
-        }
+                if (data.sender === myClientId) return;
 
-        function logout() {
-            localStorage.removeItem('obby_current_user');
-            currentUser = null;
-            document.getElementById('user-display').classList.add('hidden');
-            initApp();
-        }
-
-        function saveUserData() {
-            localStorage.setItem('obby_users_data', JSON.stringify(usersData));
-            localStorage.setItem('obby_public_games', JSON.stringify(dbObbies));
-        }
-
-        function showScreen(screenId) {
-            ['login-screen', 'menu-screen', 'gamelist-screen', 'play-screen', 'editor-screen', 'friends-screen'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-            document.getElementById(screenId).classList.remove('hidden');
-        }
-
-        // --- HỆ THỐNG BẠN BÈ ---
-        function openFriends() {
-            showScreen('friends-screen');
-            renderFriends();
-        }
-
-        function addFriend() {
-            const fname = document.getElementById('friend-input').value.trim();
-            if(!fname) return;
-            if(fname === currentUser) {
-                alert("Không thể kết bạn với chính mình!");
-                return;
-            }
-            if(usersData[currentUser].friends.includes(fname)) {
-                alert("Đã có trong danh sách bạn bè!");
-                return;
-            }
-            usersData[currentUser].friends.push(fname);
-            saveUserData();
-            document.getElementById('friend-input').value = '';
-            renderFriends();
-        }
-
-        function renderFriends() {
-            const list = document.getElementById('friends-list');
-            list.innerHTML = '';
-            const friends = usersData[currentUser].friends || [];
-            if(friends.length === 0) {
-                list.innerHTML = '<div style="color: #94a3b8; text-align:center;">Chưa có bạn bè nào.</div>';
-                return;
-            }
-            friends.forEach((f, idx) => {
-                list.innerHTML += `<div class="list-item"><span>👥 ${f}</span><button class="btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="removeFriend(${idx})">Xóa</button></div>`;
-            });
-        }
-
-        function removeFriend(idx) {
-            usersData[currentUser].friends.splice(idx, 1);
-            saveUserData();
-            renderFriends();
-        }
-
-        // --- TRÌNH TẠO OBBY (EDITOR) ---
-        let currentEditorStageIndex = 0;
-        let selectedTool = 1; // 1: Thường, 2: Băng, 3: Băng chuyền, 4: Lava, 5: Checkpoint, 6: Nút, 7: Khối bị nút, 0: Xóa
-
-        function openEditor() {
-            showScreen('editor-screen');
-            const myObby = usersData[currentUser].myObby;
-            document.getElementById('obby-title').value = myObby.title;
-            currentEditorStageIndex = 0;
-            updateStageSelect();
-            drawEditor();
-        }
-
-        function updateStageSelect() {
-            const select = document.getElementById('stage-select');
-            select.innerHTML = '';
-            const stages = usersData[currentUser].myObby.stages;
-            for(let i=0; i<stages.length; i++) {
-                select.innerHTML += `<option value="${i}">Màn ${i+1}</option>`;
-            }
-            select.value = currentEditorStageIndex;
-        }
-
-        function addStage() {
-            usersData[currentUser].myObby.stages.push([]);
-            currentEditorStageIndex = usersData[currentUser].myObby.stages.length - 1;
-            updateStageSelect();
-            drawEditor();
-            saveUserData();
-        }
-
-        function changeEditorStage() {
-            currentEditorStageIndex = parseInt(document.getElementById('stage-select').value);
-            drawEditor();
-        }
-
-        function setEditorTool(toolId, el) {
-            selectedTool = toolId;
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            el.classList.add('active');
-        }
-
-        const gridSize = 40; // Kích thước mỗi khối 40x40px
-        const editorCanvas = document.getElementById('editorCanvas');
-        const edCtx = editorCanvas.getContext('2d');
-
-        editorCanvas.addEventListener('mousedown', (e) => handleEditorClick(e));
-
-        function handleEditorClick(e) {
-            const rect = editorCanvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / gridSize);
-            const y = Math.floor((e.clientY - rect.top) / gridSize);
-            
-            const stages = usersData[currentUser].myObby.stages;
-            let currentBlocks = stages[currentEditorStageIndex];
-
-            // Tìm xem đã có khối ở vị trí này chưa
-            const idx = currentBlocks.findIndex(b => b.x === x && b.y === y);
-            if (selectedTool === 0) {
-                if (idx !== -1) currentBlocks.splice(idx, 1);
-            } else {
-                if (idx !== -1) {
-                    currentBlocks[idx].t = selectedTool;
-                } else {
-                    currentBlocks.push({ t: selectedTool, x: x, y: y, w: 1, h: 1 });
+                if (data.type === 'PLAYER_MOVE') {
+                    otherPlayers[data.sender] = { ...otherPlayers[data.sender], ...data };
+                    updateOnlineCount();
+                } 
+                else if (data.type === 'PLAYER_CHAT') {
+                    if (otherPlayers[data.sender]) {
+                        otherPlayers[data.sender].chatBubble = data.text;
+                        setTimeout(() => { if(otherPlayers[data.sender]) otherPlayers[data.sender].chatBubble = ""; }, 4000);
+                    }
+                    appendChatMessage(data.name, data.text);
+                }
+                else if (data.type === 'PLAYER_LEAVE') {
+                    if (duelState.inBattle && duelState.partnerId === data.sender) {
+                        handleOpponentLeftMidGame();
+                    }
+                    delete otherPlayers[data.sender];
+                    updateOnlineCount();
+                }
+                else if (data.type === 'DUEL_INVITE' && data.targetId === myClientId) {
+                    if (!duelState.isInviteLocked && !duelState.inBattle) {
+                        duelState.pendingInviterId = data.sender;
+                        document.getElementById('invite-text').innerText = `${escapeHtml(data.senderName)} muốn thách đấu bạn!`;
+                        document.getElementById('invite-toast').style.display = 'block';
+                    }
+                }
+                else if (data.type === 'DUEL_RESPONSE' && data.targetId === myClientId) {
+                    if (data.accepted) {
+                        duelState.partnerId = data.sender;
+                        duelState.isInviteLocked = true;
+                        startBattleSession(true);
+                    } else {
+                        alert(`${otherPlayers[data.sender]?.name || 'Đối thủ'} đã từ chối lời mời!`);
+                        duelState.isInviteLocked = false;
+                    }
+                }
+                else if (data.type === 'DUEL_SHOOT' && data.targetId === myClientId) {
+                    bullets.push(new Bullet(data.x, data.y, data.targetX, data.targetY, data.damage, data.sender));
+                }
+                else if (data.type === 'DUEL_HP_SYNC' && data.targetId === myClientId) {
+                    if (otherPlayers[data.sender]) {
+                        otherPlayers[data.sender].hp = data.hp;
+                    }
+                }
+                else if (data.type === 'DUEL_ROUND_NEXT' && data.targetId === myClientId) {
+                    duelState.round = 2;
+                    duelState.myWeapon = data.partnerWeapon;
+                    resetDuelRound();
+                    updateDuelHUD();
+                }
+                else if (data.type === 'DUEL_WINNER' && data.targetId === myClientId) {
+                    finishDuelGame(data.winnerName);
                 }
             }
-            saveUserData();
-            drawEditor();
-        }
+        } catch(e){}
+    });
 
-        function drawEditor() {
-            edCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
-            // Vẽ lưới
-            edCtx.strokeStyle = '#1e293b';
-            edCtx.lineWidth = 1;
-            for(let x=0; x<editorCanvas.width; x+=gridSize) {
-                edCtx.beginPath(); edCtx.moveTo(x,0); edCtx.lineTo(x, editorCanvas.height); edCtx.stroke();
-            }
-            for(let y=0; y<editorCanvas.height; y+=gridSize) {
-                edCtx.beginPath(); edCtx.moveTo(0,y); edCtx.lineTo(editorCanvas.width, y); edCtx.stroke();
-            }
+    function renderServerList() {
+        const listEl = document.getElementById('server-list');
+        const now = Date.now();
+        let html = '', count = 0;
 
-            // Vẽ các khối
-            const stages = usersData[currentUser].myObby.stages;
-            const currentBlocks = stages[currentEditorStageIndex] || [];
-            currentBlocks.forEach(b => {
-                edCtx.fillStyle = getBlockColor(b.t);
-                edCtx.fillRect(b.x * gridSize, b.y * gridSize, b.w * gridSize, b.h * gridSize);
-                edCtx.strokeStyle = '#000';
-                edCtx.strokeRect(b.x * gridSize, b.y * gridSize, b.w * gridSize, b.h * gridSize);
-            });
-        }
+        const mapNames = { 
+            'CAMPFIRE': '🔥 Lửa Trại', 'BEACH': '🏖️ Bãi Biển', 'FOREST': '🌲 Rừng Rậm', 'NEON': '🌃 Thành Phố',
+            'SNOW': '❄️ Đảo Tuyết', 'LAVA': '🌋 Núi Lửa', 'SPACE': '🚀 Vũ Trụ'
+        };
 
-        function getBlockColor(type) {
-            switch(type) {
-                case 1: return '#64748b'; // Thường
-                case 2: return '#38bdf8'; // Băng
-                case 3: return '#a855f7'; // Băng chuyền
-                case 4: return '#ef4444'; // Lava
-                case 5: return '#eab308'; // Checkpoint
-                case 6: return '#ec4899'; // Nút bấm
-                case 7: return '#f97316'; // Khối bị nút
-                default: return '#fff';
-            }
-        }
-
-        function publishObby() {
-            const title = document.getElementById('obby-title').value.trim() || ("Obby của " + currentUser);
-            usersData[currentUser].myObby.title = title;
-            
-            // Tìm và cập nhật vào danh sách công khai
-            const existingIndex = dbObbies.findIndex(o => o.creator === currentUser);
-            const obbyData = {
-                id: existingIndex !== -1 ? dbObbies[existingIndex].id : Date.now(),
-                title: title,
-                creator: currentUser,
-                stages: JSON.parse(JSON.stringify(usersData[currentUser].myObby.stages))
-            };
-
-            if(existingIndex !== -1) {
-                dbObbies[existingIndex] = obbyData;
-            } else {
-                dbObbies.push(obbyData);
-            }
-            saveUserData();
-            alert("🚀 Đăng obby thành công lên hệ thống công khai!");
-        }
-
-        // --- DANH SÁCH GAME CÔNG KHAI ---
-        function openGameList() {
-            showScreen('gamelist-screen');
-            const list = document.getElementById('public-obbies-list');
-            list.innerHTML = '';
-            if(dbObbies.length === 0) {
-                list.innerHTML = '<div style="color: #94a3b8; text-align:center;">Chưa có obby nào được đăng.</div>';
-                return;
-            }
-            dbObbies.forEach(obby => {
-                list.innerHTML += `
-                    <div class="list-item">
-                        <div>
-                            <strong>${obby.title}</strong><br>
-                            <small style="color: #94a3b8;">Tác giả: ${obby.creator} | Số màn: ${obby.stages.length}</small>
+        for (let id in publicServers) {
+            let s = publicServers[id];
+            if (now - s.lastPing < 8000) {
+                count++;
+                html += `
+                    <div class="server-item">
+                        <div class="server-info">
+                            <span class="server-name">${escapeHtml(s.roomName)} <span style="font-size: 10px; color: #ff9f43;">[${mapNames[s.mapType] || 'Khu vực'}]</span></span>
+                            <span class="server-sub">Chủ phòng: ${escapeHtml(s.hostName)}</span>
                         </div>
-                        <button onclick="playObby(${obby.id})">▶ Chơi Ngay</button>
+                        <button class="btn btn-purple" style="padding: 5px 10px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}', '${s.mapType}')">Tham gia</button>
                     </div>
                 `;
-            });
-        }
-
-        // --- HỆ THỐNG GAME ENGINE (CHƠI OBBY) ---
-        let gameInterval = null;
-        let activeObby = null;
-        let currentPlayStage = 0;
-        let player = { x: 50, y: 200, w: 24, h: 36, vx: 0, vy: 0, speed: 4, jumpPower: -10, grounded:false };
-        let spawnPoint = { x: 50, y: 200 };
-        let keys = {};
-        let triggeredButtons = {};
-
-        window.addEventListener('keydown', e => keys[e.key] = true);
-        window.addEventListener('keyup', e => keys[e.key] = false);
-
-        function playObby(id) {
-            activeObby = dbObbies.find(o => o.id === id);
-            if(!activeObby) return;
-            currentPlayStage = 0;
-            showScreen('play-screen');
-            initStagePlay();
-            if(gameInterval) clearInterval(gameInterval);
-            gameInterval = setInterval(updateGame, 1000/60);
-        }
-
-        function initStagePlay() {
-            player.vx = 0;
-            player.vy = 0;
-            player.x = 50;
-            player.y = 200;
-            spawnPoint = { x: 50, y: 200 };
-            triggeredButtons[currentPlayStage] = [];
-        }
-
-        function stopGame() {
-            if(gameInterval) clearInterval(gameInterval);
-        }
-
-        const gameCanvas = document.getElementById('gameCanvas');
-        const gCtx = gameCanvas.getContext('2d');
-
-        function updateGame() {
-            // Xử lý điều khiển ngang
-            let moveSpeed = player.speed;
-            let onIce = false;
-            let onConveyor = 0;
-
-            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
-                player.vx = -moveSpeed;
-            } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
-                player.vx = moveSpeed;
-            } else {
-                player.vx *= 0.8; // Giảm tốc tự nhiên
             }
+        }
+        if (count === 0) listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 11px; margin-top: 40px;">Chưa có server nào. Hãy tạo Server ngay!</div>`;
+        else listEl.innerHTML = html;
+    }
 
-            if ((keys['ArrowUp'] || keys[' '] || keys['w'] || keys['W']) && player.grounded) {
-                player.vy = player.jumpPower;
-                player.grounded = false;
+    function createNewServer() {
+        const userIn = document.getElementById('username-input').value.trim();
+        const serverIn = document.getElementById('servername-input').value.trim();
+        if (!userIn || !serverIn) return alert("Vui lòng nhập Tên của bạn và Tên Server!");
+
+        myName = userIn;
+        localStorage.setItem('cozy_lounge_username', myName);
+
+        currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
+        isHost = true;
+        currentRoomMap = selectedMapType;
+
+        document.getElementById('host-panel-btn').style.display = 'inline-block';
+        enterScene(serverIn);
+
+        setInterval(() => {
+            if (isHost && client && client.connected) {
+                client.publish(LOBBY_TOPIC, JSON.stringify({
+                    type: 'SERVER_HEARTBEAT', roomId: currentRoomId, roomName: serverIn, hostName: myName, mapType: currentRoomMap
+                }));
             }
+        }, 3000);
+    }
 
-            // Trọng lực
-            player.vy += 0.5;
+    function joinServer(roomId, roomName, mapType) {
+        const userIn = document.getElementById('username-input').value.trim() || ("Khách_" + Math.floor(Math.random()*100));
+        myName = userIn;
+        localStorage.setItem('cozy_lounge_username', myName);
 
-            // Di chuyển & Va chạm trục X
-            player.x += player.vx;
-            let blocks = activeObby.stages[currentPlayStage] || [];
-            let removedBlocks = triggeredButtons[currentPlayStage] || [];
+        currentRoomId = roomId;
+        currentRoomMap = mapType || 'CAMPFIRE';
+        isHost = false;
 
-            blocks.forEach((b, idx) => {
-                if(removedBlocks.includes(idx)) return;
-                let bx = b.x * gridSize, by = b.y * gridSize, bw = b.w * gridSize, bh = b.h * gridSize;
-                
-                if (b.t !== 4 && b.t !== 5 && b.t !== 6 && rectIntersect(player.x, player.y, player.w, player.h, bx, by, bw, bh)) {
-                    if (player.vx > 0) player.x = bx - player.w;
-                    else if (player.vx < 0) player.x = bx + bw;
-                    player.vx = 0;
+        enterScene(roomName);
+    }
+
+    function enterScene(roomName) {
+        document.getElementById('lobby-overlay').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'flex';
+        document.getElementById('display-room-name').innerText = `Server: ${roomName}`;
+
+        client.subscribe(`cozy-lounge-v3/room/${currentRoomId}`);
+        
+        initCanvasSize();
+        myPos.x = canvas.width / 2;
+        myPos.y = canvas.height / 2 + 50;
+        myPos.targetX = myPos.x;
+        myPos.targetY = myPos.y;
+
+        broadcastMyPosition();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function leaveServer() {
+        if (client && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_LEAVE', sender: myClientId
+            }));
+        }
+        location.reload();
+    }
+
+    function broadcastMyPosition() {
+        if (client && client.connected && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_MOVE', sender: myClientId, name: myName, x: myPos.x, y: myPos.y, color: myColor, battery: myBatteryStatus, hp: duelState.myHp, score: myScore
+            }));
+        }
+    }
+
+    function updateOnlineCount() {
+        let count = Object.keys(otherPlayers).length + 1;
+        document.getElementById('online-count').innerText = `👥 ${count} Trực tuyến`;
+    }
+
+    function addScore(pts) {
+        myScore += pts;
+        document.getElementById('my-score-display').innerText = `⭐ Điểm: ${myScore}`;
+        broadcastMyPosition();
+    }
+
+    // --- HỆ THỐNG THÁCH ĐẤU (DUEL CORE) ---
+    class Bullet {
+        constructor(x, y, targetX, targetY, damage, shooterId) {
+            this.x = x; this.y = y; this.damage = damage; this.shooterId = shooterId; this.radius = 5; this.speed = 12;
+            const angle = Math.atan2(targetY - y, targetX - x);
+            this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed;
+        }
+        update() { this.x += this.vx; this.y += this.vy; }
+        draw() {
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#fbbf24"; ctx.fill();
+        }
+    }
+
+    function checkProximityAndInvite() {
+        if (duelState.inBattle || duelState.isInviteLocked) {
+            document.getElementById('invite-btn').style.display = 'none'; return;
+        }
+        nearestPlayerId = null; let minDist = 90;
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            let d = Math.hypot(myPos.x - p.x, myPos.y - p.y);
+            if (d < minDist) { minDist = d; nearestPlayerId = id; }
+        }
+        document.getElementById('invite-btn').style.display = nearestPlayerId ? 'block' : 'none';
+    }
+
+    function sendDuelInvite() {
+        if (!nearestPlayerId || duelState.isInviteLocked) return;
+        duelState.isInviteLocked = true; duelState.partnerId = nearestPlayerId;
+        document.getElementById('invite-btn').style.display = 'none';
+        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+            type: 'DUEL_INVITE', sender: myClientId, senderName: myName, targetId: nearestPlayerId
+        }));
+    }
+
+    function acceptDuelInvite() {
+        document.getElementById('invite-toast').style.display = 'none';
+        duelState.partnerId = duelState.pendingInviterId; duelState.isInviteLocked = true;
+        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+            type: 'DUEL_RESPONSE', sender: myClientId, targetId: duelState.partnerId, accepted: true
+        }));
+        startBattleSession(false);
+    }
+
+    function denyDuelInvite() {
+        document.getElementById('invite-toast').style.display = 'none';
+        if (duelState.pendingInviterId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'DUEL_RESPONSE', sender: myClientId, targetId: duelState.pendingInviterId, accepted: false
+            }));
+        }
+        duelState.pendingInviterId = null;
+    }
+
+    function startBattleSession(isHostOfDuel) {
+        duelState.inBattle = true; duelState.round = 1;
+        duelState.prePos = { x: myPos.x, y: myPos.y };
+        resetDuelRound(isHostOfDuel);
+        document.getElementById('duel-hud').style.display = 'block';
+        updateDuelHUD();
+    }
+
+    function resetDuelRound(isHostOfDuel = true) {
+        duelState.myHp = 100; bullets = [];
+        if (otherPlayers[duelState.partnerId]) otherPlayers[duelState.partnerId].hp = 100;
+
+        if (isHostOfDuel) { myPos.x = canvas.width * 0.2; myPos.y = canvas.height / 2; } 
+        else { myPos.x = canvas.width * 0.8; myPos.y = canvas.height / 2; }
+        myPos.targetX = myPos.x; myPos.targetY = myPos.y;
+
+        if (duelState.round === 1) {
+            duelState.myWeapon = { name: "Súng Lục Bạc", damage: 45, color: "#cbd5e1" };
+        } else {
+            const w1 = RANDOM_WEAPONS[Math.floor(Math.random() * RANDOM_WEAPONS.length)];
+            const w2 = RANDOM_WEAPONS[Math.floor(Math.random() * RANDOM_WEAPONS.length)];
+            const d1 = Math.floor(Math.random() * 45) + 35;
+            const d2 = Math.floor(Math.random() * 45) + 35;
+            duelState.myWeapon = { name: w1.name, damage: d1, color: w1.color };
+
+            if (isHostOfDuel) {
+                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                    type: 'DUEL_ROUND_NEXT', sender: myClientId, targetId: duelState.partnerId, partnerWeapon: { name: w2.name, damage: d2, color: w2.color }
+                }));
+            }
+        }
+        broadcastMyPosition();
+    }
+
+    function updateDuelHUD() {
+        const info = document.getElementById('duel-round-info');
+        if (duelState.round === 1) {
+            info.innerHTML = `VÁN 1: <span style="color:#cbd5e1">Súng Lục Bạc</span> (Dame: 45)`;
+        } else {
+            info.innerHTML = `TRẬN CUỐI: <span style="color:${duelState.myWeapon.color}">${duelState.myWeapon.name}</span> (${duelState.myWeapon.damage} Dame)`;
+        }
+    }
+
+    let isMouseDown = false;
+    let pointerPos = { x: 0, y: 0 };
+    let lastShootTime = 0;
+
+    function handleShootStart(e) { if (!duelState.inBattle) return; isMouseDown = true; updatePointerPos(e); }
+    function handleShootEnd() { isMouseDown = false; }
+
+    function updatePointerPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches && e.touches.length > 0) {
+            pointerPos.x = e.touches[0].clientX - rect.left; pointerPos.y = e.touches[0].clientY - rect.top;
+        } else {
+            pointerPos.x = e.clientX - rect.left; pointerPos.y = e.clientY - rect.top;
+        }
+    }
+
+    canvas.addEventListener('mousedown', handleShootStart);
+    window.addEventListener('mouseup', handleShootEnd);
+    canvas.addEventListener('mousemove', updatePointerPos);
+    canvas.addEventListener('touchstart', (e) => { handleShootStart(e); }, { passive: true });
+    window.addEventListener('touchend', handleShootEnd);
+    canvas.addEventListener('touchmove', updatePointerPos, { passive: true });
+
+    function processContinuousShooting(now) {
+        if (!duelState.inBattle || !isMouseDown || duelState.myHp <= 0) return;
+        if (now - lastShootTime >= 160) {
+            lastShootTime = now;
+            bullets.push(new Bullet(myPos.x, myPos.y, pointerPos.x, pointerPos.y, duelState.myWeapon.damage, myClientId));
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'DUEL_SHOOT', sender: myClientId, targetId: duelState.partnerId, x: myPos.x, y: myPos.y, targetX: pointerPos.x, targetY: pointerPos.y, damage: duelState.myWeapon.damage
+            }));
+        }
+    }
+
+    function updateBulletsAndCollisions() {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            let b = bullets[i]; b.update(); b.draw();
+            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) { bullets.splice(i, 1); continue; }
+
+            if (b.shooterId !== myClientId && duelState.myHp > 0) {
+                let dist = Math.hypot(b.x - myPos.x, b.y - myPos.y);
+                if (dist < 18 + b.radius) {
+                    duelState.myHp = Math.max(0, duelState.myHp - b.damage);
+                    bullets.splice(i, 1);
+                    client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                        type: 'DUEL_HP_SYNC', sender: myClientId, targetId: duelState.partnerId, hp: duelState.myHp
+                    }));
+                    if (duelState.myHp <= 0) handleMyDeath();
                 }
-            });
+            }
+        }
+    }
 
-            // Di chuyển & Va chạm trục Y
-            player.grounded = false;
-            player.y += player.vy;
+    function handleMyDeath() {
+        if (duelState.round === 1) {
+            setTimeout(() => { duelState.round = 2; resetDuelRound(false); updateDuelHUD(); }, 1000);
+        } else {
+            const winnerName = otherPlayers[duelState.partnerId]?.name || "Đối thủ";
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'DUEL_WINNER', sender: myClientId, targetId: duelState.partnerId, winnerName: winnerName
+            }));
+            finishDuelGame(winnerName);
+        }
+    }
 
-            blocks.forEach((b, idx) => {
-                let bx = b.x * gridSize, by = b.y * gridSize, bw = b.w * gridSize, bh = b.h * gridSize;
-                let isRemoved = removedBlocks.includes(idx);
+    function finishDuelGame(winnerName) {
+        duelState.inBattle = false;
+        document.getElementById('duel-hud').style.display = 'none';
+        const banner = document.getElementById('win-banner');
+        banner.innerText = `"${winnerName}" đã thắng!!`;
+        banner.style.display = 'block';
 
-                // Kiểm tra va chạm cơ bản
-                if (rectIntersect(player.x, player.y, player.w, player.h, bx, by, bw, bh)) {
-                    // Lava (chết)
-                    if (b.t === 4) {
-                        respawnPlayer();
-                        return;
-                    }
-                    // Checkpoint
-                    if (b.t === 5) {
-                        spawnPoint = { x: bx, y: by - player.h };
-                        return;
-                    }
-                    // Nút bấm (Xóa khối bị nút)
-                    if (b.t === 6) {
-                        // Kích hoạt tìm khối bị nút tương ứng (ví dụ khối tiếp theo hoặc cùng loại) và ẩn nó đi
-                        if(!removedBlocks.includes(idx)) {
-                            // Tìm khối loại 7 gần nhất để xóa
-                            let targetIdx = blocks.findIndex((tb, tidx) => tb.t === 7 && !removedBlocks.includes(tidx));
-                            if(targetIdx !== -1) removedBlocks.push(targetIdx);
-                        }
-                        return;
-                    }
+        setTimeout(() => {
+            banner.style.display = 'none';
+            myPos.x = duelState.prePos.x; myPos.y = duelState.prePos.y;
+            myPos.targetX = myPos.x; myPos.targetY = myPos.y;
+            duelState.myHp = 100; duelState.isInviteLocked = false; duelState.partnerId = null;
+            broadcastMyPosition();
+        }, 3000);
+    }
 
-                    if(!isRemoved && b.t !== 7) {
-                        if (player.vy > 0) { // Rơi xuống
-                            player.y = by - player.h;
-                            player.vy = 0;
-                            player.grounded = true;
-                            if (b.t === 2) onIce = true; // Băng
-                            if (b.t === 3) player.x += 3; // Băng chuyền đẩy sang phải
-                        } else if (player.vy < 0) { // Nhảy lên đầu trần
-                            player.y = by + bh;
-                            player.vy = 0;
-                        }
-                    }
-                }
-            });
+    function handleOpponentLeftMidGame() {
+        alert("Đối thủ đã thoát trang web hoặc ngắt kết nối!");
+        finishDuelGame(myName);
+    }
 
-            // Kiểm tra rớt vực -> Hồi sinh
-            if (player.y > gameCanvas.height) {
-                respawnPlayer();
+    /* --- BẢNG QUẢN LÝ CỦA HOST --- */
+    function openHostModal() { if (!isHost) return; renderHostPlayerList(); document.getElementById('host-modal').style.display = 'flex'; }
+    function closeHostModal() { document.getElementById('host-modal').style.display = 'none'; }
+
+    function renderHostPlayerList() {
+        const listContainer = document.getElementById('host-player-list');
+        let html = `
+            <div class="player-manage-item">
+                <div>
+                    <strong style="color:#2ed573">${escapeHtml(myName)} (Chủ phòng)</strong>
+                    <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${myBatteryStatus} | ⭐ ${myScore} pts</div>
+                </div>
+            </div>
+        `;
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            html += `
+                <div class="player-manage-item">
+                    <div>
+                        <strong style="color:#54a0ff">${escapeHtml(p.name)}</strong>
+                        <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${p.battery || 'N/A'} | ⭐ ${p.score || 0} pts</div>
+                    </div>
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="kickPlayer('${id}')">Kick</button>
+                </div>
+            `;
+        }
+        listContainer.innerHTML = html;
+    }
+
+    function kickPlayer(targetId) {
+        if (!isHost) return;
+        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({ type: 'KICK_PLAYER', targetId: targetId }));
+        delete otherPlayers[targetId]; renderHostPlayerList(); updateOnlineCount();
+    }
+
+    /* --- CHAT SYSTEM --- */
+    function sendChat() {
+        const input = document.getElementById('chat-input'); const text = input.value.trim();
+        if (!text) return;
+        appendChatMessage(myName, text, true);
+        myChatBubble.text = text;
+        if (myChatBubble.timer) clearTimeout(myChatBubble.timer);
+        myChatBubble.timer = setTimeout(() => { myChatBubble.text = ""; }, 4000);
+
+        if (client && client.connected && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_CHAT', sender: myClientId, name: myName, text: text
+            }));
+        }
+        input.value = '';
+    }
+
+    function appendChatMessage(sender, text, isMe = false) {
+        const box = document.getElementById('chat-messages'); const div = document.createElement('div');
+        div.className = 'msg-item';
+        div.innerHTML = `<span class="msg-sender" style="color:${isMe ? '#ff9f43':'#54a0ff'}">${escapeHtml(sender)}:</span><span class="msg-text">${escapeHtml(text)}</span>`;
+        box.appendChild(div); box.scrollTop = box.scrollHeight;
+    }
+
+    function escapeHtml(str) { return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+
+    canvas.addEventListener('pointerdown', (e) => {
+        if (duelState.inBattle) return;
+        const rect = canvas.getBoundingClientRect();
+        myPos.targetX = (e.clientX - rect.left);
+        myPos.targetY = (e.clientY - rect.top);
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const step = (Date.now() < speedBoostEndTime) ? 30 : 15;
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') myPos.targetY -= step;
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') myPos.targetY += step;
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') myPos.targetX -= step;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') myPos.targetX += step;
+        if (e.key === 'Enter') sendChat();
+    });
+
+    // --- MAIN GAME LOOP ---
+    function gameLoop(timestamp) {
+        let lerpSpeed = (timestamp < speedBoostEndTime) ? 0.35 : 0.15;
+        if (Math.hypot(myPos.targetX - myPos.x, myPos.targetY - myPos.y) > 2) {
+            myPos.x += (myPos.targetX - myPos.x) * lerpSpeed;
+            myPos.y += (myPos.targetY - myPos.y) * lerpSpeed;
+            broadcastMyPosition();
+        }
+
+        // Vẽ background map
+        if (currentRoomMap === 'CAMPFIRE') drawCampfireMap();
+        else if (currentRoomMap === 'BEACH') drawBeachMap();
+        else if (currentRoomMap === 'FOREST') drawForestMap();
+        else if (currentRoomMap === 'NEON') drawNeonMap();
+        else if (currentRoomMap === 'SNOW') drawSnowMap();
+        else if (currentRoomMap === 'LAVA') drawLavaMap(timestamp);
+        else if (currentRoomMap === 'SPACE') drawSpaceMap();
+
+        // Xử lý các Mini-game theo từng Map
+        updateAndDrawMinigames(timestamp);
+
+        checkProximityAndInvite();
+        processContinuousShooting(timestamp);
+
+        // Vẽ những người chơi khác
+        for (let id in otherPlayers) {
+            let p = otherPlayers[id];
+            drawAvatar(p.x, p.y, p.name, p.color, p.chatBubble, p.hp, p.score);
+        }
+
+        // Vẽ nhân vật bản thân
+        drawAvatar(myPos.x, myPos.y, myName + " (Bạn)", myColor, myChatBubble.text, duelState.myHp, myScore);
+
+        if (duelState.inBattle) {
+            updateBulletsAndCollisions();
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // --- BẢN ĐỒ VÀ CÁC MINI-GAME TƯƠNG TÁC ---
+    function updateAndDrawMinigames(now) {
+        // MINI-GAME MAP BĂNG TUYẾT & VŨ TRỤ: Nhặt Vật Phẩm
+        if (currentRoomMap === 'SNOW' || currentRoomMap === 'SPACE') {
+            if (minigameItems.length < 5 && Math.random() < 0.03) {
+                minigameItems.push({
+                    x: Math.random() * (canvas.width - 60) + 30,
+                    y: Math.random() * (canvas.height - 80) + 40,
+                    type: currentRoomMap === 'SNOW' ? 'CRYSTAL' : 'GEM',
+                    size: 12
+                });
             }
 
-            // Kiểm tra hoàn thành màn hoặc sang màn tiếp theo khi chạm rìa phải
-            if (player.x > gameCanvas.width) {
-                if (currentPlayStage < activeObby.stages.length - 1) {
-                    currentPlayStage++;
-                    initStagePlay();
+            for (let i = minigameItems.length - 1; i >= 0; i--) {
+                let item = minigameItems[i];
+                // Vẽ vật phẩm
+                ctx.save();
+                if (item.type === 'CRYSTAL') {
+                    ctx.fillStyle = '#00d2d3';
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, item.size + Math.sin(now * 0.005) * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.stroke();
                 } else {
-                    alert("🏆 Chúc mừng bạn đã phá đảo Obby này!");
-                    stopGame();
-                    showScreen('menu-screen');
+                    ctx.fillStyle = '#a855f7';
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, item.size + Math.sin(now * 0.008) * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#f43f5e'; ctx.stroke();
+                }
+                ctx.restore();
+
+                // Kiểm tra va chạm với bản thân
+                if (Math.hypot(myPos.x - item.x, myPos.y - item.y) < 22) {
+                    if (item.type === 'CRYSTAL') {
+                        addScore(10);
+                    } else {
+                        addScore(15);
+                        speedBoostEndTime = Date.now() + 4000; // Buff tốc độ 4s
+                    }
+                    minigameItems.splice(i, 1);
                 }
             }
-
-            document.getElementById('game-info').innerText = `${activeObby.title} | Màn: ${currentPlayStage + 1}/${activeObby.stages.length}`;
-
-            // --- VẼ LẠI GAME ---
-            gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-            blocks.forEach((b, idx) => {
-                if(removedBlocks.includes(idx)) return;
-                gCtx.fillStyle = getBlockColor(b.t);
-                gCtx.fillRect(b.x * gridSize, b.y * gridSize, b.w * gridSize, b.h * gridSize);
-            });
-
-            // Vẽ Người Chơi
-            gCtx.fillStyle = '#3b82f6';
-            gCtx.fillRect(player.x, player.y, player.w, player.h);
         }
 
-        function respawnPlayer() {
-            player.x = spawnPoint.x;
-            player.y = spawnPoint.y;
-            player.vx = 0;
-            player.vy = 0;
+        // MINI-GAME MAP NÚI LỬA: Né Đá Dung Nham
+        if (currentRoomMap === 'LAVA') {
+            if (lavaMeteors.length < 6 && Math.random() < 0.04) {
+                lavaMeteors.push({
+                    x: Math.random() * canvas.width,
+                    y: -20,
+                    vy: Math.random() * 3 + 3,
+                    radius: Math.random() * 10 + 12
+                });
+            }
+
+            for (let i = lavaMeteors.length - 1; i >= 0; i--) {
+                let m = lavaMeteors[i];
+                m.y += m.vy;
+
+                // Vẽ Đá Lửa Rơi
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff4757'; ctx.fill();
+                ctx.strokeStyle = '#ffa502'; ctx.lineWidth = 3; ctx.stroke();
+
+                if (m.y > canvas.height + 30) {
+                    lavaMeteors.splice(i, 1);
+                    continue;
+                }
+
+                // Va chạm với nhân vật -> Đẩy văng và trừ điểm
+                if (Math.hypot(myPos.x - m.x, myPos.y - m.y) < m.radius + 14) {
+                    addScore(-5);
+                    myPos.y += 30; // Bị nảy lùi
+                    myPos.targetY = myPos.y;
+                    lavaMeteors.splice(i, 1);
+                }
+            }
+        }
+    }
+
+    // --- VẼ BẢN ĐỒ ---
+    function drawCampfireMap() {
+        ctx.fillStyle = '#080612'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let groundY = canvas.height * 0.45;
+        let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+        grad.addColorStop(0, '#121026'); grad.addColorStop(1, '#080612');
+        ctx.fillStyle = grad; ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+        let fx = canvas.width / 2, fy = canvas.height / 2 + 20;
+        let glow = ctx.createRadialGradient(fx, fy, 10, fx, fy, 120);
+        glow.addColorStop(0, 'rgba(255, 159, 67, 0.35)'); glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
+        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(fx, fy, 120, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(fx, fy, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawBeachMap() {
+        let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
+        skyGrad.addColorStop(0, '#ff7675'); skyGrad.addColorStop(1, '#6c5ce7');
+        ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+        ctx.fillStyle = '#0984e3'; ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.2);
+        ctx.fillStyle = '#ffeaa7'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+        ctx.fillStyle = '#fdcb6e'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height*0.5, 30, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawForestMap() {
+        ctx.fillStyle = '#051923'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#003554'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
+        particles.forEach(p => {
+            p.y -= 0.3; if (p.y < 0) p.y = canvas.height;
+            ctx.fillStyle = `rgba(0, 255, 136, ${Math.abs(Math.sin(Date.now()*0.003 + p.alpha))})`;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, Math.PI*2); ctx.fill();
+        });
+    }
+
+    function drawNeonMap() {
+        ctx.fillStyle = '#0d0221'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#02010a'; ctx.fillRect(0, canvas.height*0.5, canvas.width, canvas.height*0.5);
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.3)'; ctx.lineWidth = 1;
+        for(let x = 0; x < canvas.width; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, canvas.height*0.5); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for(let y = canvas.height*0.5; y < canvas.height; y += 25) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+    }
+
+    // MAP MỚI 1: BĂNG TUYẾT
+    function drawSnowMap() {
+        ctx.fillStyle = '#81ecec'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#dfe6e9'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
+        particles.forEach(p => {
+            p.y += 0.8; if (p.y > canvas.height) p.y = 0;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1.5, 0, Math.PI*2); ctx.fill();
+        });
+    }
+
+    // MAP MỚI 2: NÚI LỬA DUNG NHAM
+    function drawLavaMap(now) {
+        ctx.fillStyle = '#1e0909'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#3c0909'; ctx.fillRect(0, canvas.height*0.45, canvas.width, canvas.height*0.55);
+        ctx.fillStyle = `rgba(255, 71, 87, ${0.4 + Math.sin(now*0.005)*0.15})`;
+        ctx.fillRect(0, canvas.height*0.8, canvas.width, canvas.height*0.2);
+    }
+
+    // MAP MỚI 3: TRẠM VŨ TRỤ ZERO-G
+    function drawSpaceMap() {
+        ctx.fillStyle = '#050515'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(Date.now()*0.002 + p.alpha))})`;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+        });
+    }
+
+    // VẼ NHÂN VẬT & MÁU
+    function drawAvatar(x, y, name, color, chatText, hp = 100, score = 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath(); ctx.ellipse(x, y + 14, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Vòng phát sáng nếu có Buff Tốc Độ
+        if (name.includes("(Bạn)") && Date.now() < speedBoostEndTime) {
+            ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.stroke();
         }
 
-        function rectIntersect(x1, y1, w1, h1, x2, y2, w2, h2) {
-            return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`${name} (⭐${score})`, x, y + 26);
+
+        if (duelState.inBattle) {
+            const barW = 40, barH = 5;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(x - barW/2, y - 24, barW, barH);
+            ctx.fillStyle = hp > 40 ? '#10b981' : '#ef4444';
+            ctx.fillRect(x - barW/2, y - 24, barW * (Math.max(0, hp) / 100), barH);
         }
 
-        // Khởi chạy hệ thống lúc mở trang
-        window.onload = initApp;
-    </script>
+        if (chatText) {
+            ctx.font = '12px sans-serif';
+            let textWidth = ctx.measureText(chatText).width;
+            let pad = 8, bx = x - textWidth/2 - pad, by = y - 45, bw = textWidth + pad * 2, bh = 22;
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
+
+            ctx.fillStyle = '#000'; ctx.textAlign = 'center';
+            ctx.fillText(chatText, x, by + 15);
+        }
+    }
+
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendChat();
+        e.stopPropagation();
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (client && currentRoomId) {
+            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
+                type: 'PLAYER_LEAVE', sender: myClientId
+            }));
+        }
+    });
+</script>
 </body>
 </html>
