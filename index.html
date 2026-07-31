@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roblox 2D - Multi-Server & Realtime</title>
+    <title>Roblox 2D - Optimized Friends & Servers</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; -webkit-user-select: none; }
         body { background: #121212; color: #fff; overflow: hidden; display: flex; flex-direction: column; height: 100vh; touch-action: manipulation; }
@@ -44,11 +44,12 @@
         @media (min-width: 768px) {
             .sidebar { width: 220px; flex-direction: column; border-bottom: none; border-right: 1px solid #333; padding: 15px 0; }
         }
-        .menu-btn { flex: 1; text-align: center; background: none; color: #aaa; padding: 12px 5px; font-size: 13px; border: none; cursor: pointer; }
+        .menu-btn { flex: 1; text-align: center; background: none; color: #aaa; padding: 12px 5px; font-size: 13px; border: none; cursor: pointer; position: relative; }
         @media (min-width: 768px) {
             .menu-btn { width: 100%; text-align: left; padding: 14px 20px; font-size: 15px; }
         }
         .menu-btn.active, .menu-btn:hover { background: #252533; color: #00a2ff; }
+        .badge-count { background: #ff4d4d; color: white; font-size: 10px; padding: 1px 5px; border-radius: 10px; margin-left: 6px; font-weight: bold; }
         
         .content-area { flex: 1; padding: 15px; overflow-y: auto; background: #121216; }
         .tab-panel { display: none; }
@@ -98,7 +99,7 @@
         /* MODAL */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
-        .modal-content { background: #1c1c24; padding: 20px; border-radius: 12px; width: 90%; max-width: 450px; border: 1px solid #444; }
+        .modal-content { background: #1c1c24; padding: 20px; border-radius: 12px; width: 90%; max-width: 450px; border: 1px solid #444; max-height: 85vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
         .lb-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
         .lb-table th, .lb-table td { padding: 8px 10px; border-bottom: 1px solid #2e2e3d; }
@@ -136,7 +137,7 @@
             <div class="sidebar">
                 <button class="menu-btn active" onclick="navTab('games', event)">🎮 Server</button>
                 <button class="menu-btn" onclick="navTab('avatar', event)">👕 Áo</button>
-                <button class="menu-btn" onclick="navTab('friends', event)">👥 Bạn Bè</button>
+                <button class="menu-btn" onclick="navTab('friends', event)" id="nav-btn-friends">👥 Bạn Bè <span id="req-badge"></span></button>
                 <button class="menu-btn" onclick="navTab('create', event)">🛠️ Tạo</button>
             </div>
             <div class="content-area">
@@ -144,7 +145,7 @@
                 <!-- TAB GAMES / SERVERS -->
                 <div id="panel-games" class="tab-panel active">
                     <h3 style="margin-bottom: 6px;">Danh sách Server</h3>
-                    <p style="color: #888; font-size: 12px; margin-bottom: 14px;">Server có nhiều người chơi nhất sẽ được ưu tiên hiển thị ở trên.</p>
+                    <p style="color: #888; font-size: 12px; margin-bottom: 14px;">Server có nhiều người chơi nhất được ưu tiên hiển thị ở trên.</p>
                     <div class="grid-list" id="games-container"></div>
                 </div>
 
@@ -164,19 +165,28 @@
                     </div>
                 </div>
 
-                <!-- TAB FRIENDS -->
+                <!-- TAB FRIENDS (OPTIMIZED) -->
                 <div id="panel-friends" class="tab-panel">
-                    <h3 style="margin-bottom: 12px;">Kết Bạn & Trạng Thái</h3>
+                    <h3 style="margin-bottom: 12px;">Hệ Thống Kết Bạn Tối Ưu</h3>
+                    
                     <div class="card">
-                        <input type="text" id="search-player-input" placeholder="Tìm tên người chơi..." oninput="searchPlayer()">
+                        <h4 style="color: #00a2ff; margin-bottom: 8px;">🔍 Tìm kiếm nhanh theo tên:</h4>
+                        <input type="text" id="search-player-input" placeholder="Nhập tên người chơi..." oninput="searchPlayer()">
                         <div id="search-result-box" style="margin-top: 8px;"></div>
                     </div>
+
+                    <div class="card">
+                        <h4 style="color: #00a2ff; margin-bottom: 8px;">⚡ Gợi ý người chơi đang Online (Bấm để kết bạn ngay):</h4>
+                        <div id="online-suggestions-container"><p style='color:#777; font-size:12px;'>Không có người chơi nào khác đang online.</p></div>
+                    </div>
+
                     <div class="card">
                         <h4 style="color: #ffc107; margin-bottom: 8px;">📩 Lời mời kết bạn:</h4>
                         <div id="requests-container"></div>
                     </div>
+                    
                     <div class="card">
-                        <h4 style="color: #28a745; margin-bottom: 8px;">🟢 Bạn bè:</h4>
+                        <h4 style="color: #28a745; margin-bottom: 8px;">🟢 Danh sách bạn bè:</h4>
                         <div id="friends-container"></div>
                     </div>
                 </div>
@@ -268,7 +278,6 @@
             localStorage.setItem('rblx_chats', JSON.stringify(chats));
         }
 
-        // Lắng nghe sự kiện thay đổi storage giữa các tab/trình duyệt trên cùng domain
         window.addEventListener('storage', (e) => {
             loadDB();
         });
@@ -336,6 +345,7 @@
             if (myName && users[myName]) {
                 if (document.getElementById('panel-games').classList.contains('active')) renderGamesList();
                 if (document.getElementById('panel-friends').classList.contains('active')) renderFriendsUI();
+                else updateBadgeCount(); // Cập nhật badge đỏ ngay cả khi không ở tab bạn bè
                 if (document.getElementById('modal-leaderboard').classList.contains('active')) renderLeaderboard();
                 if (document.getElementById('game-screen').classList.contains('active')) renderChatMessages();
             }
@@ -457,7 +467,7 @@
             document.getElementById('auth-screen').classList.add('active');
         }
 
-        /* ================= LOBBY & SERVER SORTING (MOST PLAYED FIRST) ================= */
+        /* ================= LOBBY & SERVER SORTING ================= */
         function navTab(tab, evt) {
             document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-btn').forEach(el => el.classList.remove('active'));
@@ -490,7 +500,6 @@
             loadDB();
             const container = document.getElementById('games-container');
 
-            // Danh sách tất cả các server có sẵn
             let servers = [
                 { id: 'official', title: 'Obby 2D (Chính thức)', author: 'Hệ thống', icon: '🌍' }
             ];
@@ -498,7 +507,6 @@
                 servers.push({ id: String(g.id), title: g.title, author: g.author, icon: '🎮' });
             });
 
-            // Đếm số người chơi đang ở trong mỗi server
             servers.forEach(srv => {
                 let count = 0;
                 Object.keys(users).forEach(u => {
@@ -513,7 +521,6 @@
                 srv.playerCount = count;
             });
 
-            // Sắp xếp server theo số lượng người chơi nhiều nhất lên đầu
             servers.sort((a, b) => b.playerCount - a.playerCount);
 
             let html = "";
@@ -530,7 +537,16 @@
             container.innerHTML = html;
         }
 
-        /* ================= FRIENDS ================= */
+        /* ================= OPTIMIZED FRIEND SYSTEM ================= */
+        function updateBadgeCount() {
+            if (!myName || !users[myName]) return;
+            const requests = Array.isArray(users[myName].requests) ? users[myName].requests : [];
+            const badgeEl = document.getElementById('req-badge');
+            if (badgeEl) {
+                badgeEl.innerHTML = requests.length > 0 ? `<span class="badge-count">${requests.length}</span>` : "";
+            }
+        }
+
         function searchPlayer() {
             const q = document.getElementById('search-player-input').value.trim().toLowerCase();
             const box = document.getElementById('search-result-box');
@@ -561,7 +577,7 @@
             if (!users[target].requests.includes(myName)) {
                 users[target].requests.push(myName);
                 saveDB();
-                searchPlayer();
+                renderFriendsUI();
             }
         }
 
@@ -574,6 +590,14 @@
             if (!users[myName].friends.includes(reqName)) users[myName].friends.push(reqName);
             if (!users[reqName].friends.includes(myName)) users[reqName].friends.push(myName);
 
+            users[myName].requests = users[myName].requests.filter(r => r !== reqName);
+            saveDB();
+            renderFriendsUI();
+        }
+
+        function declineFriend(reqName) {
+            loadDB();
+            if (!users[myName] || !users[myName].requests) return;
             users[myName].requests = users[myName].requests.filter(r => r !== reqName);
             saveDB();
             renderFriendsUI();
@@ -592,17 +616,49 @@
 
         function renderFriendsUI() {
             loadDB();
+            updateBadgeCount();
             const me = users[myName];
             const reqBox = document.getElementById('requests-container');
             const friBox = document.getElementById('friends-container');
+            const onlineSugBox = document.getElementById('online-suggestions-container');
             if (!me) return;
 
             const requests = Array.isArray(me.requests) ? me.requests : [];
             const friends = Array.isArray(me.friends) ? me.friends : [];
 
-            reqBox.innerHTML = requests.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có lời mời.</p>"
-                : requests.map(r => `<div class="friend-row"><span>📩 <strong>${r}</strong></span> <button class="btn-green btn-sm" onclick="acceptFriend('${r}')">Đồng ý</button></div>`).join('');
+            // 1. Render Online Suggestions (Tự động quét người chơi đang online mà chưa phải bạn bè)
+            let onlineUsers = Object.keys(users).filter(u => {
+                if (u === myName || friends.includes(u) || requests.includes(u)) return false;
+                const usr = users[u];
+                return usr && usr.presence && (Date.now() - usr.presence.lastSeen < 15000) && usr.presence.status !== 'Offline';
+            });
 
+            if (onlineUsers.length === 0) {
+                onlineSugBox.innerHTML = "<p style='color:#777; font-size:12px;'>Không có người chơi nào khác đang online.</p>";
+            } else {
+                onlineSugBox.innerHTML = onlineUsers.map(u => `
+                    <div class="friend-row">
+                        <div>
+                            <span>🟢 <strong>${u}</strong></span><br>
+                            <small style="color:#00a2ff; font-size:11px;">Đang ở: ${users[u].presence.status}</small>
+                        </div>
+                        <button class="btn-blue btn-sm" onclick="sendRequest('${u}')">Kết Bạn Nhanh</button>
+                    </div>
+                `).join('');
+            }
+
+            // 2. Render Friend Requests
+            reqBox.innerHTML = requests.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có lời mời.</p>"
+                : requests.map(r => `
+                    <div class="friend-row">
+                        <span>📩 <strong>${r}</strong></span> 
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-green btn-sm" onclick="acceptFriend('${r}')">Đồng ý</button>
+                            <button class="btn-red btn-sm" onclick="declineFriend('${r}')">Xóa</button>
+                        </div>
+                    </div>`).join('');
+
+            // 3. Render Friends List
             friBox.innerHTML = friends.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có bạn bè.</p>"
                 : friends.map(f => {
                     const fData = users[f];
