@@ -3,889 +3,396 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roblox 2D - Optimized Friends & Servers</title>
+    <title>Tower Defense Survival - Roblox Style</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; -webkit-user-select: none; }
-        body { background: #121212; color: #fff; overflow: hidden; display: flex; flex-direction: column; height: 100vh; touch-action: manipulation; }
-        
-        .screen { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; }
-        .screen.active { display: flex; }
-        
-        input { user-select: text; -webkit-user-select: text; padding: 10px 14px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; outline: none; margin-bottom: 10px; width: 100%; font-size: 14px; }
-        input:focus { border-color: #00a2ff; }
-        button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 14px; }
-        .btn-blue { background: #00a2ff; color: white; }
-        .btn-blue:hover { background: #0082cc; }
-        .btn-green { background: #28a745; color: white; }
-        .btn-green:hover { background: #218838; }
-        .btn-red { background: #dc3545; color: white; }
-        .btn-red:hover { background: #bd2130; }
-        .btn-sm { padding: 6px 12px; font-size: 12px; }
-        .btn-disabled { background: #555; color: #aaa; cursor: not-allowed; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: #0a0814; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
 
-        /* AUTH SCREEN */
-        #auth-screen { background: linear-gradient(135deg, #1e1e2f, #11101d); justify-content: center; align-items: center; }
-        .auth-box { background: rgba(24, 24, 36, 0.95); padding: 30px; border-radius: 12px; width: 90%; max-width: 360px; text-align: center; border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #333; }
-        .auth-tab { flex: 1; padding: 10px; cursor: pointer; font-weight: bold; color: #888; }
-        .auth-tab.active { color: #00a2ff; border-bottom: 2px solid #00a2ff; }
-        .msg { font-size: 13px; margin-top: 10px; font-weight: bold; min-height: 20px; }
-
-        /* LOBBY SCREEN */
-        .navbar { height: 60px; background: #1a1a24; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; border-bottom: 1px solid #333; }
-        .logo { font-size: 20px; font-weight: 900; color: #fff; text-shadow: 0 0 8px #00a2ff; }
-        .main-content { display: flex; flex: 1; overflow: hidden; flex-direction: column; }
-        @media (min-width: 768px) {
-            .main-content { flex-direction: row; }
-            .logo { font-size: 24px; }
-        }
+        /* LOBBY OVERLAY */
+        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 8, 20, 0.96); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
+        .lobby-card { background: #16122c; border: 1px solid #3d3266; border-radius: 20px; padding: 24px; width: 90%; max-width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 14px; }
+        .lobby-title { font-size: 22px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
         
-        .sidebar { background: #181820; display: flex; border-bottom: 1px solid #333; }
-        @media (min-width: 768px) {
-            .sidebar { width: 220px; flex-direction: column; border-bottom: none; border-right: 1px solid #333; padding: 15px 0; }
-        }
-        .menu-btn { flex: 1; text-align: center; background: none; color: #aaa; padding: 12px 5px; font-size: 13px; border: none; cursor: pointer; position: relative; }
-        @media (min-width: 768px) {
-            .menu-btn { width: 100%; text-align: left; padding: 14px 20px; font-size: 15px; }
-        }
-        .menu-btn.active, .menu-btn:hover { background: #252533; color: #00a2ff; }
-        .badge-count { background: #ff4d4d; color: white; font-size: 10px; padding: 1px 5px; border-radius: 10px; margin-left: 6px; font-weight: bold; }
+        input[type="text"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 14px; outline: none; user-select: text; }
+        input[type="text"]:focus { border-color: #ff9f43; }
+
+        .btn { background: #ff9f43; color: #000; border: none; padding: 12px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .btn:hover { background: #ffb164; }
+        .btn-purple { background: #54a0ff; color: #fff; }
+        .btn-danger { background: #ee5253; color: #fff; }
+        .btn-green { background: #2ed573; color: #fff; }
+
+        /* GAME UI CONTAINER */
+        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 800px; height: 100vh; justify-content: space-between; padding: 10px; }
         
-        .content-area { flex: 1; padding: 15px; overflow-y: auto; background: #121216; }
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
+        #top-hud { width: 100%; background: #16122c; border: 1px solid #3d3266; border-radius: 12px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; }
+        .hud-stat { color: #ff9f43; }
+
+        #canvas-wrapper { position: relative; width: 100%; height: 65vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); background: #07050f; }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* VIRTUAL JOYSTICK (ROBLOX STYLE) */
+        #joystick-zone { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.15); border-radius: 50%; touch-action: none; z-index: 10; display: flex; align-items: center; justify-content: center; }
+        #joystick-knob { width: 50px; height: 50px; background: rgba(255,159,67,0.7); border-radius: 50%; position: absolute; pointer-events: none; transition: transform 0.05s linear; }
+
+        /* BUILD MENU MODAL */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
+        .modal-card { background: #16122c; border: 1px solid #54a0ff; border-radius: 16px; padding: 20px; width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+        .build-item { background: #0d0a1a; border: 1px solid #3d3266; border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
         
-        .card { background: #1c1c24; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2e2e3d; }
-        .grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-        @media (min-width: 768px) { .grid-list { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; } }
-        
-        .game-card { background: #252533; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; border: 1px solid #333; position: relative; }
-        .game-card:hover { border-color: #00a2ff; transform: translateY(-2px); }
-        .game-icon { font-size: 35px; margin-bottom: 5px; }
-        .badge-hot { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-
-        /* AVATAR */
-        .avatar-preview { width: 80px; height: 80px; border-radius: 12px; margin: 10px 0; border: 3px solid #fff; }
-        .color-palette { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-        .color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
-
-        /* GAME SCREEN & CONTROLS */
-        #game-screen { background: #08080c; position: relative; justify-content: center; align-items: center; }
-        #canvas-wrapper { position: relative; width: 100%; max-width: 800px; aspect-ratio: 16/10; max-height: 90vh; display: flex; justify-content: center; align-items: center; }
-        canvas { width: 100%; height: 100%; background: #87CEEB; border-radius: 8px; box-shadow: 0 0 20px rgba(0,162,255,0.2); }
-        
-        .btn-exit { position: absolute; top: 12px; left: 12px; z-index: 10; font-size: 12px; padding: 6px 10px; }
-        .btn-toggle-chat { position: absolute; top: 12px; left: 90px; z-index: 25; background: rgba(0, 0, 0, 0.7); border: 1px solid #00a2ff; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; backdrop-filter: blur(4px); }
-        .btn-toggle-chat:hover { background: #00a2ff; }
-        .btn-round-lb { position: absolute; top: 12px; right: 12px; width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.75); border: 2px solid #FFD700; color: #FFD700; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; }
-
-        /* CHAT BOX */
-        #game-chat-box { position: absolute; top: 48px; left: 12px; width: 230px; height: 150px; background: rgba(18, 18, 24, 0.85); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; flex-direction: column; padding: 8px; z-index: 20; backdrop-filter: blur(5px); transition: opacity 0.2s, visibility 0.2s; }
-        #game-chat-box.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        @media (min-width: 768px) { #game-chat-box { width: 300px; height: 180px; top: 48px; left: 12px; } }
-        #chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; font-size: 11px; }
-        .chat-msg { word-break: break-word; }
-        .chat-sender { font-weight: bold; color: #00a2ff; margin-right: 4px; }
-        .chat-sender.me { color: #FFD700; }
-        .chat-input-row { display: flex; gap: 4px; }
-        .chat-input-row input { margin-bottom: 0; padding: 4px 8px; font-size: 11px; background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
-
-        /* MOBILE CONTROLS */
-        .touch-controls { position: absolute; bottom: 15px; left: 0; width: 100%; height: 80px; display: flex; justify-content: space-between; padding: 0 20px; pointer-events: none; z-index: 30; }
-        .d-pad, .jump-btn-box { display: flex; gap: 15px; pointer-events: auto; }
-        .touch-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); border: 2px solid rgba(255, 255, 255, 0.5); color: #fff; font-size: 24px; display: flex; justify-content: center; align-items: center; touch-action: manipulation; }
-        .touch-btn:active { background: rgba(0, 162, 255, 0.6); }
-
-        /* MODAL */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; justify-content: center; align-items: center; }
-        .modal.active { display: flex; }
-        .modal-content { background: #1c1c24; padding: 20px; border-radius: 12px; width: 90%; max-width: 450px; border: 1px solid #444; max-height: 85vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .lb-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-        .lb-table th, .lb-table td { padding: 8px 10px; border-bottom: 1px solid #2e2e3d; }
-        .lb-table th { color: #00a2ff; }
-        .friend-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252533; margin-bottom: 8px; border-radius: 6px; font-size: 13px; }
+        /* CHAT / NOTIFICATION SÀNH */
+        #bottom-chat { width: 100%; background: #16122c; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 12px; display: flex; gap: 8px; align-items: center; }
+        #chat-input { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <!-- 1. AUTH SCREEN -->
-    <div id="auth-screen" class="screen active">
-        <div class="auth-box">
-            <h1 style="color: #fff; margin-bottom: 20px; font-weight: 900;">ROBLOX-2D</h1>
-            <div class="auth-tabs">
-                <div class="auth-tab active" onclick="setAuthMode('login')" id="tab-login">ĐĂNG NHẬP</div>
-                <div class="auth-tab" onclick="setAuthMode('register')" id="tab-register">ĐĂNG KÝ</div>
-            </div>
-            <input type="text" id="auth-username" placeholder="Tên nhân vật..." autocomplete="off">
-            <input type="password" id="auth-password" placeholder="Mật khẩu...">
-            <button class="btn-blue" style="width: 100%; margin-top: 10px;" onclick="processAuth()" id="auth-btn">ĐĂNG NHẬP</button>
-            <div id="auth-msg" class="msg"></div>
+    <!-- LOBBY & NAME SETUP -->
+    <div id="lobby-overlay">
+        <div class="lobby-card">
+            <div class="lobby-title">🏰 TOWER DEFENSE SURVIVAL</div>
+            <div style="font-size: 12px; color: #aaa; text-align: center;">Nhập tên của bạn để bắt đầu vào sảnh chờ</div>
+            <input type="text" id="username-input" placeholder="Tên người chơi..." maxlength="15">
+            <button class="btn" onclick="joinLobby()">Vào Sảnh Chờ</button>
+            <div id="lobby-status" style="font-size: 12px; color: #ff9f43; text-align: center; margin-top: 5px;">Trạng thái: Sẵn sàng</div>
         </div>
     </div>
 
-    <!-- 2. LOBBY SCREEN -->
-    <div id="lobby-screen" class="screen">
-        <div class="navbar">
-            <div class="logo">ROBLOX-2D</div>
-            <div>
-                <span style="margin-right: 10px; font-size: 13px;"><strong id="lobby-username" style="color: #00a2ff;"></strong></span>
-                <button class="btn-red btn-sm" onclick="logout()">Thoát</button>
-            </div>
+    <!-- GAMEPLAY UI -->
+    <div id="game-ui">
+        <div id="top-hud">
+            <div>💰 Vàng: <span id="hud-gold" class="hud-stat">0$</span></div>
+            <div>🏠 Nhà: <span id="hud-house" class="hud-stat">Chưa có</span></div>
+            <div>⚡ Trạng thái: <span id="hud-status" class="hud-stat">Đang tìm phòng...</span></div>
         </div>
-        <div class="main-content">
-            <div class="sidebar">
-                <button class="menu-btn active" onclick="navTab('games', event)">🎮 Server</button>
-                <button class="menu-btn" onclick="navTab('avatar', event)">👕 Áo</button>
-                <button class="menu-btn" onclick="navTab('friends', event)" id="nav-btn-friends">👥 Bạn Bè <span id="req-badge"></span></button>
-                <button class="menu-btn" onclick="navTab('create', event)">🛠️ Tạo</button>
-            </div>
-            <div class="content-area">
-                
-                <!-- TAB GAMES / SERVERS -->
-                <div id="panel-games" class="tab-panel active">
-                    <h3 style="margin-bottom: 6px;">Danh sách Server</h3>
-                    <p style="color: #888; font-size: 12px; margin-bottom: 14px;">Server có nhiều người chơi nhất được ưu tiên hiển thị ở trên.</p>
-                    <div class="grid-list" id="games-container"></div>
-                </div>
 
-                <!-- TAB AVATAR -->
-                <div id="panel-avatar" class="tab-panel">
-                    <h3 style="margin-bottom: 12px;">Đổi màu nhân vật</h3>
-                    <div class="card">
-                        <div class="avatar-preview" id="my-avatar"></div>
-                        <div class="color-palette">
-                            <div class="color-dot" style="background: #00a2ff;" onclick="changeColor('#00a2ff')"></div>
-                            <div class="color-dot" style="background: #ff4d4d;" onclick="changeColor('#ff4d4d')"></div>
-                            <div class="color-dot" style="background: #28a745;" onclick="changeColor('#28a745')"></div>
-                            <div class="color-dot" style="background: #ffc107;" onclick="changeColor('#ffc107')"></div>
-                            <div class="color-dot" style="background: #9c27b0;" onclick="changeColor('#9c27b0')"></div>
-                            <div class="color-dot" style="background: #ff7300;" onclick="changeColor('#ff7300')"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TAB FRIENDS (OPTIMIZED) -->
-                <div id="panel-friends" class="tab-panel">
-                    <h3 style="margin-bottom: 12px;">Hệ Thống Kết Bạn Tối Ưu</h3>
-                    
-                    <div class="card">
-                        <h4 style="color: #00a2ff; margin-bottom: 8px;">🔍 Tìm kiếm nhanh theo tên:</h4>
-                        <input type="text" id="search-player-input" placeholder="Nhập tên người chơi..." oninput="searchPlayer()">
-                        <div id="search-result-box" style="margin-top: 8px;"></div>
-                    </div>
-
-                    <div class="card">
-                        <h4 style="color: #00a2ff; margin-bottom: 8px;">⚡ Gợi ý người chơi đang Online (Bấm để kết bạn ngay):</h4>
-                        <div id="online-suggestions-container"><p style='color:#777; font-size:12px;'>Không có người chơi nào khác đang online.</p></div>
-                    </div>
-
-                    <div class="card">
-                        <h4 style="color: #ffc107; margin-bottom: 8px;">📩 Lời mời kết bạn:</h4>
-                        <div id="requests-container"></div>
-                    </div>
-                    
-                    <div class="card">
-                        <h4 style="color: #28a745; margin-bottom: 8px;">🟢 Danh sách bạn bè:</h4>
-                        <div id="friends-container"></div>
-                    </div>
-                </div>
-
-                <!-- TAB CREATE GAME -->
-                <div id="panel-create" class="tab-panel">
-                    <h3 style="margin-bottom: 12px;">Tạo Server Mới</h3>
-                    <div class="card">
-                        <input type="text" id="new-game-name" placeholder="Tên server mới...">
-                        <button class="btn-green" onclick="createNewGame()">🚀 Khởi Tạo Server</button>
-                        <p id="create-msg" class="msg"></p>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <!-- 3. GAME SCREEN -->
-    <div id="game-screen" class="screen">
-        <button class="btn-red btn-exit" onclick="exitGame()">⬅ THOÁT</button>
-        <button class="btn-toggle-chat" onclick="toggleChatBox()" id="btn-chat-toggle">💬 Chat</button>
-        <button class="btn-round-lb" onclick="showLeaderboard()">🏆</button>
-        
         <div id="canvas-wrapper">
-            <canvas id="gameCanvas" width="800" height="500"></canvas>
-            
-            <div id="game-chat-box">
-                <div id="chat-messages"></div>
-                <div class="chat-input-row">
-                    <input type="text" id="chat-input" placeholder="Chat..." autocomplete="off">
-                    <button class="btn-blue btn-sm" onclick="sendChatMessage()">Gửi</button>
-                </div>
+            <canvas id="gameCanvas"></canvas>
+            <div id="joystick-zone">
+                <div id="joystick-knob"></div>
             </div>
+        </div>
 
-            <div class="touch-controls">
-                <div class="d-pad">
-                    <div class="touch-btn" id="btn-left">◀</div>
-                    <div class="touch-btn" id="btn-right">▶</div>
-                </div>
-                <div class="jump-btn-box">
-                    <div class="touch-btn" id="btn-jump">▲</div>
-                </div>
-            </div>
+        <div id="bottom-chat">
+            <input type="text" id="game-chat-input" placeholder="Nhập chat..." maxlength="50">
+            <button class="btn btn-purple" style="padding: 8px 14px; font-size: 12px;" onclick="sendGameChat()">Gửi</button>
         </div>
     </div>
 
-    <!-- 4. MODAL LEADERBOARD -->
-    <div id="modal-leaderboard" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>🏆 Bảng Xếp Hạng Server</h3>
-                <button onclick="hideLeaderboard()" style="background:none; border:none; color:white; font-size:20px;">✖</button>
+    <!-- BUILD MENU MODAL -->
+    <div id="build-modal" class="modal">
+        <div class="modal-card">
+            <h3 style="color: #ff9f43; font-size: 16px; text-align: center;">🛠️ Menu Xây Dựng</h3>
+            <div class="build-item">
+                <div>
+                    <strong style="color: #54a0ff; font-size: 13px;">Súng Tự Động</strong>
+                    <div style="font-size: 10px; color: #aaa;" id="gun-stat-desc">Dame: 5 | Tầm: 10 | Máu: 20</div>
+                </div>
+                <button class="btn btn-green" style="padding: 6px 12px; font-size: 11px;" onclick="buildStructure('GUN')">Mua <span id="gun-price">10$</span></button>
             </div>
-            <table class="lb-table">
-                <thead>
-                    <tr>
-                        <th>Người Chơi</th>
-                        <th>Màn</th>
-                        <th>Thắng</th>
-                    </tr>
-                </thead>
-                <tbody id="lb-body"></tbody>
-            </table>
+            <div class="build-item">
+                <div>
+                    <strong style="color: #2ed573; font-size: 13px;">Hộp Bảo Mật</strong>
+                    <div style="font-size: 10px; color: #aaa;">+5$ thu nhập giường/s</div>
+                </div>
+                <button class="btn btn-green" style="padding: 6px 12px; font-size: 11px;" onclick="buildStructure('BOX')">Mua 45$</button>
+            </div>
+            <button class="btn btn-danger" style="padding: 8px; font-size: 12px;" onclick="closeBuildModal()">Đóng</button>
+        </div>
+    </div>
+
+    <!-- REQUEST TO ENTER HOUSE MODAL -->
+    <div id="request-modal" class="modal">
+        <div class="modal-card" style="text-align: center;">
+            <h3 style="color: #54a0ff; font-size: 16px;">🚪 Yêu Cầu Vào Nhà</h3>
+            <p id="request-text" style="font-size: 13px; color: #fff;">Người chơi X muốn vào nhà chung của bạn!</p>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn btn-danger" style="flex: 1;" onclick="responseEnterHouse(false)">Từ Chối</button>
+                <button class="btn btn-green" style="flex: 1;" onclick="responseEnterHouse(true)">Đồng Ý</button>
+            </div>
         </div>
     </div>
 
     <script>
-        /* ================= DATABASE & SYNC ================= */
-        let users = {};
-        let customGames = [];
-        let chats = {};
-        let myName = null;
-        let currentGameId = null; 
-        let currentGameTitle = "";
-        let authMode = "login";
-        
-        const AFK_TIMEOUT = 10 * 60 * 1000;
+        const MQTT_TOPIC = "td-survival-v1/global-room";
+        const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
+        let myName = "Người Chơi";
+        let client = null;
 
-        function loadDB() {
-            users = JSON.parse(localStorage.getItem('rblx_users')) || {};
-            customGames = JSON.parse(localStorage.getItem('rblx_games')) || [];
-            chats = JSON.parse(localStorage.getItem('rblx_chats')) || {};
-        }
+        let myGold = 100;
+        let myPos = { x: 400, y: 300 };
+        let velocity = { x: 0, y: 0 };
+        let isInsideHouse = false;
+        let currentHouseId = null;
+        let isHouseOwner = false;
 
-        function saveDB() {
-            localStorage.setItem('rblx_users', JSON.stringify(users));
-            localStorage.setItem('rblx_games', JSON.stringify(customGames));
-            localStorage.setItem('rblx_chats', JSON.stringify(chats));
-        }
+        let bedLevel = 0;
+        let bedIncome = 1;
+        let bedPrices = [50, 250, 500, 2350];
+        let bedIncomes = [5, 25, 45, 50];
 
-        window.addEventListener('storage', (e) => {
-            loadDB();
-        });
+        let gunPrice = 10;
+        let gunLevel = 1;
+        let gunStats = { dmg: 5, range: 10, hp: 20 };
 
-        window.addEventListener('load', () => {
-            loadDB();
-            const savedSessionUser = localStorage.getItem('rblx_session_user');
-            if (savedSessionUser && users[savedSessionUser]) {
-                loginSuccess(savedSessionUser);
-            }
-        });
+        let selectedGridIndex = null;
+        let structures = {}; // Grid index -> type
+        let securityBoxesCount = 0;
 
-        function updatePresence(status, gameId, stage, x, y) {
-            if (!myName || !users[myName]) return;
-            users[myName].presence = {
-                status: status,
-                gameId: gameId,
-                stage: stage,
-                x: x,
-                y: y,
-                lastSeen: status === 'Offline' ? 0 : Date.now()
-            };
-            saveDB();
-        }
+        let gameStarted = false;
+        let isMonster = false;
+        let monsterHP = 100;
+        let monsterEXP = 0;
+        let monsterLevel = 1;
+        let monsterDMG = 10;
 
-        /* ================= AFK & INTERVALS ================= */
-        let lastUserActivity = Date.now();
-        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'touchmove'].forEach(evt => {
-            window.addEventListener(evt, () => { lastUserActivity = Date.now(); }, { passive: true });
-        });
+        let doors = { 1: { hp: 50, maxHp: 50, repairCD: 0 } };
+        let playersInRoom = {};
+        let activeRoomId = "ROOM_1";
 
-        setInterval(() => {
-            loadDB();
-            if (!myName || !users[myName]) return;
-
-            if (Date.now() - lastUserActivity >= AFK_TIMEOUT) {
-                alert("⚠️ Bạn đã bị kick do AFK 10 phút!");
-                logout();
-                return;
-            }
-
-            const currentStatus = currentGameId 
-                ? `${currentGameTitle} (Màn ${users[myName].stage || 1})` 
-                : 'Lobby';
-            
-            updatePresence(
-                currentStatus, 
-                currentGameId || '', 
-                users[myName].stage || 1, 
-                typeof player !== 'undefined' ? player.x : 0, 
-                typeof player !== 'undefined' ? player.y : 0
-            );
-        }, 1000);
-
-        window.addEventListener('beforeunload', () => {
-            if (myName && users[myName]) {
-                users[myName].presence.status = 'Offline';
-                users[myName].presence.lastSeen = 0;
-                saveDB();
-            }
-        });
-
-        setInterval(() => {
-            loadDB();
-            if (myName && users[myName]) {
-                if (document.getElementById('panel-games').classList.contains('active')) renderGamesList();
-                if (document.getElementById('panel-friends').classList.contains('active')) renderFriendsUI();
-                else updateBadgeCount(); // Cập nhật badge đỏ ngay cả khi không ở tab bạn bè
-                if (document.getElementById('modal-leaderboard').classList.contains('active')) renderLeaderboard();
-                if (document.getElementById('game-screen').classList.contains('active')) renderChatMessages();
-            }
-        }, 500);
-
-        /* ================= CHAT ================= */
-        const chatInput = document.getElementById('chat-input');
-        const chatBox = document.getElementById('game-chat-box');
-        const chatToggleBtn = document.getElementById('btn-chat-toggle');
-
-        function toggleChatBox() {
-            chatBox.classList.toggle('hidden');
-            chatToggleBtn.style.background = chatBox.classList.contains('hidden') ? "rgba(0, 0, 0, 0.7)" : "#00a2ff";
-        }
-        
-        chatInput.addEventListener('keydown', (e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') sendChatMessage();
-        });
-        chatInput.addEventListener('keyup', (e) => e.stopPropagation());
-
-        function sendChatMessage() {
-            const text = chatInput.value.trim();
-            if (!text || !currentGameId) return;
-
-            loadDB();
-            if (!chats[currentGameId]) chats[currentGameId] = [];
-            chats[currentGameId].push({ sender: myName, text: text, time: Date.now() });
-            if (chats[currentGameId].length > 40) chats[currentGameId].shift();
-
-            saveDB();
-            chatInput.value = '';
-            renderChatMessages();
-            lastUserActivity = Date.now();
-        }
-
-        function renderChatMessages() {
-            if (!currentGameId) return;
-            const msgContainer = document.getElementById('chat-messages');
-            const serverMsgs = chats[currentGameId] || [];
-
-            let html = serverMsgs.map(m => `
-                <div class="chat-msg">
-                    <span class="chat-sender ${m.sender === myName ? 'me' : ''}">${m.sender}:</span>
-                    <span>${escapeHTML(m.text)}</span>
-                </div>
-            `).join('');
-
-            if (msgContainer.innerHTML !== html) {
-                msgContainer.innerHTML = html;
-                msgContainer.scrollTop = msgContainer.scrollHeight;
-            }
-        }
-
-        function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
-        }
-
-        /* ================= AUTH ================= */
-        function setAuthMode(mode) {
-            authMode = mode;
-            document.getElementById('tab-login').classList.remove('active');
-            document.getElementById('tab-register').classList.remove('active');
-            document.getElementById('tab-' + mode).classList.add('active');
-            document.getElementById('auth-btn').innerText = mode === 'login' ? "ĐĂNG NHẬP" : "ĐĂNG KÝ";
-            document.getElementById('auth-msg').innerText = "";
-        }
-
-        function processAuth() {
-            loadDB();
-            const u = document.getElementById('auth-username').value.trim();
-            const p = document.getElementById('auth-password').value.trim();
-            const msg = document.getElementById('auth-msg');
-
-            if (!u || !p) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Điền đầy đủ thông tin!"; return; }
-
-            if (authMode === 'register') {
-                if (users[u]) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Tên đã tồn tại!"; return; }
-
-                users[u] = { 
-                    pass: p, color: '#00a2ff', stage: 1, wins: 0, friends: [], requests: [],
-                    presence: { status: 'Lobby', gameId: '', stage: 1, x: 0, y: 0, lastSeen: Date.now() }
-                };
-                saveDB();
-                msg.style.color = '#28a745'; msg.innerText = "✅ Tạo tài khoản thành công!";
-                setTimeout(() => loginSuccess(u), 600);
-            } else {
-                if (!users[u] || users[u].pass !== p) {
-                    msg.style.color = '#ff4d4d'; msg.innerText = "❌ Sai tên hoặc mật khẩu!"; return;
-                }
-
-                msg.style.color = '#28a745'; msg.innerText = "✅ Đăng nhập thành công!";
-                setTimeout(() => loginSuccess(u), 400);
-            }
-        }
-
-        function loginSuccess(u) {
-            myName = u;
-            localStorage.setItem('rblx_session_user', u);
-            lastUserActivity = Date.now();
-            document.getElementById('auth-screen').classList.remove('active');
-            document.getElementById('lobby-screen').classList.add('active');
-            document.getElementById('lobby-username').innerText = myName;
-            
-            updatePresence('Lobby', '', 1, 0, 0);
-            renderGamesList();
-            document.getElementById('my-avatar').style.background = users[myName].color || '#00a2ff';
-        }
-
-        function logout() {
-            updatePresence('Offline', '', 1, 0, 0);
-            localStorage.removeItem('rblx_session_user');
-            myName = null;
-            currentGameId = null;
-            if (typeof gameLoopId !== 'undefined') cancelAnimationFrame(gameLoopId);
-            
-            document.getElementById('lobby-screen').classList.remove('active');
-            document.getElementById('game-screen').classList.remove('active');
-            document.getElementById('auth-screen').classList.add('active');
-        }
-
-        /* ================= LOBBY & SERVER SORTING ================= */
-        function navTab(tab, evt) {
-            document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.menu-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById('panel-' + tab).classList.add('active');
-            if (evt) evt.target.classList.add('active');
-            if (tab === 'friends') renderFriendsUI();
-        }
-
-        function changeColor(color) {
-            loadDB();
-            users[myName].color = color;
-            saveDB();
-            document.getElementById('my-avatar').style.background = color;
-        }
-
-        function createNewGame() {
-            loadDB();
-            const name = document.getElementById('new-game-name').value.trim();
-            const msg = document.getElementById('create-msg');
-            if(!name) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Nhập tên server!"; return; }
-            const newId = Date.now();
-            customGames.push({ id: newId, title: name, author: myName });
-            saveDB();
-            document.getElementById('new-game-name').value = "";
-            msg.style.color = '#28a745'; msg.innerText = "✅ Tạo thành công! Đang vào server...";
-            setTimeout(() => enterGame(newId, name), 500);
-        }
-
-        function renderGamesList() {
-            loadDB();
-            const container = document.getElementById('games-container');
-
-            let servers = [
-                { id: 'official', title: 'Obby 2D (Chính thức)', author: 'Hệ thống', icon: '🌍' }
-            ];
-            customGames.forEach(g => {
-                servers.push({ id: String(g.id), title: g.title, author: g.author, icon: '🎮' });
-            });
-
-            servers.forEach(srv => {
-                let count = 0;
-                Object.keys(users).forEach(u => {
-                    const usr = users[u];
-                    if (usr && usr.presence) {
-                        const isOnline = (Date.now() - usr.presence.lastSeen < 15000) && usr.presence.status !== 'Offline';
-                        if (isOnline && String(usr.presence.gameId) === String(srv.id)) {
-                            count++;
-                        }
-                    }
-                });
-                srv.playerCount = count;
-            });
-
-            servers.sort((a, b) => b.playerCount - a.playerCount);
-
-            let html = "";
-            servers.forEach((srv, idx) => {
-                const isHot = srv.playerCount > 0 && idx === 0;
-                html += `
-                <div class="game-card" onclick="enterGame('${srv.id}', '${srv.title}')">
-                    ${isHot ? '<div class="badge-hot">ĐÔNG NHẤT 🔥</div>' : ''}
-                    <div class="game-icon">${srv.icon}</div>
-                    <h4 style="color:${srv.id === 'official' ? '#00a2ff' : '#fff'}">${srv.title}</h4>
-                    <p style="color:#aaa; font-size:11px; margin-top:4px;">👥 Đang chơi: <strong>${srv.playerCount}</strong> người</p>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        /* ================= OPTIMIZED FRIEND SYSTEM ================= */
-        function updateBadgeCount() {
-            if (!myName || !users[myName]) return;
-            const requests = Array.isArray(users[myName].requests) ? users[myName].requests : [];
-            const badgeEl = document.getElementById('req-badge');
-            if (badgeEl) {
-                badgeEl.innerHTML = requests.length > 0 ? `<span class="badge-count">${requests.length}</span>` : "";
-            }
-        }
-
-        function searchPlayer() {
-            const q = document.getElementById('search-player-input').value.trim().toLowerCase();
-            const box = document.getElementById('search-result-box');
-            if (!q) { box.innerHTML = ""; return; }
-            
-            loadDB();
-            const matches = Object.keys(users).filter(u => u.toLowerCase().includes(q) && u !== myName);
-            if (matches.length === 0) { box.innerHTML = "<p style='color:#ff4d4d; font-size:12px;'>Không tìm thấy người chơi!</p>"; return; }
-
-            let html = "";
-            matches.forEach(t => {
-                const myFriends = Array.isArray(users[myName].friends) ? users[myName].friends : [];
-                const targetRequests = Array.isArray(users[t].requests) ? users[t].requests : [];
-
-                let btn = `<button class="btn-blue btn-sm" onclick="sendRequest('${t}')">Kết Bạn</button>`;
-                if (myFriends.includes(t)) btn = `<button class="btn-disabled btn-sm" disabled>Bạn bè</button>`;
-                else if (targetRequests.includes(myName)) btn = `<button class="btn-disabled btn-sm" disabled>Đã gửi</button>`;
-                
-                html += `<div class="friend-row"><span>👤 <strong>${t}</strong></span> ${btn}</div>`;
-            });
-            box.innerHTML = html;
-        }
-
-        function sendRequest(target) {
-            loadDB();
-            if (!users[target]) return;
-            if (!Array.isArray(users[target].requests)) users[target].requests = [];
-            if (!users[target].requests.includes(myName)) {
-                users[target].requests.push(myName);
-                saveDB();
-                renderFriendsUI();
-            }
-        }
-
-        function acceptFriend(reqName) {
-            loadDB();
-            if (!users[myName] || !users[reqName]) return;
-            if (!Array.isArray(users[myName].friends)) users[myName].friends = [];
-            if (!Array.isArray(users[reqName].friends)) users[reqName].friends = [];
-
-            if (!users[myName].friends.includes(reqName)) users[myName].friends.push(reqName);
-            if (!users[reqName].friends.includes(myName)) users[reqName].friends.push(myName);
-
-            users[myName].requests = users[myName].requests.filter(r => r !== reqName);
-            saveDB();
-            renderFriendsUI();
-        }
-
-        function declineFriend(reqName) {
-            loadDB();
-            if (!users[myName] || !users[myName].requests) return;
-            users[myName].requests = users[myName].requests.filter(r => r !== reqName);
-            saveDB();
-            renderFriendsUI();
-        }
-
-        function joinFriendGame(friendName) {
-            loadDB();
-            const friend = users[friendName];
-            if (!friend || !friend.presence || !friend.presence.gameId) {
-                alert("Bạn bè không ở trong server nào!"); return;
-            }
-            users[myName].stage = friend.presence.stage || 1;
-            saveDB();
-            enterGame(friend.presence.gameId, friend.presence.status.split(' (Màn')[0]);
-        }
-
-        function renderFriendsUI() {
-            loadDB();
-            updateBadgeCount();
-            const me = users[myName];
-            const reqBox = document.getElementById('requests-container');
-            const friBox = document.getElementById('friends-container');
-            const onlineSugBox = document.getElementById('online-suggestions-container');
-            if (!me) return;
-
-            const requests = Array.isArray(me.requests) ? me.requests : [];
-            const friends = Array.isArray(me.friends) ? me.friends : [];
-
-            // 1. Render Online Suggestions (Tự động quét người chơi đang online mà chưa phải bạn bè)
-            let onlineUsers = Object.keys(users).filter(u => {
-                if (u === myName || friends.includes(u) || requests.includes(u)) return false;
-                const usr = users[u];
-                return usr && usr.presence && (Date.now() - usr.presence.lastSeen < 15000) && usr.presence.status !== 'Offline';
-            });
-
-            if (onlineUsers.length === 0) {
-                onlineSugBox.innerHTML = "<p style='color:#777; font-size:12px;'>Không có người chơi nào khác đang online.</p>";
-            } else {
-                onlineSugBox.innerHTML = onlineUsers.map(u => `
-                    <div class="friend-row">
-                        <div>
-                            <span>🟢 <strong>${u}</strong></span><br>
-                            <small style="color:#00a2ff; font-size:11px;">Đang ở: ${users[u].presence.status}</small>
-                        </div>
-                        <button class="btn-blue btn-sm" onclick="sendRequest('${u}')">Kết Bạn Nhanh</button>
-                    </div>
-                `).join('');
-            }
-
-            // 2. Render Friend Requests
-            reqBox.innerHTML = requests.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có lời mời.</p>"
-                : requests.map(r => `
-                    <div class="friend-row">
-                        <span>📩 <strong>${r}</strong></span> 
-                        <div style="display:flex; gap:6px;">
-                            <button class="btn-green btn-sm" onclick="acceptFriend('${r}')">Đồng ý</button>
-                            <button class="btn-red btn-sm" onclick="declineFriend('${r}')">Xóa</button>
-                        </div>
-                    </div>`).join('');
-
-            // 3. Render Friends List
-            friBox.innerHTML = friends.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có bạn bè.</p>"
-                : friends.map(f => {
-                    const fData = users[f];
-                    const isOnline = fData && fData.presence && (Date.now() - fData.presence.lastSeen < 15000) && fData.presence.status !== 'Offline';
-                    const canJoin = isOnline && fData.presence.gameId !== '';
-                    return `
-                        <div class="friend-row">
-                            <div>
-                                <span>${isOnline ? '🟢' : '⚪'} <strong>${f}</strong></span><br>
-                                <small style="color:${isOnline ? '#00a2ff' : '#777'}; font-size:11px;">${isOnline ? fData.presence.status : 'Offline'}</small>
-                            </div>
-                            ${canJoin ? `<button class="btn-green btn-sm" onclick="joinFriendGame('${f}')">Vào Server</button>` : ''}
-                        </div>
-                    `;
-                }).join('');
-        }
-
-        /* ================= LEADERBOARD ================= */
-        function showLeaderboard() { document.getElementById('modal-leaderboard').classList.add('active'); renderLeaderboard(); }
-        function hideLeaderboard() { document.getElementById('modal-leaderboard').classList.remove('active'); }
-        
-        function renderLeaderboard() {
-            const body = document.getElementById('lb-body');
-            loadDB();
-
-            const activeServerUsers = Object.keys(users).filter(u => {
-                const usr = users[u];
-                if (!usr || !usr.presence) return false;
-                const isOnline = (Date.now() - usr.presence.lastSeen < 15000) && usr.presence.status !== 'Offline';
-                return isOnline && String(usr.presence.gameId) === String(currentGameId);
-            });
-
-            const sortedUsers = activeServerUsers.sort((a,b) => (users[b].wins - users[a].wins) || (users[b].stage - users[a].stage));
-
-            if (sortedUsers.length === 0) {
-                body.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#aaa; padding:10px;">Chưa có ai trong server này!</td></tr>`;
-                return;
-            }
-
-            body.innerHTML = sortedUsers.map(u => `
-                <tr>
-                    <td style="font-weight:bold; color:${u === myName ? '#00a2ff' : '#fff'}">${u} ${u === myName ? "(Bạn)" : ""}</td>
-                    <td>Màn ${users[u].stage || 1}</td>
-                    <td style="color:#FFD700; font-weight:bold;">${users[u].wins || 0} 🏆</td>
-                </tr>
-            `).join('');
-        }
-
-        /* ================= GAME ENGINE ================= */
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let gameLoopId;
 
-        const keys = { left: false, right: false, up: false };
-
-        window.addEventListener('keydown', e => {
-            const k = e.key.toLowerCase();
-            if (k === 'a' || k === 'arrowleft') keys.left = true;
-            if (k === 'd' || k === 'arrowright') keys.right = true;
-            if (k === 'w' || k === ' ' || k === 'arrowup') keys.up = true;
-        });
-        window.addEventListener('keyup', e => {
-            const k = e.key.toLowerCase();
-            if (k === 'a' || k === 'arrowleft') keys.left = false;
-            if (k === 'd' || k === 'arrowright') keys.right = false;
-            if (k === 'w' || k === ' ' || k === 'arrowup') keys.up = false;
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('td_username');
+            if (saved) document.getElementById('username-input').value = saved;
         });
 
-        function bindTouchBtn(btnId, keyName) {
-            const btn = document.getElementById(btnId);
-            const start = (e) => { e.preventDefault(); keys[keyName] = true; };
-            const end = (e) => { e.preventDefault(); keys[keyName] = false; };
-            
-            btn.addEventListener('touchstart', start, { passive: false });
-            btn.addEventListener('touchend', end, { passive: false });
-            btn.addEventListener('mousedown', start);
-            btn.addEventListener('mouseup', end);
-        }
-        bindTouchBtn('btn-left', 'left');
-        bindTouchBtn('btn-right', 'right');
-        bindTouchBtn('btn-jump', 'up');
+        function joinLobby() {
+            const val = document.getElementById('username-input').value.trim();
+            if (!val) return alert("Vui lòng nhập tên!");
+            myName = val;
+            localStorage.setItem('td_username', myName);
 
-        const player = { x: 50, y: 300, w: 24, h: 24, vx: 0, vy: 0, speed: 4, jump: -11, grounded: false };
+            document.getElementById('lobby-overlay').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'flex';
+            initMQTT();
+            initJoystick();
+            initCanvas();
+            startGameLoop();
 
-        const levels = [
-            { blocks: [{x:0,y:400,w:200,h:100}, {x:280,y:380,w:100,h:20}, {x:460,y:340,w:100,h:20}, {x:650,y:300,w:150,h:200}], lavas: [{x:200,y:480,w:450,h:20}], goal: {x:710,y:240,w:40,h:60} },
-            { blocks: [{x:0,y:400,w:100,h:100}, {x:180,y:350,w:50,h:20}, {x:310,y:300,w:50,h:20}, {x:440,y:250,w:50,h:20}, {x:600,y:200,w:200,h:300}], lavas: [{x:0,y:480,w:800,h:20}], goal: {x:680,y:140,w:40,h:60} },
-            { blocks: [{x:0,y:400,w:100,h:100}, {x:150,y:400,w:60,h:20}, {x:260,y:350,w:60,h:20}, {x:370,y:300,w:60,h:20}, {x:480,y:250,w:60,h:20}, {x:650,y:200,w:150,h:300}], lavas: [{x:0,y:480,w:800,h:20}], goal: {x:700,y:140,w:40,h:60} },
-            { blocks: [{x:0,y:400,w:80,h:100}, {x:130,y:350,w:40,h:20}, {x:230,y:300,w:40,h:20}, {x:350,y:260,w:40,h:20}, {x:480,y:220,w:40,h:20}, {x:620,y:180,w:180,h:320}], lavas: [{x:0,y:480,w:800,h:20}], goal: {x:700,y:120,w:40,h:60} },
-            { blocks: [{x:0,y:400,w:60,h:100}, {x:120,y:350,w:30,h:20}, {x:220,y:300,w:30,h:20}, {x:320,y:250,w:30,h:20}, {x:430,y:200,w:30,h:20}, {x:550,y:150,w:30,h:20}, {x:680,y:100,w:120,h:400}], lavas: [{x:0,y:480,w:800,h:20}], goal: {x:720,y:40,w:40,h:60} }
-        ];
-
-        function enterGame(gameId, title) {
-            currentGameId = gameId;
-            currentGameTitle = title || "Obby 2D";
-            document.getElementById('lobby-screen').classList.remove('active');
-            document.getElementById('game-screen').classList.add('active');
-            resetPlayer();
-            renderChatMessages();
-            if (gameLoopId) cancelAnimationFrame(gameLoopId);
-            gameLoopId = requestAnimationFrame(updateGame);
+            setInterval(incomeLoop, 1000);
         }
 
-        function exitGame() {
-            cancelAnimationFrame(gameLoopId);
-            currentGameId = null;
-            updatePresence('Lobby', '', 1, 0, 0);
-            document.getElementById('game-screen').classList.remove('active');
-            document.getElementById('lobby-screen').classList.add('active');
-        }
-
-        function resetPlayer() { player.x = 40; player.y = 250; player.vx = 0; player.vy = 0; }
-        function rectIntersect(x1, y1, w1, h1, x2, y2, w2, h2) { return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2; }
-
-        function updateGame() {
-            let stg = (users[myName].stage || 1) - 1;
-            if (stg < 0) stg = 0;
-            if (stg >= levels.length) stg = levels.length - 1;
-            
-            const lvl = levels[stg];
-
-            if (keys.left) player.vx = -player.speed;
-            else if (keys.right) player.vx = player.speed;
-            else player.vx = 0;
-            player.x += player.vx;
-
-            lvl.blocks.forEach(b => {
-                if(rectIntersect(player.x, player.y, player.w, player.h, b.x, b.y, b.w, b.h)) {
-                    if (player.vx > 0) player.x = b.x - player.w;
-                    else if (player.vx < 0) player.x = b.x + b.w;
-                }
+        function initMQTT() {
+            client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId });
+            client.on('connect', () => {
+                client.subscribe(MQTT_TOPIC);
+                client.subscribe(`${MQTT_TOPIC}/${myClientId}`);
+                broadcastPresence();
             });
-
-            player.vy += 0.5;
-            if (keys.up && player.grounded) {
-                player.vy = player.jump;
-                player.grounded = false;
-            }
-            player.y += player.vy;
-            player.grounded = false;
-
-            lvl.blocks.forEach(b => {
-                if(rectIntersect(player.x, player.y, player.w, player.h, b.x, b.y, b.w, b.h)) {
-                    if (player.vy > 0) { player.y = b.y - player.h; player.vy = 0; player.grounded = true; }
-                    else if (player.vy < 0) { player.y = b.y + b.h; player.vy = 0; }
-                }
-            });
-
-            if (player.y > canvas.height) resetPlayer();
-            lvl.lavas.forEach(l => { 
-                if(rectIntersect(player.x, player.y, player.w, player.h, l.x, l.y, l.w, l.h)) resetPlayer(); 
-            });
-
-            if(rectIntersect(player.x, player.y, player.w, player.h, lvl.goal.x, lvl.goal.y, lvl.goal.w, lvl.goal.h)) {
-                loadDB();
-                if (users[myName].stage < 5) {
-                    users[myName].stage++;
-                    alert(`🎉 Hoàn thành Màn ${stg + 1}! Tiến vào Màn ${users[myName].stage}!`);
-                } else {
-                    users[myName].wins = (users[myName].wins || 0) + 1;
-                    users[myName].stage = 1;
-                    alert("🏆 CHÚC MỪNG BẠN ĐÃ THẮNG GAME!");
-                }
-                saveDB();
-                resetPlayer();
-            }
-
-            drawGame(lvl, stg);
-            gameLoopId = requestAnimationFrame(updateGame);
-        }
-
-        function drawGame(lvl, stg) {
-            ctx.fillStyle = "#87CEEB"; 
-            ctx.fillRect(0,0, canvas.width, canvas.height);
-
-            ctx.fillStyle = "#4A752C";
-            lvl.blocks.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
-
-            ctx.fillStyle = "#ff3300";
-            lvl.lavas.forEach(l => { 
-                ctx.fillRect(l.x, l.y, l.w, l.h); 
-                ctx.fillStyle = "#FFA500"; 
-                ctx.fillRect(l.x, l.y, l.w, 4); 
-            });
-
-            ctx.fillStyle = "#FFD700"; 
-            ctx.fillRect(lvl.goal.x, lvl.goal.y, lvl.goal.w, lvl.goal.h);
-            ctx.fillStyle = "#000"; 
-            ctx.font = "bold 13px Arial"; 
-            ctx.fillText("WIN", lvl.goal.x + 6, lvl.goal.y + 35);
-
-            Object.keys(users).forEach(u => {
-                if (u !== myName) {
-                    const other = users[u];
-                    if (other && other.presence && (Date.now() - other.presence.lastSeen < 15000) && other.presence.status !== 'Offline') {
-                        if (String(other.presence.gameId) === String(currentGameId) && other.presence.stage === (stg + 1)) {
-                            const ox = other.presence.x;
-                            const oy = other.presence.y;
-
-                            ctx.fillStyle = other.color || "#ff0000";
-                            ctx.fillRect(ox, oy, player.w, player.h);
-                            ctx.strokeStyle = "#fff";
-                            ctx.strokeRect(ox, oy, player.w, player.h);
-
-                            ctx.fillStyle = "#ffffff";
-                            ctx.font = "bold 12px Arial";
-                            ctx.textAlign = "center";
-                            ctx.fillText(u, ox + player.w / 2, oy - 6);
-                            ctx.textAlign = "left";
+            client.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    if (topic === `${MQTT_TOPIC}/${myClientId}`) {
+                        if (data.type === 'REQUEST_ENTER') {
+                            showRequestModal(data.requesterId, data.requesterName);
+                        } else if (data.type === 'RESPONSE_ENTER') {
+                            if (data.accepted) {
+                                isInsideHouse = true;
+                                alert("Đã được chủ nhà đồng ý cho vào!");
+                            } else {
+                                alert("Chủ nhà đã từ chối!");
+                            }
                         }
+                        return;
                     }
-                }
+
+                    if (data.sender === myClientId) return;
+                    if (data.type === 'SYNC_PLAYER') {
+                        playersInRoom[data.sender] = data;
+                        checkGameStart();
+                    }
+                } catch(e){}
+            });
+        }
+
+        function broadcastPresence() {
+            if (!client || !client.connected) return;
+            client.publish(MQTT_TOPIC, JSON.stringify({
+                type: 'SYNC_PLAYER',
+                sender: myClientId,
+                name: myName,
+                x: myPos.x,
+                y: myPos.y,
+                isMonster: isMonster
+            }));
+        }
+
+        function checkGameStart() {
+            let count = Object.keys(playersInRoom).length + 1;
+            document.getElementById('hud-status').innerText = `Sảnh: ${count} người chơi`;
+            if (!gameStarted && count >= 3) {
+                gameStarted = true;
+                document.getElementById('hud-status').innerText = "Trò chơi bắt đầu sau 10s!";
+                setTimeout(() => {
+                    document.getElementById('hud-status').innerText = "Đang sinh tồn!";
+                }, 10000);
+            }
+        }
+
+        function initCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            myPos.x = canvas.width / 2;
+            myPos.y = canvas.height / 2;
+        }
+
+        /* VIRTUAL JOYSTICK */
+        function initJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let active = false;
+            let origin = { x: 0, y: 0 };
+
+            zone.addEventListener('pointerdown', (e) => {
+                active = true;
+                const rect = zone.getBoundingClientRect();
+                origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
             });
 
-            ctx.fillStyle = users[myName].color || "#00a2ff";
-            ctx.fillRect(player.x, player.y, player.w, player.h);
-            ctx.strokeStyle = "#fff"; 
-            ctx.strokeRect(player.x, player.y, player.w, player.h);
-            ctx.fillStyle = "#000"; 
-            ctx.font = "bold 12px Arial"; 
-            ctx.textAlign = "center";
-            ctx.fillText(myName, player.x + player.w / 2, player.y - 6);
-            ctx.textAlign = "left";
+            window.addEventListener('pointermove', (e) => {
+                if (!active) return;
+                let dx = e.clientX - origin.x;
+                let dy = e.clientY - origin.y;
+                let dist = Math.hypot(dx, dy);
+                let maxDist = 40;
+                if (dist > maxDist) {
+                    dx = (dx / dist) * maxDist;
+                    dy = (dy / dist) * maxDist;
+                }
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                velocity.x = (dx / maxDist) * 3;
+                velocity.y = (dy / maxDist) * 3;
+            });
 
-            ctx.fillStyle = "#000"; 
-            ctx.font = "bold 18px Arial";
-            ctx.fillText(`Màn: ${stg + 1} / 5`, 20, 30);
+            window.addEventListener('pointerup', () => {
+                if (!active) return;
+                active = false;
+                knob.style.transform = `translate(0px, 0px)`;
+                velocity.x = 0;
+                velocity.y = 0;
+            });
+        }
+
+        function startGameLoop() {
+            function loop() {
+                myPos.x += velocity.x;
+                myPos.y += velocity.y;
+                myPos.x = Math.max(20, Math.min(canvas.width - 20, myPos.x));
+                myPos.y = Math.max(20, Math.min(canvas.height - 20, myPos.y));
+
+                broadcastPresence();
+
+                // Render Canvas Map
+                ctx.fillStyle = '#07050f';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw House
+                let houseX = canvas.width / 2 - 100;
+                let houseY = canvas.height / 2 - 100;
+                ctx.fillStyle = '#1c1638';
+                ctx.fillRect(houseX, houseY, 200, 200);
+                ctx.strokeStyle = '#54a0ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(houseX, houseY, 200, 200);
+
+                // Draw Door
+                ctx.fillStyle = '#ff9f43';
+                ctx.fillRect(houseX + 75, houseY + 185, 50, 15);
+
+                // Draw Bed inside house if owner
+                ctx.fillStyle = '#2ed573';
+                ctx.fillRect(houseX + 20, houseY + 20, 40, 30);
+
+                // Draw Player
+                ctx.fillStyle = isMonster ? '#ee5253' : '#54a0ff';
+                ctx.beginPath();
+                ctx.arc(myPos.x, myPos.y, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+
+                document.getElementById('hud-gold').innerText = myGold + "$";
+                document.getElementById('hud-house').innerText = isInsideHouse ? "Đã vào nhà" : "Ngoài trời";
+
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function incomeLoop() {
+            if (isInsideHouse) {
+                let totalIncome = bedIncome + (securityBoxesCount * 5);
+                myGold += totalIncome;
+            }
+        }
+
+        function sendGameChat() {
+            const input = document.getElementById('game-chat-input');
+            const val = input.value.trim();
+            if (!val) return;
+            input.value = '';
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            let cx = e.clientX - rect.left;
+            let cy = e.clientY - rect.top;
+
+            // Check if clicking house door to enter
+            let houseX = canvas.width / 2 - 100;
+            let houseY = canvas.height / 2 - 100;
+            if (cx >= houseX + 75 && cx <= houseX + 125 && cy >= houseY + 185 && cy <= houseY + 200) {
+                if (!isInsideHouse) {
+                    // Send request to enter house owner
+                    alert("Đã gửi yêu cầu vào nhà!");
+                }
+            }
+
+            // If inside house, click grid plus signs to build
+            if (isInsideHouse && cx >= houseX + 20 && cx <= houseX + 180 && cy >= houseY + 70 && cy <= houseY + 180) {
+                selectedGridIndex = Math.floor((cx - (houseX + 20)) / 40);
+                document.getElementById('build-modal').style.display = 'flex';
+            }
+        });
+
+        function closeBuildModal() {
+            document.getElementById('build-modal').style.display = 'none';
+        }
+
+        function buildStructure(type) {
+            if (type === 'GUN') {
+                if (myGold < gunPrice) return alert("Không đủ vàng!");
+                myGold -= gunPrice;
+                structures[selectedGridIndex] = 'GUN';
+                gunPrice = Math.round(gunPrice * 1.3);
+                document.getElementById('gun-price').innerText = gunPrice + "$";
+            } else if (type === 'BOX') {
+                if (myGold < 45) return alert("Không đủ vàng!");
+                myGold -= 45;
+                securityBoxesCount++;
+            }
+            closeBuildModal();
+        }
+
+        let pendingRequesterId = null;
+        function showRequestModal(id, name) {
+            pendingRequesterId = id;
+            document.getElementById('request-text').innerText = `Người chơi ${name} muốn vào nhà chung của bạn!`;
+            document.getElementById('request-modal').style.display = 'flex';
+        }
+
+        function responseEnterHouse(accepted) {
+            document.getElementById('request-modal').style.display = 'none';
+            if (client && client.connected) {
+                client.publish(`${MQTT_TOPIC}/${pendingRequesterId}`, JSON.stringify({
+                    type: 'RESPONSE_ENTER',
+                    accepted: accepted
+                }));
+            }
         }
     </script>
 </body>
