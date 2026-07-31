@@ -2,398 +2,719 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tower Defense Survival - Roblox Style</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Obby Platform</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background: #0a0814; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-
-        /* LOBBY OVERLAY */
-        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 8, 20, 0.96); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
-        .lobby-card { background: #16122c; border: 1px solid #3d3266; border-radius: 20px; padding: 24px; width: 90%; max-width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 14px; }
-        .lobby-title { font-size: 22px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
-        
-        input[type="text"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 14px; outline: none; user-select: text; }
-        input[type="text"]:focus { border-color: #ff9f43; }
-
-        .btn { background: #ff9f43; color: #000; border: none; padding: 12px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-align: center; }
-        .btn:hover { background: #ffb164; }
-        .btn-purple { background: #54a0ff; color: #fff; }
-        .btn-danger { background: #ee5253; color: #fff; }
-        .btn-green { background: #2ed573; color: #fff; }
-
-        /* GAME UI CONTAINER */
-        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 800px; height: 100vh; justify-content: space-between; padding: 10px; }
-        
-        #top-hud { width: 100%; background: #16122c; border: 1px solid #3d3266; border-radius: 12px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; }
-        .hud-stat { color: #ff9f43; }
-
-        #canvas-wrapper { position: relative; width: 100%; height: 65vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); background: #07050f; }
-        canvas { width: 100%; height: 100%; display: block; }
-
-        /* VIRTUAL JOYSTICK (ROBLOX STYLE) */
-        #joystick-zone { position: absolute; bottom: 20px; left: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.15); border-radius: 50%; touch-action: none; z-index: 10; display: flex; align-items: center; justify-content: center; }
-        #joystick-knob { width: 50px; height: 50px; background: rgba(255,159,67,0.7); border-radius: 50%; position: absolute; pointer-events: none; transition: transform 0.05s linear; }
-
-        /* BUILD MENU MODAL */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
-        .modal-card { background: #16122c; border: 1px solid #54a0ff; border-radius: 16px; padding: 20px; width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
-        .build-item { background: #0d0a1a; border: 1px solid #3d3266; border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
-        
-        /* CHAT / NOTIFICATION SÀNH */
-        #bottom-chat { width: 100%; background: #16122c; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 12px; display: flex; gap: 8px; align-items: center; }
-        #chat-input { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 12px; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: #1e293b;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 550px;
+        }
+        header {
+            background: #3b82f6;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .content {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .hidden {
+            display: none !important;
+        }
+        input, select, button {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #fff;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        button {
+            background: #3b82f6;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .btn-secondary {
+            background: #64748b;
+        }
+        .btn-secondary:hover {
+            background: #475569;
+        }
+        .btn-danger {
+            background: #ef4444;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .card {
+            background: #334155;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            background: #475569;
+        }
+        /* Canvas Game & Editor Styles */
+        canvas {
+            background: #020617;
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            max-width: 100%;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .tool-btn {
+            padding: 8px 12px;
+            background: #334155;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .tool-btn.active {
+            border-color: #3b82f6;
+            background: #1e293b;
+        }
+        /* Mobile Controls */
+        .mobile-controls {
+            display: none;
+            justify-content: space-between;
+            margin-top: 15px;
+            width: 100%;
+        }
+        .mobile-group {
+            display: flex;
+            gap: 10px;
+        }
+        .mob-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(59, 130, 246, 0.7);
+            border-radius: 50%;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: flex;
+            }
+        }
+        .list-group {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .list-item {
+            padding: 8px 12px;
+            background: #334155;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
 
-    <!-- LOBBY & NAME SETUP -->
-    <div id="lobby-overlay">
-        <div class="lobby-card">
-            <div class="lobby-title">🏰 TOWER DEFENSE SURVIVAL</div>
-            <div style="font-size: 12px; color: #aaa; text-align: center;">Nhập tên của bạn để bắt đầu vào sảnh chờ</div>
-            <input type="text" id="username-input" placeholder="Tên người chơi..." maxlength="15">
-            <button class="btn" onclick="joinLobby()">Vào Sảnh Chờ</button>
-            <div id="lobby-status" style="font-size: 12px; color: #ff9f43; text-align: center; margin-top: 5px;">Trạng thái: Sẵn sàng</div>
-        </div>
-    </div>
+    <div class="container">
+        <header>
+            <span id="header-title">Web Obby Platform</span>
+            <span id="user-display" class="hidden"></span>
+        </header>
 
-    <!-- GAMEPLAY UI -->
-    <div id="game-ui">
-        <div id="top-hud">
-            <div>💰 Vàng: <span id="hud-gold" class="hud-stat">0$</span></div>
-            <div>🏠 Nhà: <span id="hud-house" class="hud-stat">Chưa có</span></div>
-            <div>⚡ Trạng thái: <span id="hud-status" class="hud-stat">Đang tìm phòng...</span></div>
-        </div>
-
-        <div id="canvas-wrapper">
-            <canvas id="gameCanvas"></canvas>
-            <div id="joystick-zone">
-                <div id="joystick-knob"></div>
+        <div class="content">
+            <!-- 1. MÀN HÌNH ĐĂNG NHẬP -->
+            <div id="login-screen" style="max-width: 400px; margin: auto; width: 100%; text-align: center;">
+                <h2>🎮 Đăng Nhập Game</h2>
+                <p style="color: #94a3b8; margin-bottom: 20px;">Nhập tên nhân vật của bạn để bắt đầu</p>
+                <input type="text" id="username-input" placeholder="Tên người chơi..." style="width: 100%;">
+                <button onclick="login()" style="width: 100%;">Vào Game</button>
             </div>
-        </div>
 
-        <div id="bottom-chat">
-            <input type="text" id="game-chat-input" placeholder="Nhập chat..." maxlength="50">
-            <button class="btn btn-purple" style="padding: 8px 14px; font-size: 12px;" onclick="sendGameChat()">Gửi</button>
-        </div>
-    </div>
-
-    <!-- BUILD MENU MODAL -->
-    <div id="build-modal" class="modal">
-        <div class="modal-card">
-            <h3 style="color: #ff9f43; font-size: 16px; text-align: center;">🛠️ Menu Xây Dựng</h3>
-            <div class="build-item">
-                <div>
-                    <strong style="color: #54a0ff; font-size: 13px;">Súng Tự Động</strong>
-                    <div style="font-size: 10px; color: #aaa;" id="gun-stat-desc">Dame: 5 | Tầm: 10 | Máu: 20</div>
+            <!-- 2. MÀN HÌNH MENU CHÍNH -->
+            <div id="menu-screen" class="hidden">
+                <h2>Xin chào, <span id="welcome-name" style="color: #3b82f6;"></span>!</h2>
+                <div class="menu-grid">
+                    <div class="card" onclick="openGameList()">
+                        <h3>🌍 Khám Phá Obby</h3>
+                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Chơi các màn chơi do người khác tạo</p>
+                    </div>
+                    <div class="card" onclick="openEditor()">
+                        <h3>🛠️ Tạo Obby Của Tôi</h3>
+                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Xây dựng và tùy chỉnh số màn chơi</p>
+                    </div>
+                    <div class="card" onclick="openFriends()">
+                        <h3>👥 Bạn Bè</h3>
+                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Kết bạn và quản lý danh sách</p>
+                    </div>
+                    <div class="card" onclick="logout()" style="border-color: #ef4444;">
+                        <h3>🚪 Đăng Xuất</h3>
+                        <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Đổi tài khoản khác</p>
+                    </div>
                 </div>
-                <button class="btn btn-green" style="padding: 6px 12px; font-size: 11px;" onclick="buildStructure('GUN')">Mua <span id="gun-price">10$</span></button>
             </div>
-            <div class="build-item">
-                <div>
-                    <strong style="color: #2ed573; font-size: 13px;">Hộp Bảo Mật</strong>
-                    <div style="font-size: 10px; color: #aaa;">+5$ thu nhập giường/s</div>
-                </div>
-                <button class="btn btn-green" style="padding: 6px 12px; font-size: 11px;" onclick="buildStructure('BOX')">Mua 45$</button>
-            </div>
-            <button class="btn btn-danger" style="padding: 8px; font-size: 12px;" onclick="closeBuildModal()">Đóng</button>
-        </div>
-    </div>
 
-    <!-- REQUEST TO ENTER HOUSE MODAL -->
-    <div id="request-modal" class="modal">
-        <div class="modal-card" style="text-align: center;">
-            <h3 style="color: #54a0ff; font-size: 16px;">🚪 Yêu Cầu Vào Nhà</h3>
-            <p id="request-text" style="font-size: 13px; color: #fff;">Người chơi X muốn vào nhà chung của bạn!</p>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button class="btn btn-danger" style="flex: 1;" onclick="responseEnterHouse(false)">Từ Chối</button>
-                <button class="btn btn-green" style="flex: 1;" onclick="responseEnterHouse(true)">Đồng Ý</button>
+            <!-- 3. MÀN HÌNH DANH SÁCH GAME CÔNG KHAI -->
+            <div id="gamelist-screen" class="hidden">
+                <button class="btn-secondary" onclick="showScreen('menu-screen')">⬅ Quay lại Menu</button>
+                <h3 style="margin: 15px 0;">Danh Sách Obby Công Khai</h3>
+                <div id="public-obbies-list" class="list-group"></div>
+            </div>
+
+            <!-- 4. MÀN HÌNH CHƠI GAME (PLAY) -->
+            <div id="play-screen" class="hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <button class="btn-secondary" onclick="stopGame(); showScreen('menu-screen')">⬅ Thoát</button>
+                    <div id="game-info" style="font-weight: bold; color: #38bdf8;">Màn: 1</div>
+                </div>
+                <canvas id="gameCanvas" width="800" height="400"></canvas>
+                <div class="mobile-controls">
+                    <div class="mobile-group">
+                        <div class="mob-btn" ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false" onmousedown="keys['ArrowLeft']=true" onmouseup="keys['ArrowLeft']=false">⬅</div>
+                        <div class="mob-btn" ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false" onmousedown="keys['ArrowRight']=true" onmouseup="keys['ArrowRight']=false">➡</div>
+                    </div>
+                    <div class="mobile-group">
+                        <div class="mob-btn" ontouchstart="keys['ArrowUp']=true; keys[' ']=true" ontouchend="keys['ArrowUp']=false; keys[' ']=false" onmousedown="keys['ArrowUp']=true; keys[' ']=true" onmouseup="keys['ArrowUp']=false; keys[' ']=false">⬆️</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. MÀN HÌNH TẠO OBBY (EDITOR) -->
+            <div id="editor-screen" class="hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <button class="btn-secondary" onclick="showScreen('menu-screen')">⬅ Thoát</button>
+                    <div>
+                        <label>Tên Obby: </label>
+                        <input type="text" id="obby-title" placeholder="VD: Siêu Cấp Obby" style="margin-bottom:0; display:inline-block; width: 200px;">
+                    </div>
+                    <div>
+                        <label>Chọn Màn: </label>
+                        <select id="stage-select" onchange="changeEditorStage()" style="margin-bottom:0; display:inline-block; width: 100px;"></select>
+                        <button onclick="addStage()">➕ Thêm Màn</button>
+                    </div>
+                    <button onclick="publishObby()" style="background: #22c55e; margin-bottom: 0;">🚀 Đăng Công Khai</button>
+                </div>
+
+                <div class="toolbar">
+                    <span><b>Vật liệu:</b></span>
+                    <div class="tool-btn active" onclick="setEditorTool(1, this)" style="background: #64748b;">Khối Thường</div>
+                    <div class="tool-btn" onclick="setEditorTool(2, this)" style="background: #38bdf8;">Khối Băng (Trượt)</div>
+                    <div class="tool-btn" onclick="setEditorTool(3, this)" style="background: #a855f7;">Băng Chuyền</div>
+                    <div class="tool-btn" onclick="setEditorTool(4, this)" style="background: #ef4444;">Lava (Chết)</div>
+                    <div class="tool-btn" onclick="setEditorTool(5, this)" style="background: #eab308;">Checkpoint</div>
+                    <div class="tool-btn" onclick="setEditorTool(6, this)" style="background: #ec4899;">Nút Bấm</div>
+                    <div class="tool-btn" onclick="setEditorTool(7, this)" style="background: #f97316;">Khối Bị Nút</div>
+                    <div class="tool-btn" onclick="setEditorTool(0, this)" style="background: #0f172a;">Xóa (Trống)</div>
+                </div>
+
+                <canvas id="editorCanvas" width="800" height="380"></canvas>
+                <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px; text-align: center;">💡 Nhấp chuột lên lưới để đặt hoặc xóa vật liệu xây dựng obby.</p>
+            </div>
+
+            <!-- 6. MÀN HÌNH BẠN BÈ -->
+            <div id="friends-screen" class="hidden">
+                <button class="btn-secondary" onclick="showScreen('menu-screen')">⬅ Quay lại Menu</button>
+                <h3 style="margin: 15px 0;">Danh Sách Bạn Bè</h3>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="friend-input" placeholder="Nhập tên bạn bè..." style="flex: 1;">
+                    <button onclick="addFriend()">Kết Bạn</button>
+                </div>
+                <div id="friends-list" class="list-group"></div>
             </div>
         </div>
     </div>
 
     <script>
-        const MQTT_TOPIC = "td-survival-v1/global-room";
-        const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
-        let myName = "Người Chơi";
-        let client = null;
+        // --- HỆ THỐNG DỮ LIỆU & QUẢN LÝ NGƯỜI DÙNG ---
+        let currentUser = localStorage.getItem('obby_current_user');
+        let dbObbies = JSON.parse(localStorage.getItem('obby_public_games')) || [
+            {
+                id: 1,
+                title: "Màn Thử Thách Mẫu",
+                creator: "Admin",
+                stages: [
+                    [
+                        {t:1, x:0, y:10, w:20, h:2}, // Floor
+                        {t:1, x:5, y:8, w:3, h:1},
+                        {t:2, x:9, y:7, w:4, h:1}, // Ice
+                        {t:4, x:13, y:10, w:3, h:2}, // Lava
+                        {t:5, x:17, y:9, w:1, h:1}, // Checkpoint
+                        {t:1, x:19, y:8, w:2, h:3}  // End goal block
+                    ]
+                ]
+            }
+        ];
+        
+        let usersData = JSON.parse(localStorage.getItem('obby_users_data')) || {};
 
-        let myGold = 100;
-        let myPos = { x: 400, y: 300 };
-        let velocity = { x: 0, y: 0 };
-        let isInsideHouse = false;
-        let currentHouseId = null;
-        let isHouseOwner = false;
-
-        let bedLevel = 0;
-        let bedIncome = 1;
-        let bedPrices = [50, 250, 500, 2350];
-        let bedIncomes = [5, 25, 45, 50];
-
-        let gunPrice = 10;
-        let gunLevel = 1;
-        let gunStats = { dmg: 5, range: 10, hp: 20 };
-
-        let selectedGridIndex = null;
-        let structures = {}; // Grid index -> type
-        let securityBoxesCount = 0;
-
-        let gameStarted = false;
-        let isMonster = false;
-        let monsterHP = 100;
-        let monsterEXP = 0;
-        let monsterLevel = 1;
-        let monsterDMG = 10;
-
-        let doors = { 1: { hp: 50, maxHp: 50, repairCD: 0 } };
-        let playersInRoom = {};
-        let activeRoomId = "ROOM_1";
-
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('td_username');
-            if (saved) document.getElementById('username-input').value = saved;
-        });
-
-        function joinLobby() {
-            const val = document.getElementById('username-input').value.trim();
-            if (!val) return alert("Vui lòng nhập tên!");
-            myName = val;
-            localStorage.setItem('td_username', myName);
-
-            document.getElementById('lobby-overlay').style.display = 'none';
-            document.getElementById('game-ui').style.display = 'flex';
-            initMQTT();
-            initJoystick();
-            initCanvas();
-            startGameLoop();
-
-            setInterval(incomeLoop, 1000);
+        function initApp() {
+            if (currentUser) {
+                if(!usersData[currentUser]) {
+                    usersData[currentUser] = { friends: [], myObby: { title: "Obby của " + currentUser, stages: [[]] } };
+                }
+                document.getElementById('user-display').innerText = `👤 ${currentUser}`;
+                document.getElementById('user-display').classList.remove('hidden');
+                document.getElementById('welcome-name').innerText = currentUser;
+                showScreen('menu-screen');
+            } else {
+                showScreen('login-screen');
+            }
         }
 
-        function initMQTT() {
-            client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId });
-            client.on('connect', () => {
-                client.subscribe(MQTT_TOPIC);
-                client.subscribe(`${MQTT_TOPIC}/${myClientId}`);
-                broadcastPresence();
+        function login() {
+            const name = document.getElementById('username-input').value.trim();
+            if (!name) {
+                alert("Vui lòng nhập tên người chơi!");
+                return;
+            }
+            currentUser = name;
+            localStorage.setItem('obby_current_user', currentUser);
+            if(!usersData[currentUser]) {
+                usersData[currentUser] = { friends: [], myObby: { title: "Obby của " + currentUser, stages: [[]] } };
+                saveUserData();
+            }
+            initApp();
+        }
+
+        function logout() {
+            localStorage.removeItem('obby_current_user');
+            currentUser = null;
+            document.getElementById('user-display').classList.add('hidden');
+            initApp();
+        }
+
+        function saveUserData() {
+            localStorage.setItem('obby_users_data', JSON.stringify(usersData));
+            localStorage.setItem('obby_public_games', JSON.stringify(dbObbies));
+        }
+
+        function showScreen(screenId) {
+            ['login-screen', 'menu-screen', 'gamelist-screen', 'play-screen', 'editor-screen', 'friends-screen'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
             });
-            client.on('message', (topic, message) => {
-                try {
-                    const data = JSON.parse(message.toString());
-                    if (topic === `${MQTT_TOPIC}/${myClientId}`) {
-                        if (data.type === 'REQUEST_ENTER') {
-                            showRequestModal(data.requesterId, data.requesterName);
-                        } else if (data.type === 'RESPONSE_ENTER') {
-                            if (data.accepted) {
-                                isInsideHouse = true;
-                                alert("Đã được chủ nhà đồng ý cho vào!");
-                            } else {
-                                alert("Chủ nhà đã từ chối!");
-                            }
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // --- HỆ THỐNG BẠN BÈ ---
+        function openFriends() {
+            showScreen('friends-screen');
+            renderFriends();
+        }
+
+        function addFriend() {
+            const fname = document.getElementById('friend-input').value.trim();
+            if(!fname) return;
+            if(fname === currentUser) {
+                alert("Không thể kết bạn với chính mình!");
+                return;
+            }
+            if(usersData[currentUser].friends.includes(fname)) {
+                alert("Đã có trong danh sách bạn bè!");
+                return;
+            }
+            usersData[currentUser].friends.push(fname);
+            saveUserData();
+            document.getElementById('friend-input').value = '';
+            renderFriends();
+        }
+
+        function renderFriends() {
+            const list = document.getElementById('friends-list');
+            list.innerHTML = '';
+            const friends = usersData[currentUser].friends || [];
+            if(friends.length === 0) {
+                list.innerHTML = '<div style="color: #94a3b8; text-align:center;">Chưa có bạn bè nào.</div>';
+                return;
+            }
+            friends.forEach((f, idx) => {
+                list.innerHTML += `<div class="list-item"><span>👥 ${f}</span><button class="btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="removeFriend(${idx})">Xóa</button></div>`;
+            });
+        }
+
+        function removeFriend(idx) {
+            usersData[currentUser].friends.splice(idx, 1);
+            saveUserData();
+            renderFriends();
+        }
+
+        // --- TRÌNH TẠO OBBY (EDITOR) ---
+        let currentEditorStageIndex = 0;
+        let selectedTool = 1; // 1: Thường, 2: Băng, 3: Băng chuyền, 4: Lava, 5: Checkpoint, 6: Nút, 7: Khối bị nút, 0: Xóa
+
+        function openEditor() {
+            showScreen('editor-screen');
+            const myObby = usersData[currentUser].myObby;
+            document.getElementById('obby-title').value = myObby.title;
+            currentEditorStageIndex = 0;
+            updateStageSelect();
+            drawEditor();
+        }
+
+        function updateStageSelect() {
+            const select = document.getElementById('stage-select');
+            select.innerHTML = '';
+            const stages = usersData[currentUser].myObby.stages;
+            for(let i=0; i<stages.length; i++) {
+                select.innerHTML += `<option value="${i}">Màn ${i+1}</option>`;
+            }
+            select.value = currentEditorStageIndex;
+        }
+
+        function addStage() {
+            usersData[currentUser].myObby.stages.push([]);
+            currentEditorStageIndex = usersData[currentUser].myObby.stages.length - 1;
+            updateStageSelect();
+            drawEditor();
+            saveUserData();
+        }
+
+        function changeEditorStage() {
+            currentEditorStageIndex = parseInt(document.getElementById('stage-select').value);
+            drawEditor();
+        }
+
+        function setEditorTool(toolId, el) {
+            selectedTool = toolId;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        const gridSize = 40; // Kích thước mỗi khối 40x40px
+        const editorCanvas = document.getElementById('editorCanvas');
+        const edCtx = editorCanvas.getContext('2d');
+
+        editorCanvas.addEventListener('mousedown', (e) => handleEditorClick(e));
+
+        function handleEditorClick(e) {
+            const rect = editorCanvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / gridSize);
+            const y = Math.floor((e.clientY - rect.top) / gridSize);
+            
+            const stages = usersData[currentUser].myObby.stages;
+            let currentBlocks = stages[currentEditorStageIndex];
+
+            // Tìm xem đã có khối ở vị trí này chưa
+            const idx = currentBlocks.findIndex(b => b.x === x && b.y === y);
+            if (selectedTool === 0) {
+                if (idx !== -1) currentBlocks.splice(idx, 1);
+            } else {
+                if (idx !== -1) {
+                    currentBlocks[idx].t = selectedTool;
+                } else {
+                    currentBlocks.push({ t: selectedTool, x: x, y: y, w: 1, h: 1 });
+                }
+            }
+            saveUserData();
+            drawEditor();
+        }
+
+        function drawEditor() {
+            edCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+            // Vẽ lưới
+            edCtx.strokeStyle = '#1e293b';
+            edCtx.lineWidth = 1;
+            for(let x=0; x<editorCanvas.width; x+=gridSize) {
+                edCtx.beginPath(); edCtx.moveTo(x,0); edCtx.lineTo(x, editorCanvas.height); edCtx.stroke();
+            }
+            for(let y=0; y<editorCanvas.height; y+=gridSize) {
+                edCtx.beginPath(); edCtx.moveTo(0,y); edCtx.lineTo(editorCanvas.width, y); edCtx.stroke();
+            }
+
+            // Vẽ các khối
+            const stages = usersData[currentUser].myObby.stages;
+            const currentBlocks = stages[currentEditorStageIndex] || [];
+            currentBlocks.forEach(b => {
+                edCtx.fillStyle = getBlockColor(b.t);
+                edCtx.fillRect(b.x * gridSize, b.y * gridSize, b.w * gridSize, b.h * gridSize);
+                edCtx.strokeStyle = '#000';
+                edCtx.strokeRect(b.x * gridSize, b.y * gridSize, b.w * gridSize, b.h * gridSize);
+            });
+        }
+
+        function getBlockColor(type) {
+            switch(type) {
+                case 1: return '#64748b'; // Thường
+                case 2: return '#38bdf8'; // Băng
+                case 3: return '#a855f7'; // Băng chuyền
+                case 4: return '#ef4444'; // Lava
+                case 5: return '#eab308'; // Checkpoint
+                case 6: return '#ec4899'; // Nút bấm
+                case 7: return '#f97316'; // Khối bị nút
+                default: return '#fff';
+            }
+        }
+
+        function publishObby() {
+            const title = document.getElementById('obby-title').value.trim() || ("Obby của " + currentUser);
+            usersData[currentUser].myObby.title = title;
+            
+            // Tìm và cập nhật vào danh sách công khai
+            const existingIndex = dbObbies.findIndex(o => o.creator === currentUser);
+            const obbyData = {
+                id: existingIndex !== -1 ? dbObbies[existingIndex].id : Date.now(),
+                title: title,
+                creator: currentUser,
+                stages: JSON.parse(JSON.stringify(usersData[currentUser].myObby.stages))
+            };
+
+            if(existingIndex !== -1) {
+                dbObbies[existingIndex] = obbyData;
+            } else {
+                dbObbies.push(obbyData);
+            }
+            saveUserData();
+            alert("🚀 Đăng obby thành công lên hệ thống công khai!");
+        }
+
+        // --- DANH SÁCH GAME CÔNG KHAI ---
+        function openGameList() {
+            showScreen('gamelist-screen');
+            const list = document.getElementById('public-obbies-list');
+            list.innerHTML = '';
+            if(dbObbies.length === 0) {
+                list.innerHTML = '<div style="color: #94a3b8; text-align:center;">Chưa có obby nào được đăng.</div>';
+                return;
+            }
+            dbObbies.forEach(obby => {
+                list.innerHTML += `
+                    <div class="list-item">
+                        <div>
+                            <strong>${obby.title}</strong><br>
+                            <small style="color: #94a3b8;">Tác giả: ${obby.creator} | Số màn: ${obby.stages.length}</small>
+                        </div>
+                        <button onclick="playObby(${obby.id})">▶ Chơi Ngay</button>
+                    </div>
+                `;
+            });
+        }
+
+        // --- HỆ THỐNG GAME ENGINE (CHƠI OBBY) ---
+        let gameInterval = null;
+        let activeObby = null;
+        let currentPlayStage = 0;
+        let player = { x: 50, y: 200, w: 24, h: 36, vx: 0, vy: 0, speed: 4, jumpPower: -10, grounded:false };
+        let spawnPoint = { x: 50, y: 200 };
+        let keys = {};
+        let triggeredButtons = {};
+
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        function playObby(id) {
+            activeObby = dbObbies.find(o => o.id === id);
+            if(!activeObby) return;
+            currentPlayStage = 0;
+            showScreen('play-screen');
+            initStagePlay();
+            if(gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(updateGame, 1000/60);
+        }
+
+        function initStagePlay() {
+            player.vx = 0;
+            player.vy = 0;
+            player.x = 50;
+            player.y = 200;
+            spawnPoint = { x: 50, y: 200 };
+            triggeredButtons[currentPlayStage] = [];
+        }
+
+        function stopGame() {
+            if(gameInterval) clearInterval(gameInterval);
+        }
+
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gCtx = gameCanvas.getContext('2d');
+
+        function updateGame() {
+            // Xử lý điều khiển ngang
+            let moveSpeed = player.speed;
+            let onIce = false;
+            let onConveyor = 0;
+
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+                player.vx = -moveSpeed;
+            } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+                player.vx = moveSpeed;
+            } else {
+                player.vx *= 0.8; // Giảm tốc tự nhiên
+            }
+
+            if ((keys['ArrowUp'] || keys[' '] || keys['w'] || keys['W']) && player.grounded) {
+                player.vy = player.jumpPower;
+                player.grounded = false;
+            }
+
+            // Trọng lực
+            player.vy += 0.5;
+
+            // Di chuyển & Va chạm trục X
+            player.x += player.vx;
+            let blocks = activeObby.stages[currentPlayStage] || [];
+            let removedBlocks = triggeredButtons[currentPlayStage] || [];
+
+            blocks.forEach((b, idx) => {
+                if(removedBlocks.includes(idx)) return;
+                let bx = b.x * gridSize, by = b.y * gridSize, bw = b.w * gridSize, bh = b.h * gridSize;
+                
+                if (b.t !== 4 && b.t !== 5 && b.t !== 6 && rectIntersect(player.x, player.y, player.w, player.h, bx, by, bw, bh)) {
+                    if (player.vx > 0) player.x = bx - player.w;
+                    else if (player.vx < 0) player.x = bx + bw;
+                    player.vx = 0;
+                }
+            });
+
+            // Di chuyển & Va chạm trục Y
+            player.grounded = false;
+            player.y += player.vy;
+
+            blocks.forEach((b, idx) => {
+                let bx = b.x * gridSize, by = b.y * gridSize, bw = b.w * gridSize, bh = b.h * gridSize;
+                let isRemoved = removedBlocks.includes(idx);
+
+                // Kiểm tra va chạm cơ bản
+                if (rectIntersect(player.x, player.y, player.w, player.h, bx, by, bw, bh)) {
+                    // Lava (chết)
+                    if (b.t === 4) {
+                        respawnPlayer();
+                        return;
+                    }
+                    // Checkpoint
+                    if (b.t === 5) {
+                        spawnPoint = { x: bx, y: by - player.h };
+                        return;
+                    }
+                    // Nút bấm (Xóa khối bị nút)
+                    if (b.t === 6) {
+                        // Kích hoạt tìm khối bị nút tương ứng (ví dụ khối tiếp theo hoặc cùng loại) và ẩn nó đi
+                        if(!removedBlocks.includes(idx)) {
+                            // Tìm khối loại 7 gần nhất để xóa
+                            let targetIdx = blocks.findIndex((tb, tidx) => tb.t === 7 && !removedBlocks.includes(tidx));
+                            if(targetIdx !== -1) removedBlocks.push(targetIdx);
                         }
                         return;
                     }
 
-                    if (data.sender === myClientId) return;
-                    if (data.type === 'SYNC_PLAYER') {
-                        playersInRoom[data.sender] = data;
-                        checkGameStart();
+                    if(!isRemoved && b.t !== 7) {
+                        if (player.vy > 0) { // Rơi xuống
+                            player.y = by - player.h;
+                            player.vy = 0;
+                            player.grounded = true;
+                            if (b.t === 2) onIce = true; // Băng
+                            if (b.t === 3) player.x += 3; // Băng chuyền đẩy sang phải
+                        } else if (player.vy < 0) { // Nhảy lên đầu trần
+                            player.y = by + bh;
+                            player.vy = 0;
+                        }
                     }
-                } catch(e){}
-            });
-        }
-
-        function broadcastPresence() {
-            if (!client || !client.connected) return;
-            client.publish(MQTT_TOPIC, JSON.stringify({
-                type: 'SYNC_PLAYER',
-                sender: myClientId,
-                name: myName,
-                x: myPos.x,
-                y: myPos.y,
-                isMonster: isMonster
-            }));
-        }
-
-        function checkGameStart() {
-            let count = Object.keys(playersInRoom).length + 1;
-            document.getElementById('hud-status').innerText = `Sảnh: ${count} người chơi`;
-            if (!gameStarted && count >= 3) {
-                gameStarted = true;
-                document.getElementById('hud-status').innerText = "Trò chơi bắt đầu sau 10s!";
-                setTimeout(() => {
-                    document.getElementById('hud-status').innerText = "Đang sinh tồn!";
-                }, 10000);
-            }
-        }
-
-        function initCanvas() {
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-            myPos.x = canvas.width / 2;
-            myPos.y = canvas.height / 2;
-        }
-
-        /* VIRTUAL JOYSTICK */
-        function initJoystick() {
-            const zone = document.getElementById('joystick-zone');
-            const knob = document.getElementById('joystick-knob');
-            let active = false;
-            let origin = { x: 0, y: 0 };
-
-            zone.addEventListener('pointerdown', (e) => {
-                active = true;
-                const rect = zone.getBoundingClientRect();
-                origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-            });
-
-            window.addEventListener('pointermove', (e) => {
-                if (!active) return;
-                let dx = e.clientX - origin.x;
-                let dy = e.clientY - origin.y;
-                let dist = Math.hypot(dx, dy);
-                let maxDist = 40;
-                if (dist > maxDist) {
-                    dx = (dx / dist) * maxDist;
-                    dy = (dy / dist) * maxDist;
                 }
-                knob.style.transform = `translate(${dx}px, ${dy}px)`;
-                velocity.x = (dx / maxDist) * 3;
-                velocity.y = (dy / maxDist) * 3;
             });
 
-            window.addEventListener('pointerup', () => {
-                if (!active) return;
-                active = false;
-                knob.style.transform = `translate(0px, 0px)`;
-                velocity.x = 0;
-                velocity.y = 0;
-            });
-        }
-
-        function startGameLoop() {
-            function loop() {
-                myPos.x += velocity.x;
-                myPos.y += velocity.y;
-                myPos.x = Math.max(20, Math.min(canvas.width - 20, myPos.x));
-                myPos.y = Math.max(20, Math.min(canvas.height - 20, myPos.y));
-
-                broadcastPresence();
-
-                // Render Canvas Map
-                ctx.fillStyle = '#07050f';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Draw House
-                let houseX = canvas.width / 2 - 100;
-                let houseY = canvas.height / 2 - 100;
-                ctx.fillStyle = '#1c1638';
-                ctx.fillRect(houseX, houseY, 200, 200);
-                ctx.strokeStyle = '#54a0ff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(houseX, houseY, 200, 200);
-
-                // Draw Door
-                ctx.fillStyle = '#ff9f43';
-                ctx.fillRect(houseX + 75, houseY + 185, 50, 15);
-
-                // Draw Bed inside house if owner
-                ctx.fillStyle = '#2ed573';
-                ctx.fillRect(houseX + 20, houseY + 20, 40, 30);
-
-                // Draw Player
-                ctx.fillStyle = isMonster ? '#ee5253' : '#54a0ff';
-                ctx.beginPath();
-                ctx.arc(myPos.x, myPos.y, 12, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.stroke();
-
-                document.getElementById('hud-gold').innerText = myGold + "$";
-                document.getElementById('hud-house').innerText = isInsideHouse ? "Đã vào nhà" : "Ngoài trời";
-
-                requestAnimationFrame(loop);
+            // Kiểm tra rớt vực -> Hồi sinh
+            if (player.y > gameCanvas.height) {
+                respawnPlayer();
             }
-            loop();
-        }
 
-        function incomeLoop() {
-            if (isInsideHouse) {
-                let totalIncome = bedIncome + (securityBoxesCount * 5);
-                myGold += totalIncome;
-            }
-        }
-
-        function sendGameChat() {
-            const input = document.getElementById('game-chat-input');
-            const val = input.value.trim();
-            if (!val) return;
-            input.value = '';
-        }
-
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            let cx = e.clientX - rect.left;
-            let cy = e.clientY - rect.top;
-
-            // Check if clicking house door to enter
-            let houseX = canvas.width / 2 - 100;
-            let houseY = canvas.height / 2 - 100;
-            if (cx >= houseX + 75 && cx <= houseX + 125 && cy >= houseY + 185 && cy <= houseY + 200) {
-                if (!isInsideHouse) {
-                    // Send request to enter house owner
-                    alert("Đã gửi yêu cầu vào nhà!");
+            // Kiểm tra hoàn thành màn hoặc sang màn tiếp theo khi chạm rìa phải
+            if (player.x > gameCanvas.width) {
+                if (currentPlayStage < activeObby.stages.length - 1) {
+                    currentPlayStage++;
+                    initStagePlay();
+                } else {
+                    alert("🏆 Chúc mừng bạn đã phá đảo Obby này!");
+                    stopGame();
+                    showScreen('menu-screen');
                 }
             }
 
-            // If inside house, click grid plus signs to build
-            if (isInsideHouse && cx >= houseX + 20 && cx <= houseX + 180 && cy >= houseY + 70 && cy <= houseY + 180) {
-                selectedGridIndex = Math.floor((cx - (houseX + 20)) / 40);
-                document.getElementById('build-modal').style.display = 'flex';
-            }
-        });
+            document.getElementById('game-info').innerText = `${activeObby.title} | Màn: ${currentPlayStage + 1}/${activeObby.stages.length}`;
 
-        function closeBuildModal() {
-            document.getElementById('build-modal').style.display = 'none';
+            // --- VẼ LẠI GAME ---
+            gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            blocks.forEach((b, idx) => {
+                if(removedBlocks.includes(idx)) return;
+                gCtx.fillStyle = getBlockColor(b.t);
+                gCtx.fillRect(b.x * gridSize, b.y * gridSize, b.w * gridSize, b.h * gridSize);
+            });
+
+            // Vẽ Người Chơi
+            gCtx.fillStyle = '#3b82f6';
+            gCtx.fillRect(player.x, player.y, player.w, player.h);
         }
 
-        function buildStructure(type) {
-            if (type === 'GUN') {
-                if (myGold < gunPrice) return alert("Không đủ vàng!");
-                myGold -= gunPrice;
-                structures[selectedGridIndex] = 'GUN';
-                gunPrice = Math.round(gunPrice * 1.3);
-                document.getElementById('gun-price').innerText = gunPrice + "$";
-            } else if (type === 'BOX') {
-                if (myGold < 45) return alert("Không đủ vàng!");
-                myGold -= 45;
-                securityBoxesCount++;
-            }
-            closeBuildModal();
+        function respawnPlayer() {
+            player.x = spawnPoint.x;
+            player.y = spawnPoint.y;
+            player.vx = 0;
+            player.vy = 0;
         }
 
-        let pendingRequesterId = null;
-        function showRequestModal(id, name) {
-            pendingRequesterId = id;
-            document.getElementById('request-text').innerText = `Người chơi ${name} muốn vào nhà chung của bạn!`;
-            document.getElementById('request-modal').style.display = 'flex';
+        function rectIntersect(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
         }
 
-        function responseEnterHouse(accepted) {
-            document.getElementById('request-modal').style.display = 'none';
-            if (client && client.connected) {
-                client.publish(`${MQTT_TOPIC}/${pendingRequesterId}`, JSON.stringify({
-                    type: 'RESPONSE_ENTER',
-                    accepted: accepted
-                }));
-            }
-        }
+        // Khởi chạy hệ thống lúc mở trang
+        window.onload = initApp;
     </script>
 </body>
 </html>
