@@ -3,341 +3,571 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cozy Lounge & 2D Online Game</title>
+    <title>3D Roblox Ball Lounge - Nâng Cấp Toàn Diện</title>
 
-    <!-- Thư viện MQTT WebSocket -->
+    <!-- Thư viện Three.js (3D Engine) & MQTT -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background: #090714; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; }
 
-        /* SẢNH LỰA CHỌN SERVER */
-        #lobby-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(9, 7, 20, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
-        .lobby-card { background: #151226; border: 1px solid #3d3266; border-radius: 20px; padding: 20px; width: 92%; max-width: 520px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 12px; max-height: 95vh; overflow-y: auto; }
-        .lobby-title { font-size: 20px; font-weight: 800; text-align: center; color: #ff9f43; letter-spacing: 1px; }
-        
-        .input-group { display: flex; gap: 8px; }
-        input[type="text"], select { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 13px; outline: none; user-select: text; -webkit-user-select: text; }
-        input[type="text"]:focus, select:focus { border-color: #ff9f43; }
+        /* Canvas 3D Fullscreen */
+        #webgl-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
 
-        .btn { background: #ff9f43; color: #000; border: none; padding: 10px 16px; font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .btn:hover { background: #ffb164; }
-        .btn-purple { background: #54a0ff; color: #fff; }
-        .btn-purple:hover { background: #2e86de; }
-        .btn-green { background: #2ed573; color: #000; }
-        .btn-green:hover { background: #26af5f; }
-        .btn-danger { background: #ee5253; color: #fff; }
+        .interactive { pointer-events: auto; }
 
-        /* CHỌN KHU VỰC GRID */
-        .map-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 4px; }
-        .map-card { background: #0d0a1a; border: 2px solid #282142; border-radius: 8px; padding: 8px 4px; text-align: center; cursor: pointer; transition: all 0.2s; }
-        .map-card.selected { border-color: #ff9f43; background: #251b38; }
-        .map-card-title { font-size: 11px; font-weight: bold; color: #fff; }
-
-        /* DANH SÁCH SERVER */
-        .server-list-box { background: #0d0a1a; border: 1px solid #282142; border-radius: 10px; padding: 8px; height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-        .server-item { background: #1d1735; border: 1px solid #3a305e; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
-        .server-info { display: flex; flex-direction: column; gap: 2px; }
-        .server-name { font-weight: bold; font-size: 13px; color: #54a0ff; }
-        .server-sub { font-size: 10px; color: #8c7ae6; }
-        
-        /* MÀN HÌNH CHÍNH GAME */
-        #game-ui { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 900px; height: 100vh; justify-content: center; padding: 10px; gap: 8px; }
-        
-        #top-bar { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
-        .room-title-text { font-size: 14px; font-weight: bold; color: #ff9f43; }
-        
-        #canvas-wrapper { position: relative; width: 100%; height: 60vh; max-height: 500px; border-radius: 16px; overflow: hidden; border: 2px solid #3d3266; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        canvas { width: 100%; height: 100%; display: block; background: #05040a; }
-
-        /* KHUNG CHAT */
-        #chat-box { width: 100%; background: #151226; border: 1px solid #3d3266; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
-        #chat-messages { height: 75px; overflow-y: auto; background: #0d0a1a; border-radius: 8px; padding: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
-        .msg-item { line-height: 1.3; }
-        .msg-sender { font-weight: bold; color: #54a0ff; margin-right: 5px; }
-        .msg-text { color: #e1b12c; }
-        .chat-input-row { display: flex; gap: 8px; }
-        #chat-input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #3d3266; background: #0d0a1a; color: #fff; font-size: 12px; }
-
-        /* --- GIAO DIỆN THÁCH ĐẤU & BẢNG THÔNG BÁO --- */
-        #invite-btn {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            padding: 12px 24px; background: #f59e0b; color: #000; border: none;
-            border-radius: 30px; font-weight: 800; font-size: 14px; cursor: pointer; display: none;
-            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5); z-index: 80; transition: transform 0.1s;
-        }
-        #invite-btn:active { transform: translateX(-50%) scale(0.95); }
-
-        #invite-toast {
-            position: absolute; top: 15px; right: 15px;
-            background: rgba(15, 23, 42, 0.95); border: 2px solid #f59e0b;
-            padding: 14px; border-radius: 12px; display: none; width: 230px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.7); z-index: 95; backdrop-filter: blur(4px);
-        }
-        #invite-toast p { font-size: 13px; margin-bottom: 10px; line-height: 1.3; color: #f3f4f6; }
-        .toast-btns { display: flex; gap: 6px; }
-        .toast-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
-        .toast-accept { background: #10b981; color: white; }
-        .toast-deny { background: #ef4444; color: white; }
-
-        #win-banner {
-            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(15, 23, 42, 0.95); border: 3px solid #f59e0b;
-            padding: 25px 40px; border-radius: 16px; font-size: 24px; color: #f59e0b;
-            text-align: center; display: none; font-weight: 900; text-shadow: 0 0 15px rgba(245, 158, 11, 0.7);
-            z-index: 100; box-shadow: 0 20px 50px rgba(0,0,0,0.9); width: 85%; max-width: 450px;
+        /* GIAO DIỆN SẢNH (LOBBY TOP BAR) */
+        #lobby-ui {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10;
+            pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 15px;
         }
 
-        #duel-hud {
-            position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-            display: none; background: rgba(15, 23, 42, 0.85); padding: 8px 20px;
-            border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
-            font-weight: bold; text-align: center; z-index: 75; font-size: 13px; color: #fff;
+        .lobby-top-bar {
+            display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap;
+            background: rgba(15, 23, 42, 0.85); padding: 10px 18px; border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px);
+            max-width: 95%; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        /* HUD MINI GAME SÂN CỎ */
-        #grass-minigame-hud {
-            display: none; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.92); border: 2px solid #2ed573; padding: 12px 16px;
-            border-radius: 16px; color: #fff; text-align: center; z-index: 85; width: 92%; max-width: 480px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8); backdrop-filter: blur(6px);
+        .name-input {
+            background: #0f172a; border: 1px solid #3b82f6; color: #fff; padding: 8px 14px;
+            border-radius: 20px; outline: none; font-size: 13px; width: 140px; text-align: center;
         }
+        .name-input:focus { border-color: #60a5fa; }
 
-        /* MODAL BẢNG QUẢN LÝ CỦA HOST */
-        #host-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; }
-        .host-card { background: #151226; border: 1px solid #54a0ff; border-radius: 16px; padding: 20px; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
-        .player-manage-item { display: flex; justify-content: space-between; align-items: center; background: #0d0a1a; padding: 8px 12px; border-radius: 8px; border: 1px solid #282142; }
+        .btn {
+            background: #3b82f6; color: #fff; border: none; padding: 8px 15px; border-radius: 20px;
+            font-weight: bold; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .btn:hover { transform: scale(1.05); background: #2563eb; }
+        .btn-green { background: #10b981; } .btn-green:hover { background: #059669; }
+        .btn-purple { background: #8b5cf6; } .btn-purple:hover { background: #7c3aed; }
+        .btn-orange { background: #f59e0b; } .btn-orange:hover { background: #d97706; }
+        .btn-danger { background: #ef4444; } .btn-danger:hover { background: #dc2626; }
+
+        /* MODAL POPUP (SERVER / AVATAR / HOST) */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75);
+            z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(6px);
+        }
+        .modal-card {
+            background: #1e293b; border: 1px solid #475569; border-radius: 20px; padding: 20px;
+            width: 92%; max-width: 480px; display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8); color: #fff; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: bold; }
+        .close-btn { cursor: pointer; font-size: 20px; color: #94a3b8; } .close-btn:hover { color: #fff; }
+
+        /* MẠNG LƯỚI CHỌN MAP KHU VỰC */
+        .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 5px 0; }
+        .map-item {
+            background: #0f172a; border: 2px solid #334155; border-radius: 12px; padding: 8px;
+            text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; transition: 0.2s;
+        }
+        .map-item.selected { border-color: #10b981; background: #1e3a8a; }
+
+        /* SERVER LIST */
+        .server-list { background: #0f172a; border-radius: 12px; height: 160px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .server-item { background: #334155; padding: 8px 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* AVATAR COLOR PICKER */
+        .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 5px; }
+        .color-box { height: 38px; border-radius: 10px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .color-box.selected { border-color: #fff; transform: scale(1.1); }
+
+        /* IN-GAME HUD */
+        #game-hud {
+            position: fixed; top: 12px; left: 12px; right: 12px; z-index: 20; display: none;
+            justify-content: space-between; align-items: center; pointer-events: none;
+        }
+        .hud-card { background: rgba(15, 23, 42, 0.85); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; font-weight: bold; }
+
+        /* KHUNG CHAT IN-GAME */
+        #chat-box {
+            position: fixed; bottom: 20px; left: 15px; width: 280px; z-index: 25; display: none;
+            flex-direction: column; gap: 6px; pointer-events: auto; background: rgba(15, 23, 42, 0.85);
+            padding: 10px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px);
+        }
+        #chat-messages { height: 90px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+        .msg-item { line-height: 1.3; word-break: break-word; }
+        .msg-sender { font-weight: bold; color: #60a5fa; margin-right: 4px; }
+        .msg-text { color: #f3f4f6; }
+        .chat-input-row { display: flex; gap: 6px; }
+        #chat-input { flex: 1; padding: 6px 10px; border-radius: 12px; border: 1px solid #3b82f6; background: #0f172a; color: #fff; font-size: 11px; outline: none; }
+
+        /* NÚT CẢM ỨNG MOBILE */
+        #mobile-controls {
+            position: fixed; bottom: 20px; right: 20px; z-index: 30; display: none;
+            flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none;
+        }
+        .touch-dpad { display: grid; grid-template-columns: repeat(3, 45px); gap: 4px; pointer-events: auto; }
+        .touch-btn {
+            width: 45px; height: 45px; background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.5);
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            font-size: 16px; font-weight: bold; color: #fff; pointer-events: auto; backdrop-filter: blur(4px);
+        }
+        .touch-btn:active { background: rgba(255,255,255,0.5); transform: scale(0.95); }
+
+        @media (hover: hover) and (pointer: fine) {
+            #mobile-controls { display: none !important; }
+        }
+        @media (max-width: 600px) {
+            #chat-box { width: 220px; bottom: 80px; }
+        }
     </style>
 </head>
 <body>
 
-    <!-- SẢNH TẠO / CHỌN SERVER -->
-    <div id="lobby-overlay">
-        <div class="lobby-card">
-            <div class="lobby-title">✨ COZY LOUNGE & MINI-GAMES ✨</div>
+    <!-- 3D WEBGL CANVAS -->
+    <div id="webgl-container"></div>
+
+    <!-- SẢNH ĐIỀU KHIỂN MAIN LOBBY -->
+    <div id="lobby-ui">
+        <div class="lobby-top-bar interactive">
+            <input type="text" id="player-name-input" class="name-input" value="Bóng Roblox" maxlength="12" placeholder="Nhập tên...">
+            <button class="btn btn-purple" onclick="openAvatarModal()">🎨 Avatar</button>
+            <button class="btn btn-orange" onclick="toggleCameraMode()" id="cam-toggle-btn">📷 Cam: Theo Mặt</button>
+            <button class="btn btn-green" onclick="openServerModal()">🌐 Chọn SV / Tạo Phòng</button>
+        </div>
+
+        <div style="text-align: center; color: rgba(255,255,255,0.75); font-size: 11px; text-shadow: 0 2px 4px #000;">
+            💡 <b>PC:</b> Phím <b>WASD</b> để di chuyển (theo Cam), <b>Space</b> Nhảy, Kéo chuột để xoay Cam.
+        </div>
+    </div>
+
+    <!-- IN-GAME HUD HUD -->
+    <div id="game-hud">
+        <div style="display:flex; gap: 8px; align-items: center;">
+            <div class="hud-card" id="hud-room-info">Server: Sân Bóng</div>
+            <div class="hud-card" id="hud-online-count">👥 1 Online</div>
+        </div>
+        <div style="display:flex; gap: 8px;" class="interactive">
+            <button class="btn btn-purple" id="host-panel-btn" style="display:none;" onclick="openHostModal()">⚙️ Quản Lý</button>
+            <button class="btn btn-danger" onclick="leaveServer()">Thoát SV</button>
+        </div>
+    </div>
+
+    <!-- KHUNG CHAT GAME -->
+    <div id="chat-box">
+        <div id="chat-messages">
+            <div style="color: #94a3b8; font-style: italic;">Chào mừng bạn đến với 3D Lounge!</div>
+        </div>
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Nhắn tin..." maxlength="50">
+            <button class="btn btn-purple" style="padding: 4px 10px; font-size: 11px;" onclick="sendChat()">Gửi</button>
+        </div>
+    </div>
+
+    <!-- CẢM ỨNG MOBILE -->
+    <div id="mobile-controls">
+        <div class="touch-btn" style="width:65px; height:65px; background: #10b981;" id="btn-jump">NHẢY</div>
+        <div class="touch-dpad">
+            <div></div><div class="touch-btn" id="btn-up">▲</div><div></div>
+            <div class="touch-btn" id="btn-left">◄</div>
+            <div class="touch-btn" id="btn-down">▼</div>
+            <div class="touch-btn" id="btn-right">►</div>
+        </div>
+    </div>
+
+    <!-- MODAL QUẢN LÝ SERVER & CHỌN MAP -->
+    <div class="modal interactive" id="server-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span>🌐 Danh Sách Server & Tạo Map</span>
+                <span class="close-btn" onclick="closeServerModal()">✖</span>
+            </div>
             
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                <label style="font-size: 11px; color: #aaa;">Tên của bạn & Tên Server:</label>
-                <div class="input-group">
-                    <input type="text" id="username-input" placeholder="Tên người chơi..." maxlength="12">
-                    <input type="text" id="servername-input" placeholder="Tên Server..." maxlength="15">
+            <div style="display:flex; flex-direction:column; gap: 6px;">
+                <label style="font-size: 11px; color: #94a3b8;">Chọn Khu Vực Map 3D Khi Tạo:</label>
+                <div class="map-grid">
+                    <div class="map-item selected" onclick="selectMap('GRASS', this)">🌱 Sân Cỏ Bóng Đá</div>
+                    <div class="map-item" onclick="selectMap('SNOW', this)">❄️ Đảo Băng Tuyết</div>
+                    <div class="map-item" onclick="selectMap('NEON', this)">🌃 Thành Phố Neon</div>
+                    <div class="map-item" onclick="selectMap('SPACE', this)">🚀 Trạm Vũ Trụ</div>
+                    <div class="map-item" onclick="selectMap('LAVA', this)">🌋 Núi Lửa Lửa Rơi</div>
                 </div>
 
-                <label style="font-size: 11px; color: #aaa; margin-top: 4px;">Chọn Khu Vực & Mini-Game:</label>
-                <div class="map-selector">
-                    <!-- MAP MỚI SÂN CỎ RỘNG RÃI -->
-                    <div class="map-card selected" onclick="selectMap('GRASS', this)">
-                        <div class="map-card-title">🌱 Sân Cỏ Rộng Rãi</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('CAMPFIRE', this)">
-                        <div class="map-card-title">🔥 Lửa Trại Đêm</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('BEACH', this)">
-                        <div class="map-card-title">🏖️ Biển Hoàng Hôn</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('FOREST', this)">
-                        <div class="map-card-title">🌲 Rừng Kỳ Ảo</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('NEON', this)">
-                        <div class="map-card-title">🌃 Thành Phố Neon</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('SNOW', this)">
-                        <div class="map-card-title">❄️ Đảo Băng Tuyết</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('LAVA', this)">
-                        <div class="map-card-title">🌋 Núi Lửa Lửa Rơi</div>
-                    </div>
-                    <div class="map-card" onclick="selectMap('SPACE', this)">
-                        <div class="map-card-title">🚀 Trạm Vũ Trụ</div>
-                    </div>
+                <div style="display:flex; gap: 8px; margin-top: 4px;">
+                    <input type="text" id="new-servername-input" class="name-input" style="flex:1; text-align:left;" placeholder="Tên Server..." maxlength="15">
+                    <button class="btn btn-green" onclick="createNewServer()">🚀 Tạo Server</button>
                 </div>
-
-                <button class="btn" style="margin-top: 6px;" onclick="createNewServer()">🚀 Tạo Server & Vào Ngay</button>
             </div>
 
-            <hr style="border: 0; border-top: 1px solid #282142;">
+            <hr style="border: 0; border-top: 1px solid #334155;">
 
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 11px; color: #aaa;">Danh Sách Server Online:</label>
-                    <span style="font-size: 10px; color: #54a0ff;">🟢 Tự cập nhật</span>
-                </div>
-                <div class="server-list-box" id="server-list">
-                    <div style="text-align: center; color: #666; font-size: 11px; margin-top: 40px;">Đang tìm các server xung quanh...</div>
-                </div>
+            <div style="font-size: 11px; color: #94a3b8;">Các Server đang hoạt động:</div>
+            <div class="server-list" id="server-list-box">
+                <div style="text-align:center; color:#64748b; margin-top:50px; font-size:12px;">Đang tìm các Server...</div>
             </div>
         </div>
     </div>
 
-    <!-- MÀN HÌNH CHÍNH GAME -->
-    <div id="game-ui">
-        <div id="top-bar">
-            <div>
-                <span class="room-title-text" id="display-room-name">Server: Lounge</span>
-                <span style="font-size: 11px; color: #8c7ae6; margin-left: 8px;" id="online-count">👥 1 Trực tuyến</span>
+    <!-- MODAL CHỈNH AVATAR -->
+    <div class="modal interactive" id="avatar-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span>🎨 Tùy Chỉnh Quả Bóng 3D</span>
+                <span class="close-btn" onclick="closeAvatarModal()">✖</span>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <span id="my-score-display" style="font-size: 12px; color: #f1c40f; font-weight: bold;">⭐ Điểm: 0</span>
-                <button class="btn btn-purple" id="host-panel-btn" style="display: none; padding: 5px 10px; font-size: 11px;" onclick="openHostModal()">⚙️ Quản Lý</button>
-                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 11px;" onclick="leaveServer()">Thoát</button>
-            </div>
-        </div>
-
-        <div id="canvas-wrapper">
-            <canvas id="loungeCanvas"></canvas>
-
-            <!-- Giao diện Mini Game Sân Cỏ (Đếm 1-10 Thay Thế Từ) -->
-            <div id="grass-minigame-hud">
-                <div style="font-weight: bold; font-size: 14px; color: #2ed573; margin-bottom: 4px;">🌱 MINI GAME: ĐẾM SỐ GHI NHỚ (1 - 10)</div>
-                <div id="grass-status" style="font-size: 12px; color: #f1c40f; margin-bottom: 6px;">Chưa bắt đầu trò chơi (Tối đa 3 người chơi)</div>
-                <div id="grass-rules-list" style="font-size: 11px; color: #a4b0be; margin-bottom: 8px; font-style: italic;">Chưa có luật thay thế từ nào</div>
-                <div id="grass-controls" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;"></div>
-            </div>
-
-            <!-- Giao diện PvP Thách đấu trên Canvas -->
-            <button id="invite-btn" onclick="sendDuelInvite()">⚔️ MỜI THÁCH ĐẤU</button>
-
-            <div id="invite-toast">
-                <p id="invite-text">Player B muốn thách đấu bạn!</p>
-                <div class="toast-btns">
-                    <button class="toast-btn toast-accept" onclick="acceptDuelInvite()">Chấp nhận</button>
-                    <button class="toast-btn toast-deny" onclick="denyDuelInvite()">Từ chối</button>
-                </div>
-            </div>
-
-            <div id="win-banner"></div>
-            <div id="duel-hud"><span id="duel-round-info">VÁN 1: Súng Lục Bạc (Dame: 45)</span></div>
-        </div>
-
-        <div id="chat-box">
-            <div id="chat-messages">
-                <div style="color: #666; font-style: italic; font-size: 11px;">Dùng WASD / Mũi tên để di chuyển. Nhấp chuột hoặc bấm để tham gia Mini-game!</div>
-            </div>
-            <div class="chat-input-row">
-                <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="60">
-                <button class="btn btn-purple" onclick="sendChat()">Gửi</button>
-            </div>
+            <div style="font-size:12px;">Chọn màu quả bóng:</div>
+            <div class="color-picker-grid" id="color-picker"></div>
+            <button class="btn btn-purple" style="margin-top:10px; justify-content:center;" onclick="closeAvatarModal()">Xác Nhận</button>
         </div>
     </div>
 
     <!-- MODAL QUẢN LÝ DÀNH CHO HOST -->
-    <div id="host-modal">
-        <div class="host-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: #54a0ff; font-size: 16px;">👑 Quản Lý Server (Host)</h3>
-                <span style="cursor: pointer; font-size: 18px;" onclick="closeHostModal()">✖</span>
+    <div class="modal interactive" id="host-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span style="color:#60a5fa;">👑 Quản Lý Server (Host)</span>
+                <span class="close-btn" onclick="closeHostModal()">✖</span>
             </div>
-            <div style="font-size: 12px; color: #aaa;">Danh sách người chơi & tình trạng thiết bị:</div>
-            <div id="host-player-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
+            <div style="font-size: 11px; color: #94a3b8;">Thành viên đang trong phòng & Thiết bị:</div>
+            <div id="host-player-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;"></div>
             <button class="btn btn-purple" onclick="closeHostModal()">Đóng</button>
         </div>
     </div>
 
 <script>
-    const LOBBY_TOPIC = "cozy-lounge-v3/public-lobby";
-    const myClientId = 'user_' + Math.random().toString(36).substr(2, 8);
-    const myColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-
-    let client = null;
+    /* --- CẤU HÌNH HỆ THỐNG & MQTT --- */
+    const LOBBY_TOPIC = "cozy-lounge-v5/3d-lobby";
+    const myClientId = 'user_3d_' + Math.random().toString(36).substr(2, 6);
+    let myColor = '#3b82f6';
+    let myName = "Bóng Roblox";
     let currentRoomId = null;
-    let isHost = false;
-    let myName = "Người Chơi";
     let selectedMapType = 'GRASS';
     let currentRoomMap = 'GRASS';
-
-    let myScore = 0;
-    let speedBoostEndTime = 0;
+    let isHost = false;
 
     let myBatteryStatus = "N/A";
     if ('getBattery' in navigator) {
-        navigator.getBattery().then(battery => {
-            myBatteryStatus = Math.round(battery.level * 100) + "%";
-            battery.addEventListener('levelchange', () => { myBatteryStatus = Math.round(battery.level * 100) + "%"; });
+        navigator.getBattery().then(b => {
+            myBatteryStatus = Math.round(b.level * 100) + "%";
+            b.addEventListener('levelchange', () => { myBatteryStatus = Math.round(b.level * 100) + "%"; });
         }).catch(() => {});
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-        const savedName = localStorage.getItem('cozy_lounge_username');
-        if (savedName) document.getElementById('username-input').value = savedName;
-    });
+    const availableColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#ffffff', '#1e293b'];
 
-    // TỌA ĐỘ VÀ DỮ LIỆU GAME
-    let myPos = { x: 400, y: 300, targetX: 400, targetY: 300 };
-    let otherPlayers = {}; 
-    let publicServers = {}; 
-    let myChatBubble = { text: "", timer: null };
+    /* --- THREE.JS ENGINE 3D --- */
+    let scene, camera, renderer;
+    let myBallGroup, otherPlayers = {}, publicServers = {};
+    let mapObjects = [];
+    let cameraAngleYaw = 0, cameraAnglePitch = 0.35;
+    let followFaceCamera = true; 
 
-    // VẬT PHẨM VÀ BẪY CỦA MINI-GAME MAP KHÁC
-    let minigameItems = [];
-    let lavaMeteors = [];
+    // Vật lý & Di chuyển
+    let pos = { x: 0, y: 1, z: 0 };
+    let velocityY = 0;
+    let isGrounded = true;
+    const gravity = 28, jumpPower = 12, speed = 12;
 
-    // TRẠNG THÁI MINI-GAME SÂN CỎ (ĐẾM SỐ 1-10)
-    let grassGame = {
-        active: false,
-        phase: 'LOBBY', // 'LOBBY', 'ADD_RULE', 'COUNTING'
-        players: [],    // Tối đa 3 người [ { id, name } ]
-        turnIndex: 0,
-        currentNumber: 1, // 1 -> 10
-        substitutions: {}, // e.g. { 4: "Con Gà" }
-        selectedRuleNum: 1,
-        ruleInputWord: ""
-    };
+    let keys = { w: false, a: false, s: false, d: false, space: false };
 
-    // BỘ VŨ KHÍ DUEL
-    const RANDOM_WEAPONS = [
-        { name: "Súng Laze Cổ Đại", color: "#a855f7" },
-        { name: "Súng Đại Bác Hạng Nặng", color: "#f97316" },
-        { name: "Súng Rồng Lửa", color: "#ef4444" },
-        { name: "Súng Sấm Sét", color: "#06b6d4" },
-        { name: "Súng Quái Thú", color: "#10b981" }
-    ];
+    function init3D() {
+        const container = document.getElementById('webgl-container');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
 
-    let duelState = {
-        inBattle: false,
-        partnerId: null,
-        isInviteLocked: false,
-        round: 1,
-        myHp: 100,
-        maxHp: 100,
-        myWeapon: { name: "Súng Lục Bạc", damage: 45 },
-        prePos: { x: 400, y: 300 },
-        pendingInviterId: null
-    };
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
 
-    let bullets = [];
-    let nearestPlayerId = null;
+        // Ánh sáng
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
 
-    const canvas = document.getElementById('loungeCanvas');
-    const ctx = canvas.getContext('2d');
-    let particles = [];
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
 
-    function selectMap(mapType, el) {
-        selectedMapType = mapType;
-        document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
-        el.classList.add('selected');
+        // NVT Bản thân
+        myBallGroup = create3DBallMesh(myColor, myName);
+        scene.add(myBallGroup);
+
+        buildMapEnvironment('GRASS');
+
+        window.addEventListener('resize', onWindowResize);
+        setupInteraction();
     }
 
-    function initCanvasSize() {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-        
-        particles = [];
-        for(let i = 0; i < 60; i++) {
-            particles.push({ 
-                x: Math.random() * canvas.width, 
-                y: Math.random() * canvas.height, 
-                r: Math.random() * 2 + 1, 
-                vy: Math.random() * 1 + 0.2,
-                alpha: Math.random() 
-            });
+    /* --- TẠO MÔ HÌNH CÁC MAP 3D KHÁC NHAU --- */
+    function buildMapEnvironment(mapType) {
+        currentRoomMap = mapType;
+        mapObjects.forEach(obj => scene.remove(obj));
+        mapObjects = [];
+
+        if (mapType === 'GRASS') {
+            scene.background = new THREE.Color(0x0f172a);
+            scene.fog.color.setHex(0x0f172a);
+
+            // Mặt cỏ
+            const fieldGeo = new THREE.PlaneGeometry(80, 120);
+            const fieldMat = new THREE.MeshStandardMaterial({ color: 0x2ed573, roughness: 0.6 });
+            const field = new THREE.Mesh(fieldGeo, fieldMat);
+            field.rotation.x = -Math.PI / 2; field.receiveShadow = true;
+            scene.add(field); mapObjects.push(field);
+
+            // Đất nền
+            const groundGeo = new THREE.PlaneGeometry(200, 200);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05;
+            scene.add(ground); mapObjects.push(ground);
+
+            // Khung thành
+            createGoalPost(0, 58, Math.PI);
+            createGoalPost(0, -58, 0);
+        }
+        else if (mapType === 'SNOW') {
+            scene.background = new THREE.Color(0xdff9fb);
+            scene.fog.color.setHex(0xdff9fb);
+
+            const snowGeo = new THREE.PlaneGeometry(200, 200);
+            const snowMat = new THREE.MeshStandardMaterial({ color: 0xc7ecee, roughness: 0.3 });
+            const snow = new THREE.Mesh(snowGeo, snowMat);
+            snow.rotation.x = -Math.PI / 2; snow.receiveShadow = true;
+            scene.add(snow); mapObjects.push(snow);
+        }
+        else if (mapType === 'NEON') {
+            scene.background = new THREE.Color(0x050515);
+            scene.fog.color.setHex(0x050515);
+
+            const gridGeo = new THREE.PlaneGeometry(200, 200, 40, 40);
+            const gridMat = new THREE.MeshBasicMaterial({ color: 0xec4899, wireframe: true });
+            const grid = new THREE.Mesh(gridGeo, gridMat);
+            grid.rotation.x = -Math.PI / 2;
+            scene.add(grid); mapObjects.push(grid);
+        }
+        else if (mapType === 'SPACE') {
+            scene.background = new THREE.Color(0x020208);
+            scene.fog.color.setHex(0x020208);
+
+            const spaceGeo = new THREE.PlaneGeometry(160, 160);
+            const spaceMat = new THREE.MeshStandardMaterial({ color: 0x312e81, metalness: 0.8, roughness: 0.2 });
+            const space = new THREE.Mesh(spaceGeo, spaceMat);
+            space.rotation.x = -Math.PI / 2;
+            scene.add(space); mapObjects.push(space);
+        }
+        else if (mapType === 'LAVA') {
+            scene.background = new THREE.Color(0x1a0505);
+            scene.fog.color.setHex(0x1a0505);
+
+            const lavaGeo = new THREE.PlaneGeometry(200, 200);
+            const lavaMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
+            const lava = new THREE.Mesh(lavaGeo, lavaMat);
+            lava.rotation.x = -Math.PI / 2;
+            scene.add(lava); mapObjects.push(lava);
         }
     }
-    window.addEventListener('resize', initCanvasSize);
 
-    // KẾT NỐI WEBSOCKET MQTT
-    client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId, keepalive: 60 });
+    function createGoalPost(x, z, rot) {
+        const goalGroup = new THREE.Group();
+        const postMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5), postMat); p1.position.set(-6, 2.5, 0);
+        const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5), postMat); p2.position.set(6, 2.5, 0);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 12.4), postMat); top.rotation.z = Math.PI / 2; top.position.set(0, 5, 0);
+        goalGroup.add(p1, p2, top); goalGroup.position.set(x, 0, z); goalGroup.rotation.y = rot;
+        scene.add(goalGroup); mapObjects.push(goalGroup);
+    }
+
+    /* --- TẠO MÔ HÌNH MẶT BÓNG 3D + SPRITE CHAT --- */
+    function create3DBallMesh(colorHex, labelText) {
+        const group = new THREE.Group();
+
+        // Thân quả bóng
+        const ballGeo = new THREE.SphereGeometry(1, 32, 32);
+        const ballMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorHex), roughness: 0.3, metalness: 0.1 });
+        const ballMesh = new THREE.Mesh(ballGeo, ballMat);
+        ballMesh.castShadow = true; group.add(ballMesh);
+
+        // Mắt & Miệng
+        const eyeGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(0.35, 0.2, 0.85);
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(-0.35, 0.2, 0.85);
+
+        const mouthGeo = new THREE.TorusGeometry(0.2, 0.05, 8, 16, Math.PI);
+        const mouthMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+        mouth.position.set(0, -0.15, 0.9); mouth.rotation.x = Math.PI;
+
+        group.add(leftEye, rightEye, mouth);
+
+        // Nhãn tên trên đầu
+        const nameSprite = createTextSprite(labelText);
+        nameSprite.position.set(0, 1.8, 0);
+        nameSprite.name = "name_sprite";
+        group.add(nameSprite);
+
+        return group;
+    }
+
+    function createTextSprite(text, isBubble = false) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 384; canvas.height = 96;
+        const ctx = canvas.getContext('2d');
+
+        if (isBubble) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.roundRect(10, 10, 364, 76, 16); ctx.fill();
+            ctx.font = 'Bold 24px sans-serif'; ctx.fillStyle = '#0f172a';
+        } else {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+            ctx.roundRect(20, 15, 344, 66, 20); ctx.fill();
+            ctx.font = 'Bold 26px sans-serif'; ctx.fillStyle = '#ffffff';
+        }
+        ctx.textAlign = 'center'; ctx.fillText(text, 192, 56);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(4, 1, 1);
+        return sprite;
+    }
+
+    function show3DChatBubble(group, chatText) {
+        let oldBubble = group.getObjectByName("chat_bubble_sprite");
+        if (oldBubble) group.remove(oldBubble);
+
+        if (!chatText) return;
+
+        const bubbleSprite = createTextSprite(chatText, true);
+        bubbleSprite.position.set(0, 2.8, 0);
+        bubbleSprite.name = "chat_bubble_sprite";
+        group.add(bubbleSprite);
+
+        setTimeout(() => {
+            let current = group.getObjectByName("chat_bubble_sprite");
+            if (current === bubbleSprite) group.remove(bubbleSprite);
+        }, 4000);
+    }
+
+    /* --- DI CHUYỂN & CAM XOAY - MẶT XOAY HƯỚNG CAM --- */
+    function setupInteraction() {
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.w = true;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.s = true;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = true;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = true;
+            if (e.code === 'Space') {
+                if (isGrounded) { velocityY = jumpPower; isGrounded = false; }
+            }
+            if (e.key === 'Enter') sendChat();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.w = false;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.s = false;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = false;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = false;
+        });
+
+        // Kéo chuột xoay Cam
+        let isMouseDown = false, prevX = 0, prevY = 0;
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.interactive') || e.target.closest('#chat-box')) return;
+            isMouseDown = true; prevX = e.clientX; prevY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => isMouseDown = false);
+        window.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            const deltaX = e.clientX - prevX;
+            const deltaY = e.clientY - prevY;
+            cameraAngleYaw -= deltaX * 0.005;
+            cameraAnglePitch += deltaY * 0.005;
+            cameraAnglePitch = Math.max(0.05, Math.min(Math.PI / 2 - 0.05, cameraAnglePitch));
+            prevX = e.clientX; prevY = e.clientY;
+        });
+
+        bindTouch('btn-up', 'w'); bindTouch('btn-down', 's');
+        bindTouch('btn-left', 'a'); bindTouch('btn-right', 'd');
+        document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (isGrounded) { velocityY = jumpPower; isGrounded = false; }
+        });
+    }
+
+    function bindTouch(btnId, keyName) {
+        const el = document.getElementById(btnId);
+        if(!el) return;
+        el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+    }
+
+    function updatePhysics(delta) {
+        let inputX = 0, inputZ = 0;
+        if (keys.w) inputZ -= 1;
+        if (keys.s) inputZ += 1;
+        if (keys.a) inputX -= 1;
+        if (keys.d) inputX += 1;
+
+        if (inputX !== 0 || inputZ !== 0) {
+            const length = Math.hypot(inputX, inputZ);
+            inputX /= length; inputZ /= length;
+
+            // Di chuyển tương đối theo góc nhìn Cam (Camera Yaw)
+            const sin = Math.sin(cameraAngleYaw);
+            const cos = Math.cos(cameraAngleYaw);
+            
+            const moveX = inputX * cos - inputZ * sin;
+            const moveZ = inputX * sin + inputZ * cos;
+
+            pos.x += moveX * speed * delta;
+            pos.z += moveZ * speed * delta;
+
+            // Xoay mặt bóng theo hướng di chuyển thực tế
+            const targetRotation = Math.atan2(moveX, moveZ);
+            myBallGroup.rotation.y = targetRotation;
+        }
+
+        // Vật lý nhảy & Trọng lực
+        velocityY -= gravity * delta;
+        pos.y += velocityY * delta;
+
+        if (pos.y <= 1) {
+            pos.y = 1; velocityY = 0; isGrounded = true;
+        }
+
+        myBallGroup.position.set(pos.x, pos.y, pos.z);
+
+        // Bám đuổi Camera
+        const camDistance = 12;
+        if (followFaceCamera && (inputX !== 0 || inputZ !== 0)) {
+            // Khi di chuyển, Cam tự xoay theo hướng mặt
+            cameraAngleYaw = myBallGroup.rotation.y + Math.PI;
+        }
+
+        camera.position.x = pos.x + camDistance * Math.sin(cameraAngleYaw) * Math.cos(cameraAnglePitch);
+        camera.position.y = pos.y + camDistance * Math.sin(cameraAnglePitch);
+        camera.position.z = pos.z + camDistance * Math.cos(cameraAngleYaw) * Math.cos(cameraAnglePitch);
+        camera.lookAt(pos.x, pos.y + 0.5, pos.z);
+    }
+
+    /* --- GAME LOOP & RENDER --- */
+    let lastTime = performance.now();
+    function gameLoop(now) {
+        const delta = Math.min((now - lastTime) / 1000, 0.1);
+        lastTime = now;
+
+        updatePhysics(delta);
+        broadcastPosition();
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(gameLoop);
+    }
+
+    /* --- MULTIPLAYER MQTT WEBSOCKET --- */
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: myClientId });
 
     client.on('connect', () => { client.subscribe(LOBBY_TOPIC); });
 
@@ -345,99 +575,132 @@
         try {
             const data = JSON.parse(message.toString());
 
-            if (topic === LOBBY_TOPIC && data.type === 'SERVER_HEARTBEAT') {
+            if (topic === LOBBY_TOPIC && data.type === 'SERVER_PING') {
                 publicServers[data.roomId] = { ...data, lastPing: Date.now() };
                 renderServerList();
                 return;
             }
 
-            if (topic === `cozy-lounge-v3/room/${currentRoomId}`) {
+            if (topic === `cozy-lounge-v5/room/${currentRoomId}`) {
                 if (data.type === 'KICK_PLAYER') {
                     if (data.targetId === myClientId) {
-                        alert("⚠️ Bạn đã bị chủ phòng mời ra khỏi server!");
+                        alert("⚠️ Bạn đã bị chủ phòng mời ra khỏi Server!");
                         location.reload();
                     } else {
-                        delete otherPlayers[data.targetId];
-                        updateOnlineCount();
-                        if (isHost) renderHostPlayerList();
+                        if (otherPlayers[data.targetId]) {
+                            scene.remove(otherPlayers[data.targetId]);
+                            delete otherPlayers[data.targetId];
+                            updateOnlineCount();
+                        }
                     }
-                    return;
-                }
-
-                // ĐỒNG BỘ MINI GAME SÂN CỎ
-                if (data.type === 'GRASS_GAME_SYNC') {
-                    grassGame = data.state;
-                    renderGrassGameUI();
                     return;
                 }
 
                 if (data.sender === myClientId) return;
 
-                if (data.type === 'PLAYER_MOVE') {
-                    otherPlayers[data.sender] = { ...otherPlayers[data.sender], ...data };
-                    updateOnlineCount();
-                } 
-                else if (data.type === 'PLAYER_CHAT') {
-                    if (otherPlayers[data.sender]) {
-                        otherPlayers[data.sender].chatBubble = data.text;
-                        setTimeout(() => { if(otherPlayers[data.sender]) otherPlayers[data.sender].chatBubble = ""; }, 4000);
+                if (data.type === 'MOVE') {
+                    if (!otherPlayers[data.sender]) {
+                        otherPlayers[data.sender] = create3DBallMesh(data.color, data.name);
+                        scene.add(otherPlayers[data.sender]);
+                        updateOnlineCount();
                     }
+                    let pMesh = otherPlayers[data.sender];
+                    pMesh.position.set(data.x, data.y, data.z);
+                    pMesh.rotation.y = data.rotY;
+                    pMesh.battery = data.battery;
+                }
+                else if (data.type === 'CHAT') {
                     appendChatMessage(data.name, data.text);
-                }
-                else if (data.type === 'PLAYER_LEAVE') {
-                    if (duelState.inBattle && duelState.partnerId === data.sender) {
-                        handleOpponentLeftMidGame();
-                    }
-                    delete otherPlayers[data.sender];
-                    updateOnlineCount();
-                }
-                else if (data.type === 'DUEL_INVITE' && data.targetId === myClientId) {
-                    if (currentRoomMap !== 'GRASS' && !duelState.isInviteLocked && !duelState.inBattle) {
-                        duelState.pendingInviterId = data.sender;
-                        document.getElementById('invite-text').innerText = `${escapeHtml(data.senderName)} muốn thách đấu bạn!`;
-                        document.getElementById('invite-toast').style.display = 'block';
-                    }
-                }
-                else if (data.type === 'DUEL_RESPONSE' && data.targetId === myClientId) {
-                    if (data.accepted) {
-                        duelState.partnerId = data.sender;
-                        duelState.isInviteLocked = true;
-                        startBattleSession(true);
-                    } else {
-                        alert(`${otherPlayers[data.sender]?.name || 'Đối thủ'} đã từ chối lời mời!`);
-                        duelState.isInviteLocked = false;
-                    }
-                }
-                else if (data.type === 'DUEL_SHOOT' && data.targetId === myClientId) {
-                    bullets.push(new Bullet(data.x, data.y, data.targetX, data.targetY, data.damage, data.sender));
-                }
-                else if (data.type === 'DUEL_HP_SYNC' && data.targetId === myClientId) {
                     if (otherPlayers[data.sender]) {
-                        otherPlayers[data.sender].hp = data.hp;
+                        show3DChatBubble(otherPlayers[data.sender], data.text);
                     }
                 }
-                else if (data.type === 'DUEL_ROUND_NEXT' && data.targetId === myClientId) {
-                    duelState.round = 2;
-                    duelState.myWeapon = data.partnerWeapon;
-                    resetDuelRound();
-                    updateDuelHUD();
-                }
-                else if (data.type === 'DUEL_WINNER' && data.targetId === myClientId) {
-                    finishDuelGame(data.winnerName);
+                else if (data.type === 'LEAVE') {
+                    if (otherPlayers[data.sender]) {
+                        scene.remove(otherPlayers[data.sender]);
+                        delete otherPlayers[data.sender];
+                        updateOnlineCount();
+                    }
                 }
             }
         } catch(e){}
     });
 
+    function broadcastPosition() {
+        if (client && client.connected && currentRoomId) {
+            client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({
+                type: 'MOVE', sender: myClientId, name: myName, color: myColor,
+                x: pos.x, y: pos.y, z: pos.z, rotY: myBallGroup.rotation.y, battery: myBatteryStatus
+            }));
+        }
+    }
+
+    /* --- CHAT SYSTEM --- */
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendChatMessage(myName, text, true);
+        show3DChatBubble(myBallGroup, text);
+
+        if (client && client.connected && currentRoomId) {
+            client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({
+                type: 'CHAT', sender: myClientId, name: myName, text: text
+            }));
+        }
+        input.value = '';
+    }
+
+    function appendChatMessage(sender, text, isMe = false) {
+        const box = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'msg-item';
+        div.innerHTML = `<span class="msg-sender" style="color:${isMe ? '#f59e0b':'#60a5fa'}">${escapeHtml(sender)}:</span><span class="msg-text">${escapeHtml(text)}</span>`;
+        box.appendChild(div); box.scrollTop = box.scrollHeight;
+    }
+
+    /* --- QUẢN LÝ GIAO DIỆN SẢNH & HOST --- */
+    function selectMap(mapType, el) {
+        selectedMapType = mapType;
+        document.querySelectorAll('.map-item').forEach(m => m.classList.remove('selected'));
+        el.classList.add('selected');
+    }
+
+    function toggleCameraMode() {
+        followFaceCamera = !followFaceCamera;
+        document.getElementById('cam-toggle-btn').innerText = followFaceCamera ? "📷 Cam: Theo Mặt" : "📷 Cam: Tự Do";
+    }
+
+    function openAvatarModal() {
+        const picker = document.getElementById('color-picker');
+        picker.innerHTML = '';
+        availableColors.forEach(c => {
+            const box = document.createElement('div');
+            box.className = `color-box ${c === myColor ? 'selected':''}`;
+            box.style.background = c;
+            box.onclick = () => {
+                myColor = c;
+                scene.remove(myBallGroup);
+                myBallGroup = create3DBallMesh(myColor, myName);
+                scene.add(myBallGroup);
+                openAvatarModal();
+            };
+            picker.appendChild(box);
+        });
+        document.getElementById('avatar-modal').style.display = 'flex';
+    }
+    function closeAvatarModal() { document.getElementById('avatar-modal').style.display = 'none'; }
+
+    function openServerModal() { document.getElementById('server-modal').style.display = 'flex'; }
+    function closeServerModal() { document.getElementById('server-modal').style.display = 'none'; }
+
     function renderServerList() {
-        const listEl = document.getElementById('server-list');
+        const listEl = document.getElementById('server-list-box');
         const now = Date.now();
         let html = '', count = 0;
 
-        const mapNames = { 
-            'GRASS': '🌱 Sân Cỏ', 'CAMPFIRE': '🔥 Lửa Trại', 'BEACH': '🏖️ Bãi Biển', 'FOREST': '🌲 Rừng Rậm', 
-            'NEON': '🌃 Thành Phố', 'SNOW': '❄️ Đảo Tuyết', 'LAVA': '🌋 Núi Lửa', 'SPACE': '🚀 Vũ Trụ'
-        };
+        const mapNames = { 'GRASS': '🌱 Sân Cỏ', 'SNOW': '❄️ Băng Tuyết', 'NEON': '🌃 Neon', 'SPACE': '🚀 Vũ Trụ', 'LAVA': '🌋 Núi Lửa' };
 
         for (let id in publicServers) {
             let s = publicServers[id];
@@ -445,767 +708,123 @@
                 count++;
                 html += `
                     <div class="server-item">
-                        <div class="server-info">
-                            <span class="server-name">${escapeHtml(s.roomName)} <span style="font-size: 10px; color: #ff9f43;">[${mapNames[s.mapType] || 'Khu vực'}]</span></span>
-                            <span class="server-sub">Chủ phòng: ${escapeHtml(s.hostName)}</span>
+                        <div>
+                            <b>${escapeHtml(s.roomName)}</b> <span style="font-size:10px; color:#f59e0b;">[${mapNames[s.mapType] || '3D'}]</span>
+                            <div style="font-size:10px; color:#94a3b8;">Host: ${escapeHtml(s.hostName)}</div>
                         </div>
-                        <button class="btn btn-purple" style="padding: 5px 10px; font-size: 11px;" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}', '${s.mapType}')">Tham gia</button>
+                        <button class="btn btn-purple" onclick="joinServer('${s.roomId}', '${escapeHtml(s.roomName)}', '${s.mapType}')">Vào SV</button>
                     </div>
                 `;
             }
         }
-        if (count === 0) listEl.innerHTML = `<div style="text-align: center; color: #666; font-size: 11px; margin-top: 40px;">Chưa có server nào. Hãy tạo Server ngay!</div>`;
+        if (count === 0) listEl.innerHTML = `<div style="text-align:center; color:#64748b; margin-top:50px; font-size:12px;">Chưa có Server. Hãy tạo Server mới!</div>`;
         else listEl.innerHTML = html;
     }
 
     function createNewServer() {
-        const userIn = document.getElementById('username-input').value.trim();
-        const serverIn = document.getElementById('servername-input').value.trim();
-        if (!userIn || !serverIn) return alert("Vui lòng nhập Tên của bạn và Tên Server!");
-
-        myName = userIn;
-        localStorage.setItem('cozy_lounge_username', myName);
+        const sName = document.getElementById('new-servername-input').value.trim();
+        if (!sName) return alert("Vui lòng nhập tên Server!");
 
         currentRoomId = 'ROOM_' + Math.floor(1000 + Math.random() * 9000);
         isHost = true;
-        currentRoomMap = selectedMapType;
-
         document.getElementById('host-panel-btn').style.display = 'inline-block';
-        enterScene(serverIn);
+
+        enterGameRoom(sName, selectedMapType);
 
         setInterval(() => {
             if (isHost && client && client.connected) {
                 client.publish(LOBBY_TOPIC, JSON.stringify({
-                    type: 'SERVER_HEARTBEAT', roomId: currentRoomId, roomName: serverIn, hostName: myName, mapType: currentRoomMap
+                    type: 'SERVER_PING', roomId: currentRoomId, roomName: sName, hostName: myName, mapType: currentRoomMap
                 }));
             }
         }, 3000);
     }
 
     function joinServer(roomId, roomName, mapType) {
-        const userIn = document.getElementById('username-input').value.trim() || ("Khách_" + Math.floor(Math.random()*100));
-        myName = userIn;
-        localStorage.setItem('cozy_lounge_username', myName);
-
         currentRoomId = roomId;
-        currentRoomMap = mapType || 'GRASS';
         isHost = false;
-
-        enterScene(roomName);
+        enterGameRoom(roomName, mapType);
     }
 
-    function enterScene(roomName) {
-        document.getElementById('lobby-overlay').style.display = 'none';
-        document.getElementById('game-ui').style.display = 'flex';
-        document.getElementById('display-room-name').innerText = `Server: ${roomName}`;
-
-        client.subscribe(`cozy-lounge-v3/room/${currentRoomId}`);
+    function enterGameRoom(roomName, mapType) {
+        closeServerModal();
+        myName = document.getElementById('player-name-input').value.trim() || "Bóng Roblox";
         
-        initCanvasSize();
-        myPos.x = canvas.width / 2;
-        myPos.y = canvas.height / 2 + 50;
-        myPos.targetX = myPos.x;
-        myPos.targetY = myPos.y;
+        // Re-create my avatar with updated name
+        scene.remove(myBallGroup);
+        myBallGroup = create3DBallMesh(myColor, myName);
+        scene.add(myBallGroup);
 
-        if (currentRoomMap === 'GRASS') {
-            document.getElementById('grass-minigame-hud').style.display = 'block';
-            renderGrassGameUI();
-        } else {
-            document.getElementById('grass-minigame-hud').style.display = 'none';
-        }
+        buildMapEnvironment(mapType || 'GRASS');
 
-        broadcastMyPosition();
-        requestAnimationFrame(gameLoop);
+        document.getElementById('lobby-ui').style.display = 'none';
+        document.getElementById('game-hud').style.display = 'flex';
+        document.getElementById('chat-box').style.display = 'flex';
+        document.getElementById('hud-room-info').innerText = `Server: ${roomName}`;
+        
+        if (isMobile()) document.getElementById('mobile-controls').style.display = 'flex';
+
+        client.subscribe(`cozy-lounge-v5/room/${currentRoomId}`);
     }
 
     function leaveServer() {
         if (client && currentRoomId) {
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'PLAYER_LEAVE', sender: myClientId
+            client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({
+                type: 'LEAVE', sender: myClientId
             }));
         }
         location.reload();
     }
 
-    function broadcastMyPosition() {
-        if (client && client.connected && currentRoomId) {
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'PLAYER_MOVE', sender: myClientId, name: myName, x: myPos.x, y: myPos.y, color: myColor, battery: myBatteryStatus, hp: duelState.myHp, score: myScore
-            }));
-        }
-    }
-
     function updateOnlineCount() {
         let count = Object.keys(otherPlayers).length + 1;
-        document.getElementById('online-count').innerText = `👥 ${count} Trực tuyến`;
+        document.getElementById('hud-online-count').innerText = `👥 ${count} Online`;
     }
 
-    function addScore(pts) {
-        myScore += pts;
-        document.getElementById('my-score-display').innerText = `⭐ Điểm: ${myScore}`;
-        broadcastMyPosition();
-    }
-
-    /* --- MINI GAME SÂN CỎ: ĐẾM SỐ GHI NHỚ (1 - 10) --- */
-    function syncGrassGameState() {
-        if (client && client.connected && currentRoomId) {
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'GRASS_GAME_SYNC', state: grassGame
-            }));
-        }
-    }
-
-    function renderGrassGameUI() {
-        const statusEl = document.getElementById('grass-status');
-        const rulesEl = document.getElementById('grass-rules-list');
-        const controlsEl = document.getElementById('grass-controls');
-
-        // Hiển thị danh sách các quy tắc luật thay thế hiện tại
-        let ruleText = "Luật thay thế hiện tại: ";
-        let ruleKeys = Object.keys(grassGame.substitutions);
-        if (ruleKeys.length === 0) {
-            ruleText += "Chưa có từ thay thế";
-        } else {
-            ruleText += ruleKeys.map(k => `[Số ${k} ➔ "${grassGame.substitutions[k]}"]`).join(', ');
-        }
-        rulesEl.innerText = ruleText;
-
-        if (!grassGame.active) {
-            statusEl.innerText = "Trò chơi chưa bắt đầu. Nhấn để đăng ký tham gia (1 - 3 Người)";
-            controlsEl.innerHTML = `<button class="btn btn-green" onclick="startGrassGame()">▶️ Bắt Đầu Trò Chơi</button>`;
-            return;
-        }
-
-        if (grassGame.phase === 'ADD_RULE') {
-            const activePlayer = grassGame.players[grassGame.turnIndex];
-            statusEl.innerText = `👑 Lượt của [${activePlayer.name}]: Chọn 1 số từ 1-10 & nhập Từ thay thế mới!`;
-
-            if (activePlayer.id === myClientId) {
-                let optionsHtml = '<select id="rule-num-select" style="max-width:80px; padding:4px;">';
-                for (let i = 1; i <= 10; i++) {
-                    optionsHtml += `<option value="${i}">${i}</option>`;
-                }
-                optionsHtml += '</select>';
-
-                controlsEl.innerHTML = `
-                    <div style="display:flex; gap:6px; align-items:center;">
-                        <label style="font-size:11px">Số:</label> ${optionsHtml}
-                        <input type="text" id="rule-word-input" placeholder="Thay bằng từ..." maxlength="12" style="padding:4px 8px; font-size:12px; width:110px;">
-                        <button class="btn btn-green" style="padding:5px 10px;" onclick="submitGrassRule()">Xác Nhận Luật</button>
-                    </div>
-                `;
-            } else {
-                controlsEl.innerHTML = `<span style="font-size:11px; color:#aaa;">Đang chờ ${activePlayer.name} thêm luật...</span>`;
-            }
-        } 
-        else if (grassGame.phase === 'COUNTING') {
-            const activePlayer = grassGame.players[grassGame.turnIndex];
-            statusEl.innerText = `👉 Lượt [${activePlayer.name}] đếm số: ${grassGame.currentNumber} / 10`;
-
-            if (activePlayer.id === myClientId) {
-                const targetNum = grassGame.currentNumber;
-                const correctWord = grassGame.substitutions[targetNum] || targetNum.toString();
-                
-                // Tạo các lựa chọn từ đúng và từ sai để thử thách người chơi
-                let choices = [correctWord];
-                if (grassGame.substitutions[targetNum]) {
-                    choices.push(targetNum.toString()); // Đọc số thường (sai)
-                } else {
-                    choices.push("Bị Mất Trí");
-                }
-                choices = choices.sort(() => Math.random() - 0.5);
-
-                let btnHtml = choices.map(choice => 
-                    `<button class="btn btn-purple" style="padding:6px 14px; font-size:12px;" onclick="handleGrassCountAnswer('${escapeHtml(choice)}')">${escapeHtml(choice)}</button>`
-                ).join('');
-
-                controlsEl.innerHTML = `<div style="display:flex; gap:8px;">${btnHtml}</div>`;
-            } else {
-                controlsEl.innerHTML = `<span style="font-size:11px; color:#aaa;">Đang chờ ${activePlayer.name} trả lời...</span>`;
-            }
-        }
-    }
-
-    function startGrassGame() {
-        // Thu thập danh sách người chơi trong room (tối đa 3)
-        let playerList = [{ id: myClientId, name: myName }];
-        for (let id in otherPlayers) {
-            if (playerList.length < 3) {
-                playerList.push({ id: id, name: otherPlayers[id].name });
-            }
-        }
-
-        grassGame = {
-            active: true,
-            phase: 'ADD_RULE',
-            players: playerList,
-            turnIndex: 0,
-            currentNumber: 1,
-            substitutions: {}
-        };
-        syncGrassGameState();
-        renderGrassGameUI();
-    }
-
-    function submitGrassRule() {
-        const numSelect = document.getElementById('rule-num-select');
-        const wordInput = document.getElementById('rule-word-input');
-        if (!numSelect || !wordInput) return;
-
-        const num = parseInt(numSelect.value);
-        const word = wordInput.value.trim();
-        if (!word) return alert("Vui lòng nhập từ thay thế!");
-
-        grassGame.substitutions[num] = word;
-        grassGame.phase = 'COUNTING';
-        grassGame.currentNumber = 1;
-
-        syncGrassGameState();
-        renderGrassGameUI();
-    }
-
-    function handleGrassCountAnswer(chosenWord) {
-        const targetNum = grassGame.currentNumber;
-        const expectedWord = grassGame.substitutions[targetNum] || targetNum.toString();
-
-        if (chosenWord === expectedWord) {
-            // Đúng! Tăng số đếm
-            if (grassGame.currentNumber >= 10) {
-                // Đã đếm xong từ 1 đến 10 -> Nhận thưởng & Chuyển vòng thêm luật mới!
-                addScore(20);
-                alert("🎉 Xuất sắc! Đã đếm xong từ 1 đến 10! Bây giờ sẽ chọn thêm luật thay thế mới.");
-                grassGame.currentNumber = 1;
-                grassGame.turnIndex = (grassGame.turnIndex + 1) % grassGame.players.length;
-                grassGame.phase = 'ADD_RULE';
-            } else {
-                grassGame.currentNumber++;
-                grassGame.turnIndex = (grassGame.turnIndex + 1) % grassGame.players.length;
-            }
-        } else {
-            // Sai -> Mất trí nhớ và thua!
-            const loserName = grassGame.players[grassGame.turnIndex].name;
-            alert(`❌ [${loserName}] đã bị MẤT TRÍ NHỚ khi đếm số ${targetNum} (Phải đọc là "${expectedWord}")! [${loserName}] thua cuộc!`);
-            
-            // Loại người thua
-            grassGame.players.splice(grassGame.turnIndex, 1);
-
-            if (grassGame.players.length <= 1) {
-                const winner = grassGame.players[0] ? grassGame.players[0].name : "Không ai";
-                alert(`🏆 CHÚC MỪNG [${winner}] ĐÃ GIÀNH CHIẾN THẮNG CUỐI CÙNG!`);
-                grassGame.active = false;
-                grassGame.phase = 'LOBBY';
-            } else {
-                grassGame.turnIndex = grassGame.turnIndex % grassGame.players.length;
-                grassGame.currentNumber = 1;
-            }
-        }
-
-        syncGrassGameState();
-        renderGrassGameUI();
-    }
-
-
-    /* --- HỆ THỐNG THÁCH ĐẤU (DUEL CORE) --- */
-    class Bullet {
-        constructor(x, y, targetX, targetY, damage, shooterId) {
-            this.x = x; this.y = y; this.damage = damage; this.shooterId = shooterId; this.radius = 5; this.speed = 12;
-            const angle = Math.atan2(targetY - y, targetX - x);
-            this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed;
-        }
-        update() { this.x += this.vx; this.y += this.vy; }
-        draw() {
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "#fbbf24"; ctx.fill();
-        }
-    }
-
-    function checkProximityAndInvite() {
-        // TRONG MAP SÂN CỎ: KHÔNG CÓ LỜI THÁCH ĐẤU
-        if (currentRoomMap === 'GRASS' || duelState.inBattle || duelState.isInviteLocked) {
-            document.getElementById('invite-btn').style.display = 'none'; 
-            return;
-        }
-        nearestPlayerId = null; let minDist = 90;
-        for (let id in otherPlayers) {
-            let p = otherPlayers[id];
-            let d = Math.hypot(myPos.x - p.x, myPos.y - p.y);
-            if (d < minDist) { minDist = d; nearestPlayerId = id; }
-        }
-        document.getElementById('invite-btn').style.display = nearestPlayerId ? 'block' : 'none';
-    }
-
-    function sendDuelInvite() {
-        if (!nearestPlayerId || duelState.isInviteLocked || currentRoomMap === 'GRASS') return;
-        duelState.isInviteLocked = true; duelState.partnerId = nearestPlayerId;
-        document.getElementById('invite-btn').style.display = 'none';
-        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-            type: 'DUEL_INVITE', sender: myClientId, senderName: myName, targetId: nearestPlayerId
-        }));
-    }
-
-    function acceptDuelInvite() {
-        document.getElementById('invite-toast').style.display = 'none';
-        duelState.partnerId = duelState.pendingInviterId; duelState.isInviteLocked = true;
-        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-            type: 'DUEL_RESPONSE', sender: myClientId, targetId: duelState.partnerId, accepted: true
-        }));
-        startBattleSession(false);
-    }
-
-    function denyDuelInvite() {
-        document.getElementById('invite-toast').style.display = 'none';
-        if (duelState.pendingInviterId) {
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'DUEL_RESPONSE', sender: myClientId, targetId: duelState.pendingInviterId, accepted: false
-            }));
-        }
-        duelState.pendingInviterId = null;
-    }
-
-    function startBattleSession(isHostOfDuel) {
-        duelState.inBattle = true; duelState.round = 1;
-        duelState.prePos = { x: myPos.x, y: myPos.y };
-        resetDuelRound(isHostOfDuel);
-        document.getElementById('duel-hud').style.display = 'block';
-        updateDuelHUD();
-    }
-
-    function resetDuelRound(isHostOfDuel = true) {
-        duelState.myHp = 100; bullets = [];
-        if (otherPlayers[duelState.partnerId]) otherPlayers[duelState.partnerId].hp = 100;
-
-        if (isHostOfDuel) { myPos.x = canvas.width * 0.2; myPos.y = canvas.height / 2; } 
-        else { myPos.x = canvas.width * 0.8; myPos.y = canvas.height / 2; }
-        myPos.targetX = myPos.x; myPos.targetY = myPos.y;
-
-        if (duelState.round === 1) {
-            duelState.myWeapon = { name: "Súng Lục Bạc", damage: 45, color: "#cbd5e1" };
-        } else {
-            const w1 = RANDOM_WEAPONS[Math.floor(Math.random() * RANDOM_WEAPONS.length)];
-            const w2 = RANDOM_WEAPONS[Math.floor(Math.random() * RANDOM_WEAPONS.length)];
-            const d1 = Math.floor(Math.random() * 45) + 35;
-            const d2 = Math.floor(Math.random() * 45) + 35;
-            duelState.myWeapon = { name: w1.name, damage: d1, color: w1.color };
-
-            if (isHostOfDuel) {
-                client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                    type: 'DUEL_ROUND_NEXT', sender: myClientId, targetId: duelState.partnerId, partnerWeapon: { name: w2.name, damage: d2, color: w2.color }
-                }));
-            }
-        }
-        broadcastMyPosition();
-    }
-
-    function updateDuelHUD() {
-        const info = document.getElementById('duel-round-info');
-        if (duelState.round === 1) {
-            info.innerHTML = `VÁN 1: <span style="color:#cbd5e1">Súng Lục Bạc</span> (Dame: 45)`;
-        } else {
-            info.innerHTML = `TRẬN CUỐI: <span style="color:${duelState.myWeapon.color}">${duelState.myWeapon.name}</span> (${duelState.myWeapon.damage} Dame)`;
-        }
-    }
-
-    let isMouseDown = false;
-    let pointerPos = { x: 0, y: 0 };
-    let lastShootTime = 0;
-
-    function handleShootStart(e) { if (!duelState.inBattle) return; isMouseDown = true; updatePointerPos(e); }
-    function handleShootEnd() { isMouseDown = false; }
-
-    function updatePointerPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        if (e.touches && e.touches.length > 0) {
-            pointerPos.x = e.touches[0].clientX - rect.left; pointerPos.y = e.touches[0].clientY - rect.top;
-        } else {
-            pointerPos.x = e.clientX - rect.left; pointerPos.y = e.clientY - rect.top;
-        }
-    }
-
-    canvas.addEventListener('mousedown', handleShootStart);
-    window.addEventListener('mouseup', handleShootEnd);
-    canvas.addEventListener('mousemove', updatePointerPos);
-    canvas.addEventListener('touchstart', (e) => { handleShootStart(e); }, { passive: true });
-    window.addEventListener('touchend', handleShootEnd);
-    canvas.addEventListener('touchmove', updatePointerPos, { passive: true });
-
-    function processContinuousShooting(now) {
-        if (!duelState.inBattle || !isMouseDown || duelState.myHp <= 0) return;
-        if (now - lastShootTime >= 160) {
-            lastShootTime = now;
-            bullets.push(new Bullet(myPos.x, myPos.y, pointerPos.x, pointerPos.y, duelState.myWeapon.damage, myClientId));
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'DUEL_SHOOT', sender: myClientId, targetId: duelState.partnerId, x: myPos.x, y: myPos.y, targetX: pointerPos.x, targetY: pointerPos.y, damage: duelState.myWeapon.damage
-            }));
-        }
-    }
-
-    function updateBulletsAndCollisions() {
-        for (let i = bullets.length - 1; i >= 0; i--) {
-            let b = bullets[i]; b.update(); b.draw();
-            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) { bullets.splice(i, 1); continue; }
-
-            if (b.shooterId !== myClientId && duelState.myHp > 0) {
-                let dist = Math.hypot(b.x - myPos.x, b.y - myPos.y);
-                if (dist < 18 + b.radius) {
-                    duelState.myHp = Math.max(0, duelState.myHp - b.damage);
-                    bullets.splice(i, 1);
-                    client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                        type: 'DUEL_HP_SYNC', sender: myClientId, targetId: duelState.partnerId, hp: duelState.myHp
-                    }));
-                    if (duelState.myHp <= 0) handleMyDeath();
-                }
-            }
-        }
-    }
-
-    function handleMyDeath() {
-        if (duelState.round === 1) {
-            setTimeout(() => { duelState.round = 2; resetDuelRound(false); updateDuelHUD(); }, 1000);
-        } else {
-            const winnerName = otherPlayers[duelState.partnerId]?.name || "Đối thủ";
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'DUEL_WINNER', sender: myClientId, targetId: duelState.partnerId, winnerName: winnerName
-            }));
-            finishDuelGame(winnerName);
-        }
-    }
-
-    function finishDuelGame(winnerName) {
-        duelState.inBattle = false;
-        document.getElementById('duel-hud').style.display = 'none';
-        const banner = document.getElementById('win-banner');
-        banner.innerText = `"${winnerName}" đã thắng!!`;
-        banner.style.display = 'block';
-
-        setTimeout(() => {
-            banner.style.display = 'none';
-            myPos.x = duelState.prePos.x; myPos.y = duelState.prePos.y;
-            myPos.targetX = myPos.x; myPos.targetY = myPos.y;
-            duelState.myHp = 100; duelState.isInviteLocked = false; duelState.partnerId = null;
-            broadcastMyPosition();
-        }, 3000);
-    }
-
-    function handleOpponentLeftMidGame() {
-        alert("Đối thủ đã thoát trang web hoặc ngắt kết nối!");
-        finishDuelGame(myName);
-    }
-
-    /* --- BẢNG QUẢN LÝ CỦA HOST --- */
+    /* --- BẢNG QUẢN LÝ DÀNH CHO HOST --- */
     function openHostModal() { if (!isHost) return; renderHostPlayerList(); document.getElementById('host-modal').style.display = 'flex'; }
     function closeHostModal() { document.getElementById('host-modal').style.display = 'none'; }
 
     function renderHostPlayerList() {
-        const listContainer = document.getElementById('host-player-list');
+        const list = document.getElementById('host-player-list');
         let html = `
-            <div class="player-manage-item">
-                <div>
-                    <strong style="color:#2ed573">${escapeHtml(myName)} (Chủ phòng)</strong>
-                    <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${myBatteryStatus} | ⭐ ${myScore} pts</div>
-                </div>
+            <div style="background:#0f172a; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div><b>${escapeHtml(myName)} (Chủ phòng)</b><div style="font-size:10px; color:#aaa;">🔋 Pin: ${myBatteryStatus}</div></div>
             </div>
         `;
         for (let id in otherPlayers) {
             let p = otherPlayers[id];
             html += `
-                <div class="player-manage-item">
-                    <div>
-                        <strong style="color:#54a0ff">${escapeHtml(p.name)}</strong>
-                        <div style="font-size: 10px; color: #aaa;">🔋 Pin: ${p.battery || 'N/A'} | ⭐ ${p.score || 0} pts</div>
-                    </div>
-                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="kickPlayer('${id}')">Kick</button>
+                <div style="background:#0f172a; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <div><b>${escapeHtml(p.name || 'Người chơi')}</b><div style="font-size:10px; color:#aaa;">🔋 Pin: ${p.battery || 'N/A'}</div></div>
+                    <button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="kickPlayer('${id}')">Kick</button>
                 </div>
             `;
         }
-        listContainer.innerHTML = html;
+        list.innerHTML = html;
     }
 
     function kickPlayer(targetId) {
         if (!isHost) return;
-        client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({ type: 'KICK_PLAYER', targetId: targetId }));
-        delete otherPlayers[targetId]; renderHostPlayerList(); updateOnlineCount();
-    }
-
-    /* --- CHAT SYSTEM --- */
-    function sendChat() {
-        const input = document.getElementById('chat-input'); const text = input.value.trim();
-        if (!text) return;
-        appendChatMessage(myName, text, true);
-        myChatBubble.text = text;
-        if (myChatBubble.timer) clearTimeout(myChatBubble.timer);
-        myChatBubble.timer = setTimeout(() => { myChatBubble.text = ""; }, 4000);
-
-        if (client && client.connected && currentRoomId) {
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'PLAYER_CHAT', sender: myClientId, name: myName, text: text
-            }));
+        client.publish(`cozy-lounge-v5/room/${currentRoomId}`, JSON.stringify({ type: 'KICK_PLAYER', targetId: targetId }));
+        if (otherPlayers[targetId]) {
+            scene.remove(otherPlayers[targetId]);
+            delete otherPlayers[targetId];
+            renderHostPlayerList(); updateOnlineCount();
         }
-        input.value = '';
     }
 
-    function appendChatMessage(sender, text, isMe = false) {
-        const box = document.getElementById('chat-messages'); const div = document.createElement('div');
-        div.className = 'msg-item';
-        div.innerHTML = `<span class="msg-sender" style="color:${isMe ? '#ff9f43':'#54a0ff'}">${escapeHtml(sender)}:</span><span class="msg-text">${escapeHtml(text)}</span>`;
-        box.appendChild(div); box.scrollTop = box.scrollHeight;
-    }
-
+    function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }
     function escapeHtml(str) { return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
-
-    canvas.addEventListener('pointerdown', (e) => {
-        if (duelState.inBattle) return;
-        const rect = canvas.getBoundingClientRect();
-        myPos.targetX = (e.clientX - rect.left);
-        myPos.targetY = (e.clientY - rect.top);
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        const step = (Date.now() < speedBoostEndTime) ? 30 : 15;
-        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') myPos.targetY -= step;
-        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') myPos.targetY += step;
-        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') myPos.targetX -= step;
-        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') myPos.targetX += step;
-        if (e.key === 'Enter') sendChat();
-    });
-
-    // --- MAIN GAME LOOP ---
-    function gameLoop(timestamp) {
-        let lerpSpeed = (timestamp < speedBoostEndTime) ? 0.35 : 0.15;
-        if (Math.hypot(myPos.targetX - myPos.x, myPos.targetY - myPos.y) > 2) {
-            myPos.x += (myPos.targetX - myPos.x) * lerpSpeed;
-            myPos.y += (myPos.targetY - myPos.y) * lerpSpeed;
-            broadcastMyPosition();
-        }
-
-        // Vẽ background map
-        if (currentRoomMap === 'GRASS') drawGrassMap();
-        else if (currentRoomMap === 'CAMPFIRE') drawCampfireMap();
-        else if (currentRoomMap === 'BEACH') drawBeachMap();
-        else if (currentRoomMap === 'FOREST') drawForestMap();
-        else if (currentRoomMap === 'NEON') drawNeonMap();
-        else if (currentRoomMap === 'SNOW') drawSnowMap();
-        else if (currentRoomMap === 'LAVA') drawLavaMap(timestamp);
-        else if (currentRoomMap === 'SPACE') drawSpaceMap();
-
-        updateAndDrawMinigames(timestamp);
-
-        checkProximityAndInvite();
-        processContinuousShooting(timestamp);
-
-        // Vẽ người chơi khác
-        for (let id in otherPlayers) {
-            let p = otherPlayers[id];
-            drawAvatar(p.x, p.y, p.name, p.color, p.chatBubble, p.hp, p.score);
-        }
-
-        // Vẽ nhân vật bản thân
-        drawAvatar(myPos.x, myPos.y, myName + " (Bạn)", myColor, myChatBubble.text, duelState.myHp, myScore);
-
-        if (duelState.inBattle) {
-            updateBulletsAndCollisions();
-        }
-
-        requestAnimationFrame(gameLoop);
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // --- BẢN ĐỒ VÀ MINI GAME TƯƠNG TÁC ---
-    function updateAndDrawMinigames(now) {
-        if (currentRoomMap === 'SNOW' || currentRoomMap === 'SPACE') {
-            if (minigameItems.length < 5 && Math.random() < 0.03) {
-                minigameItems.push({
-                    x: Math.random() * (canvas.width - 60) + 30,
-                    y: Math.random() * (canvas.height - 80) + 40,
-                    type: currentRoomMap === 'SNOW' ? 'CRYSTAL' : 'GEM',
-                    size: 12
-                });
-            }
-
-            for (let i = minigameItems.length - 1; i >= 0; i--) {
-                let item = minigameItems[i];
-                ctx.save();
-                if (item.type === 'CRYSTAL') {
-                    ctx.fillStyle = '#00d2d3'; ctx.beginPath();
-                    ctx.arc(item.x, item.y, item.size + Math.sin(now * 0.005) * 2, 0, Math.PI * 2); ctx.fill();
-                    ctx.strokeStyle = '#fff'; ctx.stroke();
-                } else {
-                    ctx.fillStyle = '#a855f7'; ctx.beginPath();
-                    ctx.arc(item.x, item.y, item.size + Math.sin(now * 0.008) * 2, 0, Math.PI * 2); ctx.fill();
-                    ctx.strokeStyle = '#f43f5e'; ctx.stroke();
-                }
-                ctx.restore();
-
-                if (Math.hypot(myPos.x - item.x, myPos.y - item.y) < 22) {
-                    if (item.type === 'CRYSTAL') addScore(10);
-                    else { addScore(15); speedBoostEndTime = Date.now() + 4000; }
-                    minigameItems.splice(i, 1);
-                }
-            }
-        }
-
-        if (currentRoomMap === 'LAVA') {
-            if (lavaMeteors.length < 6 && Math.random() < 0.04) {
-                lavaMeteors.push({
-                    x: Math.random() * canvas.width, y: -20, vy: Math.random() * 3 + 3, radius: Math.random() * 10 + 12
-                });
-            }
-
-            for (let i = lavaMeteors.length - 1; i >= 0; i--) {
-                let m = lavaMeteors[i]; m.y += m.vy;
-                ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ff4757'; ctx.fill(); ctx.strokeStyle = '#ffa502'; ctx.lineWidth = 3; ctx.stroke();
-
-                if (m.y > canvas.height + 30) { lavaMeteors.splice(i, 1); continue; }
-
-                if (Math.hypot(myPos.x - m.x, myPos.y - m.y) < m.radius + 14) {
-                    addScore(-5); myPos.y += 30; myPos.targetY = myPos.y;
-                    lavaMeteors.splice(i, 1);
-                }
-            }
-        }
-    }
-
-    // --- MAP MỚI: SÂN CỎ RỘNG RÃI ---
-    function drawGrassMap() {
-        ctx.fillStyle = '#2ed573'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Họa tiết sọc sân cỏ thể thao
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
-        let stripeW = 60;
-        for (let x = 0; x < canvas.width; x += stripeW * 2) {
-            ctx.fillRect(x, 0, stripeW, canvas.height);
-        }
-
-        // Đường kẻ vạch sân thể thao màu trắng
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-
-        // Vòng tròn trung tâm sân cỏ
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, 65, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-
-    function drawCampfireMap() {
-        ctx.fillStyle = '#080612'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        let groundY = canvas.height * 0.45;
-        let grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
-        grad.addColorStop(0, '#121026'); grad.addColorStop(1, '#080612');
-        ctx.fillStyle = grad; ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-
-        let fx = canvas.width / 2, fy = canvas.height / 2 + 20;
-        let glow = ctx.createRadialGradient(fx, fy, 10, fx, fy, 120);
-        glow.addColorStop(0, 'rgba(255, 159, 67, 0.35)'); glow.addColorStop(1, 'rgba(255, 159, 67, 0)');
-        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(fx, fy, 120, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(fx, fy, 12 + Math.sin(Date.now()*0.02)*2, 0, Math.PI*2); ctx.fill();
-    }
-
-    function drawBeachMap() {
-        let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
-        skyGrad.addColorStop(0, '#ff7675'); skyGrad.addColorStop(1, '#6c5ce7');
-        ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
-        ctx.fillStyle = '#0984e3'; ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.2);
-        ctx.fillStyle = '#ffeaa7'; ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
-        ctx.fillStyle = '#fdcb6e'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height*0.5, 30, 0, Math.PI*2); ctx.fill();
-    }
-
-    function drawForestMap() {
-        ctx.fillStyle = '#051923'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#003554'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
-        particles.forEach(p => {
-            p.y -= 0.3; if (p.y < 0) p.y = canvas.height;
-            ctx.fillStyle = `rgba(0, 255, 136, ${Math.abs(Math.sin(Date.now()*0.003 + p.alpha))})`;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1, 0, Math.PI*2); ctx.fill();
-        });
-    }
-
-    function drawNeonMap() {
-        ctx.fillStyle = '#0d0221'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#02010a'; ctx.fillRect(0, canvas.height*0.5, canvas.width, canvas.height*0.5);
-        ctx.strokeStyle = 'rgba(255, 0, 127, 0.3)'; ctx.lineWidth = 1;
-        for(let x = 0; x < canvas.width; x += 40) {
-            ctx.beginPath(); ctx.moveTo(x, canvas.height*0.5); ctx.lineTo(x, canvas.height); ctx.stroke();
-        }
-        for(let y = canvas.height*0.5; y < canvas.height; y += 25) {
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-        }
-    }
-
-    function drawSnowMap() {
-        ctx.fillStyle = '#81ecec'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#dfe6e9'; ctx.fillRect(0, canvas.height*0.4, canvas.width, canvas.height*0.6);
-        particles.forEach(p => {
-            p.y += 0.8; if (p.y > canvas.height) p.y = 0;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 1.5, 0, Math.PI*2); ctx.fill();
-        });
-    }
-
-    function drawLavaMap(now) {
-        ctx.fillStyle = '#1e0909'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#3c0909'; ctx.fillRect(0, canvas.height*0.45, canvas.width, canvas.height*0.55);
-        ctx.fillStyle = `rgba(255, 71, 87, ${0.4 + Math.sin(now*0.005)*0.15})`;
-        ctx.fillRect(0, canvas.height*0.8, canvas.width, canvas.height*0.2);
-    }
-
-    function drawSpaceMap() {
-        ctx.fillStyle = '#050515'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
-            ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(Date.now()*0.002 + p.alpha))})`;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-        });
-    }
-
-    // VẼ NHÂN VẬT & TÊN
-    function drawAvatar(x, y, name, color, chatText, hp = 100, score = 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath(); ctx.ellipse(x, y + 14, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
-
-        if (name.includes("(Bạn)") && Date.now() < speedBoostEndTime) {
-            ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.stroke();
-        }
-
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(`${name} (⭐${score})`, x, y + 26);
-
-        if (duelState.inBattle) {
-            const barW = 40, barH = 5;
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(x - barW/2, y - 24, barW, barH);
-            ctx.fillStyle = hp > 40 ? '#10b981' : '#ef4444';
-            ctx.fillRect(x - barW/2, y - 24, barW * (Math.max(0, hp) / 100), barH);
-        }
-
-        if (chatText) {
-            ctx.font = '12px sans-serif';
-            let textWidth = ctx.measureText(chatText).width;
-            let pad = 8, bx = x - textWidth/2 - pad, by = y - 45, bw = textWidth + pad * 2, bh = 22;
-
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fill();
-
-            ctx.fillStyle = '#000'; ctx.textAlign = 'center';
-            ctx.fillText(chatText, x, by + 15);
-        }
-    }
-
-    document.getElementById('chat-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') sendChat();
-        e.stopPropagation();
-    });
-
-    window.addEventListener('beforeunload', () => {
-        if (client && currentRoomId) {
-            client.publish(`cozy-lounge-v3/room/${currentRoomId}`, JSON.stringify({
-                type: 'PLAYER_LEAVE', sender: myClientId
-            }));
-        }
-    });
+    // KHỞI CHẠY GAME
+    init3D();
+    requestAnimationFrame(gameLoop);
 </script>
 </body>
 </html>
