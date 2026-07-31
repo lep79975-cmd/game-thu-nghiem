@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roblox 2D - Cross-Platform Realtime</title>
+    <title>Roblox 2D - Multi-Server & Realtime</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; -webkit-user-select: none; }
         body { background: #121212; color: #fff; overflow: hidden; display: flex; flex-direction: column; height: 100vh; touch-action: manipulation; }
@@ -55,12 +55,13 @@
         .tab-panel.active { display: block; }
         
         .card { background: #1c1c24; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2e2e3d; }
-        .grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        .grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
         @media (min-width: 768px) { .grid-list { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; } }
         
-        .game-card { background: #252533; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; border: 1px solid #333; }
+        .game-card { background: #252533; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; border: 1px solid #333; position: relative; }
         .game-card:hover { border-color: #00a2ff; transform: translateY(-2px); }
         .game-icon { font-size: 35px; margin-bottom: 5px; }
+        .badge-hot { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 
         /* AVATAR */
         .avatar-preview { width: 80px; height: 80px; border-radius: 12px; margin: 10px 0; border: 3px solid #fff; }
@@ -73,51 +74,14 @@
         canvas { width: 100%; height: 100%; background: #87CEEB; border-radius: 8px; box-shadow: 0 0 20px rgba(0,162,255,0.2); }
         
         .btn-exit { position: absolute; top: 12px; left: 12px; z-index: 10; font-size: 12px; padding: 6px 10px; }
-        
-        /* NÚT BẬT/TẮT CHAT Ở GÓC TRÁI */
-        .btn-toggle-chat {
-            position: absolute;
-            top: 12px;
-            left: 90px;
-            z-index: 25;
-            background: rgba(0, 0, 0, 0.7);
-            border: 1px solid #00a2ff;
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-        }
+        .btn-toggle-chat { position: absolute; top: 12px; left: 90px; z-index: 25; background: rgba(0, 0, 0, 0.7); border: 1px solid #00a2ff; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; backdrop-filter: blur(4px); }
         .btn-toggle-chat:hover { background: #00a2ff; }
-
         .btn-round-lb { position: absolute; top: 12px; right: 12px; width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.75); border: 2px solid #FFD700; color: #FFD700; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; }
 
-        /* CHAT BOX RESPONSIVE */
-        #game-chat-box {
-            position: absolute;
-            top: 48px;
-            left: 12px;
-            width: 230px;
-            height: 150px;
-            background: rgba(18, 18, 24, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            padding: 8px;
-            z-index: 20;
-            backdrop-filter: blur(5px);
-            transition: opacity 0.2s, visibility 0.2s;
-        }
-        #game-chat-box.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-        @media (min-width: 768px) {
-            #game-chat-box { width: 300px; height: 180px; top: 48px; left: 12px; }
-        }
+        /* CHAT BOX */
+        #game-chat-box { position: absolute; top: 48px; left: 12px; width: 230px; height: 150px; background: rgba(18, 18, 24, 0.85); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; flex-direction: column; padding: 8px; z-index: 20; backdrop-filter: blur(5px); transition: opacity 0.2s, visibility 0.2s; }
+        #game-chat-box.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        @media (min-width: 768px) { #game-chat-box { width: 300px; height: 180px; top: 48px; left: 12px; } }
         #chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; font-size: 11px; }
         .chat-msg { word-break: break-word; }
         .chat-sender { font-weight: bold; color: #00a2ff; margin-right: 4px; }
@@ -125,36 +89,13 @@
         .chat-input-row { display: flex; gap: 4px; }
         .chat-input-row input { margin-bottom: 0; padding: 4px 8px; font-size: 11px; background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
 
-        /* MOBILE TOUCH CONTROLS */
-        .touch-controls {
-            position: absolute;
-            bottom: 15px;
-            left: 0;
-            width: 100%;
-            height: 80px;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            pointer-events: none;
-            z-index: 30;
-        }
+        /* MOBILE CONTROLS */
+        .touch-controls { position: absolute; bottom: 15px; left: 0; width: 100%; height: 80px; display: flex; justify-content: space-between; padding: 0 20px; pointer-events: none; z-index: 30; }
         .d-pad, .jump-btn-box { display: flex; gap: 15px; pointer-events: auto; }
-        .touch-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.25);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            color: #fff;
-            font-size: 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            touch-action: manipulation;
-        }
+        .touch-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); border: 2px solid rgba(255, 255, 255, 0.5); color: #fff; font-size: 24px; display: flex; justify-content: center; align-items: center; touch-action: manipulation; }
         .touch-btn:active { background: rgba(0, 162, 255, 0.6); }
 
-        /* MODAL LEADERBOARD */
+        /* MODAL */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
         .modal-content { background: #1c1c24; padding: 20px; border-radius: 12px; width: 90%; max-width: 450px; border: 1px solid #444; }
@@ -162,13 +103,12 @@
         .lb-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
         .lb-table th, .lb-table td { padding: 8px 10px; border-bottom: 1px solid #2e2e3d; }
         .lb-table th { color: #00a2ff; }
-
         .friend-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252533; margin-bottom: 8px; border-radius: 6px; font-size: 13px; }
     </style>
 </head>
 <body>
 
-    <!-- 1. MAN HINH DANG NHAP / DANG KY -->
+    <!-- 1. AUTH SCREEN -->
     <div id="auth-screen" class="screen active">
         <div class="auth-box">
             <h1 style="color: #fff; margin-bottom: 20px; font-weight: 900;">ROBLOX-2D</h1>
@@ -183,7 +123,7 @@
         </div>
     </div>
 
-    <!-- 2. MAN HINH LOBBY -->
+    <!-- 2. LOBBY SCREEN -->
     <div id="lobby-screen" class="screen">
         <div class="navbar">
             <div class="logo">ROBLOX-2D</div>
@@ -194,16 +134,17 @@
         </div>
         <div class="main-content">
             <div class="sidebar">
-                <button class="menu-btn active" onclick="navTab('games', event)">🎮 Game</button>
+                <button class="menu-btn active" onclick="navTab('games', event)">🎮 Server</button>
                 <button class="menu-btn" onclick="navTab('avatar', event)">👕 Áo</button>
                 <button class="menu-btn" onclick="navTab('friends', event)">👥 Bạn Bè</button>
                 <button class="menu-btn" onclick="navTab('create', event)">🛠️ Tạo</button>
             </div>
             <div class="content-area">
                 
-                <!-- TAB GAMES -->
+                <!-- TAB GAMES / SERVERS -->
                 <div id="panel-games" class="tab-panel active">
-                    <h3 style="margin-bottom: 12px;">Danh sách trò chơi</h3>
+                    <h3 style="margin-bottom: 6px;">Danh sách Server</h3>
+                    <p style="color: #888; font-size: 12px; margin-bottom: 14px;">Server có nhiều người chơi nhất sẽ được ưu tiên hiển thị ở trên.</p>
                     <div class="grid-list" id="games-container"></div>
                 </div>
 
@@ -242,10 +183,10 @@
 
                 <!-- TAB CREATE GAME -->
                 <div id="panel-create" class="tab-panel">
-                    <h3 style="margin-bottom: 12px;">Tạo trò chơi</h3>
+                    <h3 style="margin-bottom: 12px;">Tạo Server Mới</h3>
                     <div class="card">
-                        <input type="text" id="new-game-name" placeholder="Tên trò chơi mới...">
-                        <button class="btn-green" onclick="createNewGame()">🚀 Đăng Trò Chơi</button>
+                        <input type="text" id="new-game-name" placeholder="Tên server mới...">
+                        <button class="btn-green" onclick="createNewGame()">🚀 Khởi Tạo Server</button>
                         <p id="create-msg" class="msg"></p>
                     </div>
                 </div>
@@ -254,17 +195,15 @@
         </div>
     </div>
 
-    <!-- 3. MAN HINH IN-GAME -->
+    <!-- 3. GAME SCREEN -->
     <div id="game-screen" class="screen">
         <button class="btn-red btn-exit" onclick="exitGame()">⬅ THOÁT</button>
-        <!-- NÚT BẬT/TẮT CHAT NHỎ Ở GÓC TRÁI -->
         <button class="btn-toggle-chat" onclick="toggleChatBox()" id="btn-chat-toggle">💬 Chat</button>
         <button class="btn-round-lb" onclick="showLeaderboard()">🏆</button>
         
         <div id="canvas-wrapper">
             <canvas id="gameCanvas" width="800" height="500"></canvas>
             
-            <!-- CHAT IN GAME (CÓ THỂ BẬT/TẮT) -->
             <div id="game-chat-box">
                 <div id="chat-messages"></div>
                 <div class="chat-input-row">
@@ -273,7 +212,6 @@
                 </div>
             </div>
 
-            <!-- CONTROLS CHO MOBILE -->
             <div class="touch-controls">
                 <div class="d-pad">
                     <div class="touch-btn" id="btn-left">◀</div>
@@ -307,7 +245,7 @@
     </div>
 
     <script>
-        /* ================= DATABASE & AUTO-LOGIN ================= */
+        /* ================= DATABASE & SYNC ================= */
         let users = {};
         let customGames = [];
         let chats = {};
@@ -322,28 +260,6 @@
             users = JSON.parse(localStorage.getItem('rblx_users')) || {};
             customGames = JSON.parse(localStorage.getItem('rblx_games')) || [];
             chats = JSON.parse(localStorage.getItem('rblx_chats')) || {};
-
-            // KHỞI TẠO DỮ LIỆU MẪU (BOT/ONLINE FRIENDS) KHI LINK HOẶC MÁY MỚI CHƯA CÓ BẠN BÈ
-            if (Object.keys(users).length === 0) {
-                users = {
-                    "ProGamer2026": {
-                        pass: "123", color: "#ff4d4d", stage: 2, wins: 1, friends: [], requests: [],
-                        presence: { status: 'Obby 2D (Chính thức) (Màn 2)', gameId: 'official', stage: 2, x: 250, y: 350, lastSeen: Date.now() }
-                    },
-                    "RobloxMaster": {
-                        pass: "123", color: "#28a745", stage: 4, wins: 3, friends: [], requests: [],
-                        presence: { status: 'Obby 2D (Chính thức) (Màn 4)', gameId: 'official', stage: 4, x: 500, y: 200, lastSeen: Date.now() }
-                    },
-                    "Ninja2D": {
-                        pass: "123", color: "#ffc107", stage: 1, wins: 0, friends: [], requests: [],
-                        presence: { status: 'Lobby', gameId: '', stage: 1, x: 0, y: 0, lastSeen: Date.now() }
-                    }
-                };
-                customGames = [
-                    { id: 1710000000000, title: "Siêu Khó - Parkour", author: "RobloxMaster" }
-                ];
-                saveDB();
-            }
         }
 
         function saveDB() {
@@ -352,17 +268,13 @@
             localStorage.setItem('rblx_chats', JSON.stringify(chats));
         }
 
+        // Lắng nghe sự kiện thay đổi storage giữa các tab/trình duyệt trên cùng domain
+        window.addEventListener('storage', (e) => {
+            loadDB();
+        });
+
         window.addEventListener('load', () => {
             loadDB();
-
-            // Kiểm tra URL tham số (hỗ trợ vào trực tiếp game bằng link chia sẻ)
-            const urlParams = new URLSearchParams(window.location.search);
-            const shareGameId = urlParams.get('game');
-            const shareGameTitle = urlParams.get('title');
-            if (shareGameId && shareGameTitle) {
-                localStorage.setItem('rblx_pending_join', JSON.stringify({ id: shareGameId, title: decodeURIComponent(shareGameTitle) }));
-            }
-
             const savedSessionUser = localStorage.getItem('rblx_session_user');
             if (savedSessionUser && users[savedSessionUser]) {
                 loginSuccess(savedSessionUser);
@@ -382,9 +294,8 @@
             saveDB();
         }
 
-        /* ================= AFK & TIME SYSTEM ================= */
+        /* ================= AFK & INTERVALS ================= */
         let lastUserActivity = Date.now();
-
         ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'touchmove'].forEach(evt => {
             window.addEventListener(evt, () => { lastUserActivity = Date.now(); }, { passive: true });
         });
@@ -394,7 +305,7 @@
             if (!myName || !users[myName]) return;
 
             if (Date.now() - lastUserActivity >= AFK_TIMEOUT) {
-                alert("⚠️ Bạn đã bị kick khỏi server do AFK 10 phút!");
+                alert("⚠️ Bạn đã bị kick do AFK 10 phút!");
                 logout();
                 return;
             }
@@ -430,20 +341,14 @@
             }
         }, 500);
 
-        /* ================= CHAT IN-GAME & TOGGLE ================= */
+        /* ================= CHAT ================= */
         const chatInput = document.getElementById('chat-input');
         const chatBox = document.getElementById('game-chat-box');
         const chatToggleBtn = document.getElementById('btn-chat-toggle');
 
         function toggleChatBox() {
             chatBox.classList.toggle('hidden');
-            if (chatBox.classList.contains('hidden')) {
-                chatToggleBtn.style.background = "rgba(0, 0, 0, 0.7)";
-                chatToggleBtn.style.color = "#fff";
-            } else {
-                chatToggleBtn.style.background = "#00a2ff";
-                chatToggleBtn.style.color = "#fff";
-            }
+            chatToggleBtn.style.background = chatBox.classList.contains('hidden') ? "rgba(0, 0, 0, 0.7)" : "#00a2ff";
         }
         
         chatInput.addEventListener('keydown', (e) => {
@@ -458,7 +363,6 @@
 
             loadDB();
             if (!chats[currentGameId]) chats[currentGameId] = [];
-
             chats[currentGameId].push({ sender: myName, text: text, time: Date.now() });
             if (chats[currentGameId].length > 40) chats[currentGameId].shift();
 
@@ -490,7 +394,7 @@
             return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
 
-        /* ================= AUTHENTICATION ================= */
+        /* ================= AUTH ================= */
         function setAuthMode(mode) {
             authMode = mode;
             document.getElementById('tab-login').classList.remove('active');
@@ -512,7 +416,7 @@
                 if (users[u]) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Tên đã tồn tại!"; return; }
 
                 users[u] = { 
-                    pass: p, color: '#00a2ff', stage: 1, wins: 0, friends: ["ProGamer2026", "RobloxMaster"], requests: [],
+                    pass: p, color: '#00a2ff', stage: 1, wins: 0, friends: [], requests: [],
                     presence: { status: 'Lobby', gameId: '', stage: 1, x: 0, y: 0, lastSeen: Date.now() }
                 };
                 saveDB();
@@ -539,16 +443,6 @@
             updatePresence('Lobby', '', 1, 0, 0);
             renderGamesList();
             document.getElementById('my-avatar').style.background = users[myName].color || '#00a2ff';
-
-            // Tự động vào game nếu có link mời
-            const pending = localStorage.getItem('rblx_pending_join');
-            if (pending) {
-                try {
-                    const data = JSON.parse(pending);
-                    localStorage.removeItem('rblx_pending_join');
-                    enterGame(data.id, data.title);
-                } catch(e) {}
-            }
         }
 
         function logout() {
@@ -563,7 +457,7 @@
             document.getElementById('auth-screen').classList.add('active');
         }
 
-        /* ================= MENU & AVATAR ================= */
+        /* ================= LOBBY & SERVER SORTING (MOST PLAYED FIRST) ================= */
         function navTab(tab, evt) {
             document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-btn').forEach(el => el.classList.remove('active'));
@@ -583,36 +477,60 @@
             loadDB();
             const name = document.getElementById('new-game-name').value.trim();
             const msg = document.getElementById('create-msg');
-            if(!name) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Nhập tên game!"; return; }
+            if(!name) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Nhập tên server!"; return; }
             const newId = Date.now();
             customGames.push({ id: newId, title: name, author: myName });
             saveDB();
             document.getElementById('new-game-name').value = "";
-            msg.style.color = '#28a745'; msg.innerText = "✅ Đăng thành công! Đang vào game...";
+            msg.style.color = '#28a745'; msg.innerText = "✅ Tạo thành công! Đang vào server...";
             setTimeout(() => enterGame(newId, name), 500);
         }
 
         function renderGamesList() {
+            loadDB();
             const container = document.getElementById('games-container');
-            let html = `
-                <div class="game-card" onclick="enterGame('official', 'Obby 2D (Chính thức)')">
-                    <div class="game-icon">🌍</div>
-                    <h4 style="color:#00a2ff">Obby 2D</h4>
-                    <p style="color:#aaa; font-size:11px;">Mặc định - 5 Màn</p>
-                </div>
-            `;
-            customGames.forEach((g) => {
+
+            // Danh sách tất cả các server có sẵn
+            let servers = [
+                { id: 'official', title: 'Obby 2D (Chính thức)', author: 'Hệ thống', icon: '🌍' }
+            ];
+            customGames.forEach(g => {
+                servers.push({ id: String(g.id), title: g.title, author: g.author, icon: '🎮' });
+            });
+
+            // Đếm số người chơi đang ở trong mỗi server
+            servers.forEach(srv => {
+                let count = 0;
+                Object.keys(users).forEach(u => {
+                    const usr = users[u];
+                    if (usr && usr.presence) {
+                        const isOnline = (Date.now() - usr.presence.lastSeen < 15000) && usr.presence.status !== 'Offline';
+                        if (isOnline && String(usr.presence.gameId) === String(srv.id)) {
+                            count++;
+                        }
+                    }
+                });
+                srv.playerCount = count;
+            });
+
+            // Sắp xếp server theo số lượng người chơi nhiều nhất lên đầu
+            servers.sort((a, b) => b.playerCount - a.playerCount);
+
+            let html = "";
+            servers.forEach((srv, idx) => {
+                const isHot = srv.playerCount > 0 && idx === 0;
                 html += `
-                <div class="game-card" onclick="enterGame('${g.id}', '${g.title}')">
-                    <div class="game-icon">🎮</div>
-                    <h4>${g.title}</h4>
-                    <p style="color:#aaa; font-size:11px;">Tạo bởi: ${g.author}</p>
+                <div class="game-card" onclick="enterGame('${srv.id}', '${srv.title}')">
+                    ${isHot ? '<div class="badge-hot">ĐÔNG NHẤT 🔥</div>' : ''}
+                    <div class="game-icon">${srv.icon}</div>
+                    <h4 style="color:${srv.id === 'official' ? '#00a2ff' : '#fff'}">${srv.title}</h4>
+                    <p style="color:#aaa; font-size:11px; margin-top:4px;">👥 Đang chơi: <strong>${srv.playerCount}</strong> người</p>
                 </div>`;
             });
             container.innerHTML = html;
         }
 
-        /* ================= FRIENDS SYSTEM ================= */
+        /* ================= FRIENDS ================= */
         function searchPlayer() {
             const q = document.getElementById('search-player-input').value.trim().toLowerCase();
             const box = document.getElementById('search-result-box');
@@ -665,7 +583,7 @@
             loadDB();
             const friend = users[friendName];
             if (!friend || !friend.presence || !friend.presence.gameId) {
-                alert("Bạn bè không ở trong game!"); return;
+                alert("Bạn bè không ở trong server nào!"); return;
             }
             users[myName].stage = friend.presence.stage || 1;
             saveDB();
@@ -680,7 +598,7 @@
             if (!me) return;
 
             const requests = Array.isArray(me.requests) ? me.requests : [];
-            const friends = Array.isArray(me.friends) ? me.friends : ["ProGamer2026", "RobloxMaster"];
+            const friends = Array.isArray(me.friends) ? me.friends : [];
 
             reqBox.innerHTML = requests.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có lời mời.</p>"
                 : requests.map(r => `<div class="friend-row"><span>📩 <strong>${r}</strong></span> <button class="btn-green btn-sm" onclick="acceptFriend('${r}')">Đồng ý</button></div>`).join('');
@@ -696,7 +614,7 @@
                                 <span>${isOnline ? '🟢' : '⚪'} <strong>${f}</strong></span><br>
                                 <small style="color:${isOnline ? '#00a2ff' : '#777'}; font-size:11px;">${isOnline ? fData.presence.status : 'Offline'}</small>
                             </div>
-                            ${canJoin ? `<button class="btn-green btn-sm" onclick="joinFriendGame('${f}')">Vào Game</button>` : ''}
+                            ${canJoin ? `<button class="btn-green btn-sm" onclick="joinFriendGame('${f}')">Vào Server</button>` : ''}
                         </div>
                     `;
                 }).join('');
@@ -720,7 +638,7 @@
             const sortedUsers = activeServerUsers.sort((a,b) => (users[b].wins - users[a].wins) || (users[b].stage - users[a].stage));
 
             if (sortedUsers.length === 0) {
-                body.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#aaa; padding:10px;">Chưa có ai khác!</td></tr>`;
+                body.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#aaa; padding:10px;">Chưa có ai trong server này!</td></tr>`;
                 return;
             }
 
@@ -733,7 +651,7 @@
             `).join('');
         }
 
-        /* ================= GAME ENGINE & CONTROLS ================= */
+        /* ================= GAME ENGINE ================= */
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         let gameLoopId;
