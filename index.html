@@ -322,6 +322,28 @@
             users = JSON.parse(localStorage.getItem('rblx_users')) || {};
             customGames = JSON.parse(localStorage.getItem('rblx_games')) || [];
             chats = JSON.parse(localStorage.getItem('rblx_chats')) || {};
+
+            // KHỞI TẠO DỮ LIỆU MẪU (BOT/ONLINE FRIENDS) KHI LINK HOẶC MÁY MỚI CHƯA CÓ BẠN BÈ
+            if (Object.keys(users).length === 0) {
+                users = {
+                    "ProGamer2026": {
+                        pass: "123", color: "#ff4d4d", stage: 2, wins: 1, friends: [], requests: [],
+                        presence: { status: 'Obby 2D (Chính thức) (Màn 2)', gameId: 'official', stage: 2, x: 250, y: 350, lastSeen: Date.now() }
+                    },
+                    "RobloxMaster": {
+                        pass: "123", color: "#28a745", stage: 4, wins: 3, friends: [], requests: [],
+                        presence: { status: 'Obby 2D (Chính thức) (Màn 4)', gameId: 'official', stage: 4, x: 500, y: 200, lastSeen: Date.now() }
+                    },
+                    "Ninja2D": {
+                        pass: "123", color: "#ffc107", stage: 1, wins: 0, friends: [], requests: [],
+                        presence: { status: 'Lobby', gameId: '', stage: 1, x: 0, y: 0, lastSeen: Date.now() }
+                    }
+                };
+                customGames = [
+                    { id: 1710000000000, title: "Siêu Khó - Parkour", author: "RobloxMaster" }
+                ];
+                saveDB();
+            }
         }
 
         function saveDB() {
@@ -332,6 +354,15 @@
 
         window.addEventListener('load', () => {
             loadDB();
+
+            // Kiểm tra URL tham số (hỗ trợ vào trực tiếp game bằng link chia sẻ)
+            const urlParams = new URLSearchParams(window.location.search);
+            const shareGameId = urlParams.get('game');
+            const shareGameTitle = urlParams.get('title');
+            if (shareGameId && shareGameTitle) {
+                localStorage.setItem('rblx_pending_join', JSON.stringify({ id: shareGameId, title: decodeURIComponent(shareGameTitle) }));
+            }
+
             const savedSessionUser = localStorage.getItem('rblx_session_user');
             if (savedSessionUser && users[savedSessionUser]) {
                 loginSuccess(savedSessionUser);
@@ -481,7 +512,7 @@
                 if (users[u]) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Tên đã tồn tại!"; return; }
 
                 users[u] = { 
-                    pass: p, color: '#00a2ff', stage: 1, wins: 0, friends: [], requests: [],
+                    pass: p, color: '#00a2ff', stage: 1, wins: 0, friends: ["ProGamer2026", "RobloxMaster"], requests: [],
                     presence: { status: 'Lobby', gameId: '', stage: 1, x: 0, y: 0, lastSeen: Date.now() }
                 };
                 saveDB();
@@ -490,14 +521,6 @@
             } else {
                 if (!users[u] || users[u].pass !== p) {
                     msg.style.color = '#ff4d4d'; msg.innerText = "❌ Sai tên hoặc mật khẩu!"; return;
-                }
-
-                const isAlreadyOnline = users[u].presence && 
-                                       (Date.now() - users[u].presence.lastSeen < 6000) && 
-                                       users[u].presence.status !== 'Offline';
-
-                if (isAlreadyOnline) {
-                    msg.style.color = '#ff4d4d'; msg.innerText = "❌ Tài khoản đang online ở nơi khác!"; return;
                 }
 
                 msg.style.color = '#28a745'; msg.innerText = "✅ Đăng nhập thành công!";
@@ -515,7 +538,17 @@
             
             updatePresence('Lobby', '', 1, 0, 0);
             renderGamesList();
-            document.getElementById('my-avatar').style.background = users[myName].color;
+            document.getElementById('my-avatar').style.background = users[myName].color || '#00a2ff';
+
+            // Tự động vào game nếu có link mời
+            const pending = localStorage.getItem('rblx_pending_join');
+            if (pending) {
+                try {
+                    const data = JSON.parse(pending);
+                    localStorage.removeItem('rblx_pending_join');
+                    enterGame(data.id, data.title);
+                } catch(e) {}
+            }
         }
 
         function logout() {
@@ -551,11 +584,12 @@
             const name = document.getElementById('new-game-name').value.trim();
             const msg = document.getElementById('create-msg');
             if(!name) { msg.style.color = '#ff4d4d'; msg.innerText = "❌ Nhập tên game!"; return; }
-            customGames.push({ id: Date.now(), title: name, author: myName });
+            const newId = Date.now();
+            customGames.push({ id: newId, title: name, author: myName });
             saveDB();
             document.getElementById('new-game-name').value = "";
-            msg.style.color = '#28a745'; msg.innerText = "✅ Đã đăng thành công!";
-            renderGamesList();
+            msg.style.color = '#28a745'; msg.innerText = "✅ Đăng thành công! Đang vào game...";
+            setTimeout(() => enterGame(newId, name), 500);
         }
 
         function renderGamesList() {
@@ -584,8 +618,9 @@
             const box = document.getElementById('search-result-box');
             if (!q) { box.innerHTML = ""; return; }
             
+            loadDB();
             const matches = Object.keys(users).filter(u => u.toLowerCase().includes(q) && u !== myName);
-            if (matches.length === 0) { box.innerHTML = "<p style='color:#ff4d4d; font-size:12px;'>Không tìm thấy!</p>"; return; }
+            if (matches.length === 0) { box.innerHTML = "<p style='color:#ff4d4d; font-size:12px;'>Không tìm thấy người chơi!</p>"; return; }
 
             let html = "";
             matches.forEach(t => {
@@ -629,22 +664,23 @@
         function joinFriendGame(friendName) {
             loadDB();
             const friend = users[friendName];
-            if (!friend || !friend.presence || friend.presence.gameId === '') {
+            if (!friend || !friend.presence || !friend.presence.gameId) {
                 alert("Bạn bè không ở trong game!"); return;
             }
             users[myName].stage = friend.presence.stage || 1;
             saveDB();
-            enterGame(friend.presence.gameId, friend.presence.status);
+            enterGame(friend.presence.gameId, friend.presence.status.split(' (Màn')[0]);
         }
 
         function renderFriendsUI() {
+            loadDB();
             const me = users[myName];
             const reqBox = document.getElementById('requests-container');
             const friBox = document.getElementById('friends-container');
             if (!me) return;
 
             const requests = Array.isArray(me.requests) ? me.requests : [];
-            const friends = Array.isArray(me.friends) ? me.friends : [];
+            const friends = Array.isArray(me.friends) ? me.friends : ["ProGamer2026", "RobloxMaster"];
 
             reqBox.innerHTML = requests.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có lời mời.</p>"
                 : requests.map(r => `<div class="friend-row"><span>📩 <strong>${r}</strong></span> <button class="btn-green btn-sm" onclick="acceptFriend('${r}')">Đồng ý</button></div>`).join('');
@@ -652,7 +688,7 @@
             friBox.innerHTML = friends.length === 0 ? "<p style='color:#777; font-size:12px;'>Chưa có bạn bè.</p>"
                 : friends.map(f => {
                     const fData = users[f];
-                    const isOnline = fData && fData.presence && (Date.now() - fData.presence.lastSeen < 6000) && fData.presence.status !== 'Offline';
+                    const isOnline = fData && fData.presence && (Date.now() - fData.presence.lastSeen < 15000) && fData.presence.status !== 'Offline';
                     const canJoin = isOnline && fData.presence.gameId !== '';
                     return `
                         <div class="friend-row">
@@ -677,7 +713,7 @@
             const activeServerUsers = Object.keys(users).filter(u => {
                 const usr = users[u];
                 if (!usr || !usr.presence) return false;
-                const isOnline = (Date.now() - usr.presence.lastSeen < 6000) && usr.presence.status !== 'Offline';
+                const isOnline = (Date.now() - usr.presence.lastSeen < 15000) && usr.presence.status !== 'Offline';
                 return isOnline && String(usr.presence.gameId) === String(currentGameId);
             });
 
@@ -843,7 +879,7 @@
             Object.keys(users).forEach(u => {
                 if (u !== myName) {
                     const other = users[u];
-                    if (other && other.presence && (Date.now() - other.presence.lastSeen < 6000) && other.presence.status !== 'Offline') {
+                    if (other && other.presence && (Date.now() - other.presence.lastSeen < 15000) && other.presence.status !== 'Offline') {
                         if (String(other.presence.gameId) === String(currentGameId) && other.presence.stage === (stg + 1)) {
                             const ox = other.presence.x;
                             const oy = other.presence.y;
