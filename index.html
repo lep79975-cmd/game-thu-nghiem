@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Online Chat Room</title>
+    <title>Game Online Chat - Công Khai Toàn Hệ Thống</title>
+    <!-- Thư viện MQTT WebSocket để kết nối Server Realtime miễn phí -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
             --bg-color: #1a1a24;
@@ -29,7 +31,7 @@
             transition: background 0.3s;
         }
 
-        /* SIDEBAR */
+        /* SIDEBAR (BÊN TRÁI) */
         #sidebar {
             width: 300px;
             background-color: var(--sidebar-bg);
@@ -74,17 +76,22 @@
 
         .room-item {
             background: var(--card-bg);
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-left: 4px solid #7289da;
+            transition: 0.2s;
         }
 
-        .room-item:hover { background: #32324a; }
+        .room-item:hover { 
+            background: #32324a; 
+            transform: translateX(3px);
+        }
 
-        /* MAIN CHAT AREA */
+        /* KHUNG CHAT MÀN HÌNH CHÍNH */
         #chat-container {
             flex: 1;
             display: flex;
@@ -110,7 +117,7 @@
             gap: 12px;
         }
 
-        /* MESSAGE BUBBLES */
+        /* TIN NHẮN (BÊN PHẢI LA CỦA MÌNH, BÊN TRÁI LÀ NGƯỜI KHÁC) */
         .message {
             max-width: 60%;
             padding: 10px 14px;
@@ -144,13 +151,14 @@
 
         .typing-status {
             font-style: italic;
-            color: #aaa;
+            color: #00f3ff;
             font-size: 0.9rem;
             height: 20px;
             padding-left: 20px;
+            font-weight: bold;
         }
 
-        /* NEON LINK STYLING */
+        /* NEON LINK (LINK CÓ GẠCH NGANG & HIỆU ỨNG NEON) */
         a.neon-link {
             color: #00f3ff;
             text-decoration: underline;
@@ -158,7 +166,7 @@
             font-weight: bold;
         }
 
-        /* CHAT INPUT AREA */
+        /* KHUNG NHẬP CHAT */
         .chat-input-area {
             padding: 15px;
             background: var(--sidebar-bg);
@@ -183,7 +191,7 @@
             margin-top: 5px;
         }
 
-        /* POLL / DECISION BOX */
+        /* BẢNG QUYẾT ĐỊNH / KHẢO SÁT */
         .poll-box {
             background: #2f3136;
             border: 1px solid #7289da;
@@ -204,7 +212,7 @@
 
         .poll-option:hover { background: #575c66; }
 
-        /* MODALS */
+        /* MODAL CỬA SỔ BẬT LÊN */
         .modal {
             display: none;
             position: fixed;
@@ -232,13 +240,23 @@
             background: #111;
             color: white;
         }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            background: #ff9800;
+            color: black;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR -->
+    <!-- CỘT BÊN TRÁI -->
     <div id="sidebar">
-        <h3>Game Chat Hub</h3>
+        <h3>Game Chat <span id="server-status" class="status-badge">Đang kết nối...</span></h3>
+        
         <div class="user-panel">
             <span id="display-username">Đang tải...</span>
             <button class="btn btn-primary" onclick="changeName()" style="font-size:11px">Đổi tên</button>
@@ -246,23 +264,23 @@
 
         <button class="btn" onclick="createRoom()">+ Tạo Phòng Mới</button>
 
-        <div style="margin-top: 10px;">
+        <div style="margin-top: 5px;">
             <label style="font-size: 12px;">Đổi màu nền Web:</label>
             <input type="color" id="bg-picker" onchange="changeBgColor(this.value)" value="#1a1a24" style="width: 100%; cursor: pointer;">
         </div>
 
-        <h4>Tất cả phòng Online</h4>
+        <h4 style="margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;">Phòng Công Khai Online</h4>
         <div class="room-list" id="room-list">
-            <!-- Danh sách phòng hiển thị ở đây -->
+            <!-- Tất cả các phòng tạo ra sẽ tự động hiện ở đây -->
         </div>
     </div>
 
-    <!-- MAIN CHAT -->
+    <!-- MÀN HÌNH CHAT CHÍNH -->
     <div id="chat-container">
         <div class="chat-header">
             <div>
-                <h3 id="room-title">Chưa vào phòng nào</h3>
-                <small id="room-subtitle"></small>
+                <h3 id="room-title">Chưa chọn phòng</h3>
+                <small id="room-subtitle">Vui lòng chọn hoặc tạo phòng ở cột bên trái</small>
             </div>
             <div id="host-controls" style="display: none; gap: 8px;">
                 <button class="btn btn-primary" onclick="openPollModal()">+ Bảng Quyết Định</button>
@@ -274,6 +292,7 @@
             <!-- Tin nhắn hiển thị ở đây -->
         </div>
 
+        <!-- Dấu ... xuất hiện khi có người đang gõ -->
         <div class="typing-status" id="typing-status"></div>
 
         <div class="chat-input-area">
@@ -299,7 +318,7 @@
         </div>
     </div>
 
-    <!-- MODAL THÔNG TIN PHÒNG & KICK -->
+    <!-- MODAL THÔNG TIN PHÒNG & QUYỀN KICK -->
     <div class="modal" id="info-modal">
         <div class="modal-content">
             <h3>Thông tin phòng</h3>
@@ -311,29 +330,99 @@
     </div>
 
     <script>
-        // TRẠNG THÁI DỮ LIỆU
+        // TRẠNG THÁI & DỮ LIỆU CỤC BỘ
         let currentUser = localStorage.getItem('chat_username') || '';
         let currentRoomId = null;
         let isOwner = false;
         let selectedMedia = null;
         let typingTimeout = null;
 
-        // Tên phòng & Channel đa tab (BroadCast API cho phép các tab thông nhau như máy chủ)
-        const channel = new BroadcastChannel('game_online_chat');
+        // DANH SÁCH PHÒNG CÔNG KHAI TOÀN MẠNG
+        let publicRooms = {};
 
-        // BẮT ĐẦU ỨNG DỤNG
+        // KẾT NỐI SERVER REALTIME CÔNG KHAI (MQTT SERVER)
+        const BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+        const client = mqtt.connect(BROKER, {
+            clientId: 'game_user_v4_' + Math.random().toString(16).substring(2, 10)
+        });
+
+        // Kênh thông tin công khai cho tất cả mọi người
+        const TOPIC_GLOBAL = 'game_online_chat_v4/public_global_rooms';
+
+        client.on('connect', () => {
+            document.getElementById('server-status').innerText = 'Online';
+            document.getElementById('server-status').style.background = '#43b581';
+            
+            // Đăng ký nhận thông tin từ kênh chung công khai
+            client.subscribe(TOPIC_GLOBAL);
+            
+            // Yêu cầu tất cả các máy đang online đồng bộ danh sách phòng
+            client.publish(TOPIC_GLOBAL, JSON.stringify({ type: 'REQUEST_SYNC' }));
+        });
+
+        client.on('message', (topic, payload) => {
+            try {
+                const data = JSON.parse(payload.toString());
+
+                // 1. ĐỒNG BỘ DANH SÁCH PHÒNG CÔNG KHAI
+                if (topic === TOPIC_GLOBAL) {
+                    if (data.type === 'NEW_ROOM' || data.type === 'UPDATE_ROOM') {
+                        publicRooms[data.room.id] = data.room;
+                        renderRoomList();
+                    } else if (data.type === 'SYNC_ALL') {
+                        publicRooms = { ...publicRooms, ...data.rooms };
+                        renderRoomList();
+                    } else if (data.type === 'REQUEST_SYNC') {
+                        // Phát lại danh sách phòng hiện có cho người mới mở trang web
+                        if (Object.keys(publicRooms).length > 0) {
+                            client.publish(TOPIC_GLOBAL, JSON.stringify({
+                                type: 'SYNC_ALL',
+                                rooms: publicRooms
+                            }));
+                        }
+                    }
+                } 
+                // 2. LẮNG NGHE CHAT TRONG PHÒNG HIỆN TẠI
+                else if (currentRoomId && topic === `game_online_chat_v4/room/${currentRoomId}`) {
+                    if (data.type === 'MESSAGE') {
+                        const room = publicRooms[currentRoomId];
+                        if (room && !room.messages.some(m => m.id === data.msg.id)) {
+                            room.messages.push(data.msg);
+                            renderMessages();
+                        }
+                    } else if (data.type === 'TYPING') {
+                        if (data.user !== currentUser) {
+                            const statusEl = document.getElementById('typing-status');
+                            statusEl.innerText = data.isTyping ? `${data.user} đang nhắn ...` : '';
+                        }
+                    } else if (data.type === 'KICK') {
+                        if (data.targetUser === currentUser) {
+                            alert("Bạn đã bị chủ phòng KICK!");
+                            location.reload();
+                        }
+                    } else if (data.type === 'DELETE_MSG') {
+                        const room = publicRooms[currentRoomId];
+                        if (room) {
+                            room.messages = room.messages.filter(m => m.id !== data.msgId);
+                            renderMessages();
+                        }
+                    }
+                }
+            } catch(e) { console.error(e); }
+        });
+
+        // QUẢN LÝ TÊN & MÀU NỀN
         window.onload = () => {
             if (!currentUser) {
                 changeName();
             } else {
                 document.getElementById('display-username').innerText = currentUser;
             }
-            loadRooms();
             applySavedBg();
         };
 
         function changeName() {
-            let name = prompt("Nhập tên hiển thị của bạn trong game:", currentUser);
+            let name = prompt("Nhập tên hiển thị của bạn:", currentUser);
             if (name && name.trim() !== '') {
                 currentUser = name.trim();
                 localStorage.setItem('chat_username', currentUser);
@@ -341,30 +430,6 @@
             }
         }
 
-        // TỰ ĐỘNG PHÁT HIỆN GÕ PHÍM HAM "..."
-        function handleTyping() {
-            const input = document.getElementById('message-input');
-            if (input.value.length > 0 && currentRoomId) {
-                channel.postMessage({
-                    type: 'TYPING',
-                    roomId: currentRoomId,
-                    user: currentUser,
-                    isTyping: true
-                });
-
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    channel.postMessage({
-                        type: 'TYPING',
-                        roomId: currentRoomId,
-                        user: currentUser,
-                        isTyping: false
-                    });
-                }, 1500);
-            }
-        }
-
-        // ĐỔI MÀU NỀN
         function changeBgColor(color) {
             document.body.style.backgroundColor = color;
             localStorage.setItem('chat_bg_color', color);
@@ -378,22 +443,11 @@
             }
         }
 
-        // QUẢN LÝ PHÒNG
-        function getRooms() {
-            return JSON.parse(localStorage.getItem('game_rooms') || '[]');
-        }
-
-        function saveRooms(rooms) {
-            localStorage.setItem('game_rooms', JSON.stringify(rooms));
-            channel.postMessage({ type: 'ROOMS_UPDATED' });
-            loadRooms();
-        }
-
+        // TẠO PHÒNG & CÔNG KHAI TOÀN MẠNG
         function createRoom() {
             const roomName = prompt("Nhập tên phòng muốn tạo:");
             if (!roomName) return;
 
-            const rooms = getRooms();
             const newRoom = {
                 id: 'room_' + Date.now(),
                 name: roomName,
@@ -403,17 +457,30 @@
                 members: [currentUser]
             };
 
-            rooms.push(newRoom);
-            saveRooms(rooms);
+            publicRooms[newRoom.id] = newRoom;
+            
+            // Phát sóng cho tất cả trang web trên thế giới biết có phòng mới
+            client.publish(TOPIC_GLOBAL, JSON.stringify({
+                type: 'NEW_ROOM',
+                room: newRoom
+            }));
+
+            // Vào phòng ngay lập tức
             joinRoom(newRoom.id);
         }
 
-        function loadRooms() {
-            const rooms = getRooms();
+        function renderRoomList() {
             const roomListEl = document.getElementById('room-list');
             roomListEl.innerHTML = '';
 
-            rooms.forEach(room => {
+            const roomKeys = Object.keys(publicRooms);
+            if (roomKeys.length === 0) {
+                roomListEl.innerHTML = '<small style="color:#aaa; padding: 10px;">Chưa có phòng nào. Hãy ấn "+ Tạo Phòng Mới"!</small>';
+                return;
+            }
+
+            roomKeys.forEach(key => {
+                const room = publicRooms[key];
                 const item = document.createElement('div');
                 item.className = 'room-item';
                 item.innerHTML = `
@@ -421,6 +488,7 @@
                         <strong>${room.name}</strong><br>
                         <small style="color:#aaa">Chủ: ${room.host}</small>
                     </div>
+                    <small style="color:#43b581">Online</small>
                 `;
                 item.onclick = () => joinRoom(room.id);
                 roomListEl.appendChild(item);
@@ -428,18 +496,18 @@
         }
 
         function joinRoom(roomId) {
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === roomId);
+            if (currentRoomId) {
+                client.unsubscribe(`game_online_chat_v4/room/${currentRoomId}`);
+            }
+
+            const room = publicRooms[roomId];
             if (!room) return;
 
             currentRoomId = roomId;
             isOwner = room.host === currentUser;
 
-            // Thêm vào danh sách thành viên nếu chưa có
-            if (!room.members.includes(currentUser)) {
-                room.members.push(currentUser);
-                saveRooms(rooms);
-            }
+            // Đăng ký nghe tin nhắn của phòng được chọn
+            client.subscribe(`game_online_chat_v4/room/${currentRoomId}`);
 
             document.getElementById('room-title').innerText = room.name;
             document.getElementById('room-subtitle').innerText = `Chủ phòng: ${room.host}`;
@@ -448,7 +516,28 @@
             renderMessages();
         }
 
-        // XỬ LÝ GỬI TIN NHẮN & MEDIA
+        // TỰ ĐỘNG PHÁT HIỆN GÕ PHÍM "..."
+        function handleTyping() {
+            const input = document.getElementById('message-input');
+            if (input.value.length > 0 && currentRoomId) {
+                client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                    type: 'TYPING',
+                    user: currentUser,
+                    isTyping: true
+                }));
+
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                        type: 'TYPING',
+                        user: currentUser,
+                        isTyping: false
+                    }));
+                }, 1500);
+            }
+        }
+
+        // XỬ LÝ MEDIA & ĐƯỜNG LINK NEON
         function handleFileSelect(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -459,13 +548,12 @@
                     type: file.type.startsWith('image/') ? 'image' : 'video',
                     url: evt.target.result
                 };
-                sendMessage(); // Gửi luôn khi chọn xong media
+                sendMessage();
             };
             reader.readAsDataURL(file);
         }
 
         function formatMessageText(text) {
-            // Regex biến URL thành Link Neon
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             return text.replace(urlRegex, function(url) {
                 return `<a class="neon-link" href="${url}" target="_blank">${url}</a>`;
@@ -478,12 +566,9 @@
 
             if (!text && !selectedMedia) return;
             if (!currentRoomId) {
-                alert("Vui lòng chọn hoặc tạo phòng trước!");
+                alert("Vui lòng chọn 1 phòng ở cột bên trái trước!");
                 return;
             }
-
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
 
             const newMessage = {
                 id: 'msg_' + Date.now(),
@@ -493,23 +578,25 @@
                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
 
-            room.messages.push(newMessage);
-            saveRooms(rooms);
+            // Gửi tin nhắn qua Server Realtime
+            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                type: 'MESSAGE',
+                msg: newMessage
+            }));
 
             input.value = '';
             selectedMedia = null;
             document.getElementById('media-input').value = '';
             
-            // Tắt dấu "..." khi đã gửi
-            channel.postMessage({ type: 'TYPING', roomId: currentRoomId, user: currentUser, isTyping: false });
-            renderMessages();
+            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                type: 'TYPING', user: currentUser, isTyping: false
+            }));
         }
 
-        // HIỂN THỊ TIN NHẮN (Bên phải nếu là mình, bên trái nếu là người khác)
+        // HIỂN THỊ TIN NHẮN (Bên phải: Mình, Bên trái: Người khác)
         function renderMessages() {
-            if (!currentRoomId) return;
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
+            if (!currentRoomId || !publicRooms[currentRoomId]) return;
+            const room = publicRooms[currentRoomId];
             const chatBox = document.getElementById('chat-messages');
             chatBox.innerHTML = '';
 
@@ -547,14 +634,14 @@
 
                 msgEl.innerHTML = contentHtml;
 
-                // GIỮ TAY LÊN TIN NHẮN ĐỂ XÓA (Long Press)
+                // XÓA TIN NHẮN BẰNG CÁCH GIỮ NÚT (LONG PRESS)
                 let pressTimer;
                 msgEl.addEventListener('mousedown', () => {
                     pressTimer = window.setTimeout(() => {
                         if (confirm("Bạn có muốn xóa tin nhắn này không?")) {
                             deleteMessage(msg.id);
                         }
-                    }, 800); // Giữ 0.8s để xóa
+                    }, 800);
                 });
                 msgEl.addEventListener('mouseup', () => clearTimeout(pressTimer));
                 msgEl.addEventListener('mouseleave', () => clearTimeout(pressTimer));
@@ -566,14 +653,13 @@
         }
 
         function deleteMessage(msgId) {
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
-            room.messages = room.messages.filter(m => m.id !== msgId);
-            saveRooms(rooms);
-            renderMessages();
+            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                type: 'DELETE_MSG',
+                msgId: msgId
+            }));
         }
 
-        // BẢNG QUYẾT ĐỊNH (POLL)
+        // BẢNG QUYẾT ĐỊNH / KHẢO SÁT
         function openPollModal() { document.getElementById('poll-modal').style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
@@ -602,55 +688,59 @@
                 return;
             }
 
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
-            room.messages.push({
+            const pollMsg = {
                 id: 'msg_' + Date.now(),
                 sender: currentUser,
                 poll: { question: q, options: options },
                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            });
+            };
 
-            saveRooms(rooms);
+            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                type: 'MESSAGE',
+                msg: pollMsg
+            }));
+
             closeModal('poll-modal');
-            renderMessages();
         }
 
         function votePoll(msgId, optionIndex) {
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
+            const room = publicRooms[currentRoomId];
             const msg = room.messages.find(m => m.id === msgId);
             if (!msg || !msg.poll) return;
 
-            // Xóa vote cũ
             msg.poll.options.forEach(opt => {
                 opt.votes = (opt.votes || []).filter(u => u !== currentUser);
             });
 
-            // Thêm vote mới
             msg.poll.options[optionIndex].votes.push(currentUser);
-            saveRooms(rooms);
-            renderMessages();
+
+            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                type: 'MESSAGE',
+                msg: msg
+            }));
         }
 
         // THÔNG TIN PHÒNG & KICK
         function openRoomInfo() {
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
+            const room = publicRooms[currentRoomId];
+            if (!room) return;
 
             document.getElementById('info-details').innerHTML = `
-                <p><strong>Ngày tạo:</strong> ${room.createdAt}</p>
-                <p><strong>Tổng số chat:</strong> ${room.messages.length}</p>
+                <p><strong>Thời gian tạo:</strong> ${room.createdAt}</p>
+                <p><strong>Tổng số tin nhắn:</strong> ${room.messages.length}</p>
             `;
 
             const memberList = document.getElementById('member-list');
             memberList.innerHTML = '';
-            room.members.forEach(m => {
+            
+            const activeUsers = Array.from(new Set(room.messages.map(m => m.sender).concat([room.host])));
+
+            activeUsers.forEach(m => {
                 const div = document.createElement('div');
                 div.style.display = 'flex';
-                div.style.justifySpaceBetween = 'space-between';
+                div.style.justifyContent = 'space-between';
                 div.style.marginTop = '5px';
-                div.innerHTML = `<span>${m}</span>`;
+                div.innerHTML = `<span>${m} ${m === room.host ? '👑 (Chủ phòng)' : ''}</span>`;
                 
                 if (isOwner && m !== currentUser) {
                     const kickBtn = document.createElement('button');
@@ -667,24 +757,12 @@
         }
 
         function kickMember(member) {
-            const rooms = getRooms();
-            const room = rooms.find(r => r.id === currentRoomId);
-            room.members = room.members.filter(m => m !== member);
-            saveRooms(rooms);
-            openRoomInfo();
+            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                type: 'KICK',
+                targetUser: member
+            }));
+            closeModal('info-modal');
         }
-
-        // LẮNG NGHE ĐA TAB / LỚP TRUYỀN DỮ LIỆU SỰ KIỆN (REALTIME)
-        channel.onmessage = (event) => {
-            const data = event.data;
-            if (data.type === 'ROOMS_UPDATED') {
-                loadRooms();
-                if (currentRoomId) renderMessages();
-            } else if (data.type === 'TYPING' && data.roomId === currentRoomId && data.user !== currentUser) {
-                const statusEl = document.getElementById('typing-status');
-                statusEl.innerText = data.isTyping ? `${data.user} đang nhắn ...` : '';
-            }
-        };
     </script>
 </body>
 </html>
