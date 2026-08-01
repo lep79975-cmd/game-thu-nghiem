@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Online Chat - Công Khai Toàn Hệ Thống</title>
-    <!-- Thư viện MQTT WebSocket để kết nối Server Realtime miễn phí -->
+    <!-- Thư viện MQTT WebSocket ổn định -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -31,7 +31,7 @@
             transition: background 0.3s;
         }
 
-        /* SIDEBAR (BÊN TRÁI) */
+        /* SIDEBAR (CỘT BÊN TRÁI) */
         #sidebar {
             width: 300px;
             background-color: var(--sidebar-bg);
@@ -117,7 +117,7 @@
             gap: 12px;
         }
 
-        /* TIN NHẮN (BÊN PHẢI LA CỦA MÌNH, BÊN TRÁI LÀ NGƯỜI KHÁC) */
+        /* TIN NHẮN (BÊN PHẢI LÀ CỦA MÌNH, BÊN TRÁI LÀ NGƯỜI KHÁC) */
         .message {
             max-width: 60%;
             padding: 10px 14px;
@@ -271,7 +271,7 @@
 
         <h4 style="margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;">Phòng Công Khai Online</h4>
         <div class="room-list" id="room-list">
-            <!-- Tất cả các phòng tạo ra sẽ tự động hiện ở đây -->
+            <small style="color:#aaa; padding: 10px;">Chưa có phòng nào...</small>
         </div>
     </div>
 
@@ -323,7 +323,7 @@
         <div class="modal-content">
             <h3>Thông tin phòng</h3>
             <div id="info-details"></div>
-            <h4>Thành viên (Chủ phòng có quyền Kick):</h4>
+            <h4>Thành viên trong phòng:</h4>
             <div id="member-list"></div>
             <button class="btn btn-danger" onclick="closeModal('info-modal')">Đóng</button>
         </div>
@@ -337,26 +337,27 @@
         let selectedMedia = null;
         let typingTimeout = null;
 
-        // DANH SÁCH PHÒNG CÔNG KHAI TOÀN MẠNG
-        let publicRooms = {};
+        // BỘ NHỚ PHÒNG
+        let myCreatedRooms = {};   // Chỉ lưu các phòng do MÌNH tạo ra
+        let publicRooms = {};      // Tất cả phòng công khai nhận từ server
+        let lastRenderedHash = ''; // Dùng để chống giật UI (chỉ re-render khi thực sự thay đổi)
 
-        // KẾT NỐI SERVER REALTIME CÔNG KHAI (MQTT SERVER)
-        const BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+        // KẾT NỐI SERVER REALTIME CÔNG KHAI (EMQX WebSocket Broker)
+        const BROKER = 'wss://broker.emqx.io:8084/mqtt';
         const client = mqtt.connect(BROKER, {
-            clientId: 'game_user_v4_' + Math.random().toString(16).substring(2, 10)
+            clientId: 'game_user_v5_' + Math.random().toString(16).substring(2, 10),
+            keepalive: 60
         });
 
-        // Kênh thông tin công khai cho tất cả mọi người
-        const TOPIC_GLOBAL = 'game_online_chat_v4/public_global_rooms';
+        const TOPIC_GLOBAL = 'game_online_chat_v5/public_global_rooms';
 
         client.on('connect', () => {
             document.getElementById('server-status').innerText = 'Online';
             document.getElementById('server-status').style.background = '#43b581';
             
-            // Đăng ký nhận thông tin từ kênh chung công khai
             client.subscribe(TOPIC_GLOBAL);
             
-            // Yêu cầu tất cả các máy đang online đồng bộ danh sách phòng
+            // Gửi yêu cầu xin danh sách phòng hiện có
             client.publish(TOPIC_GLOBAL, JSON.stringify({ type: 'REQUEST_SYNC' }));
         });
 
@@ -364,26 +365,24 @@
             try {
                 const data = JSON.parse(payload.toString());
 
-                // 1. ĐỒNG BỘ DANH SÁCH PHÒNG CÔNG KHAI
+                // 1. QUẢN LÝ DANH SÁCH PHÒNG CÔNG KHAI
                 if (topic === TOPIC_GLOBAL) {
-                    if (data.type === 'NEW_ROOM' || data.type === 'UPDATE_ROOM') {
+                    if (data.type === 'ANNOUNCE_ROOM') {
                         publicRooms[data.room.id] = data.room;
-                        renderRoomList();
-                    } else if (data.type === 'SYNC_ALL') {
-                        publicRooms = { ...publicRooms, ...data.rooms };
-                        renderRoomList();
-                    } else if (data.type === 'REQUEST_SYNC') {
-                        // Phát lại danh sách phòng hiện có cho người mới mở trang web
-                        if (Object.keys(publicRooms).length > 0) {
+                        renderRoomList(); // Cập nhật giao diện an toàn
+                    } 
+                    else if (data.type === 'REQUEST_SYNC') {
+                        // CHỈ CHỦ PHÒNG MỚI PHÁT SÓNG PHÒNG CỦA MÌNH -> Triệt tiêu hoàn toàn vòng lặp vô tận!
+                        Object.values(myCreatedRooms).forEach(room => {
                             client.publish(TOPIC_GLOBAL, JSON.stringify({
-                                type: 'SYNC_ALL',
-                                rooms: publicRooms
+                                type: 'ANNOUNCE_ROOM',
+                                room: room
                             }));
-                        }
+                        });
                     }
                 } 
-                // 2. LẮNG NGHE CHAT TRONG PHÒNG HIỆN TẠI
-                else if (currentRoomId && topic === `game_online_chat_v4/room/${currentRoomId}`) {
+                // 2. LẮNG NGHE TIN NHẮN TRONG PHÒNG ĐANG CHỌN
+                else if (currentRoomId && topic === `game_online_chat_v5/room/${currentRoomId}`) {
                     if (data.type === 'MESSAGE') {
                         const room = publicRooms[currentRoomId];
                         if (room && !room.messages.some(m => m.id === data.msg.id)) {
@@ -397,7 +396,7 @@
                         }
                     } else if (data.type === 'KICK') {
                         if (data.targetUser === currentUser) {
-                            alert("Bạn đã bị chủ phòng KICK!");
+                            alert("Bạn đã bị chủ phòng KICK ra khỏi phòng!");
                             location.reload();
                         }
                     } else if (data.type === 'DELETE_MSG') {
@@ -411,6 +410,18 @@
             } catch(e) { console.error(e); }
         });
 
+        // PHÁT SÓNG NẠP ĐỊNH KỲ (Heartbeat 10 Giây/Lần - Rất nhẹ nhàng)
+        setInterval(() => {
+            if (client.connected) {
+                Object.values(myCreatedRooms).forEach(room => {
+                    client.publish(TOPIC_GLOBAL, JSON.stringify({
+                        type: 'ANNOUNCE_ROOM',
+                        room: room
+                    }));
+                });
+            }
+        }, 10000);
+
         // QUẢN LÝ TÊN & MÀU NỀN
         window.onload = () => {
             if (!currentUser) {
@@ -422,7 +433,7 @@
         };
 
         function changeName() {
-            let name = prompt("Nhập tên hiển thị của bạn:", currentUser);
+            let name = prompt("Nhập tên hiển thị của bạn trong game:", currentUser);
             if (name && name.trim() !== '') {
                 currentUser = name.trim();
                 localStorage.setItem('chat_username', currentUser);
@@ -443,7 +454,7 @@
             }
         }
 
-        // TẠO PHÒNG & CÔNG KHAI TOÀN MẠNG
+        // TẠO PHÒNG MỚI
         function createRoom() {
             const roomName = prompt("Nhập tên phòng muốn tạo:");
             if (!roomName) return;
@@ -453,33 +464,40 @@
                 name: roomName,
                 host: currentUser,
                 createdAt: new Date().toLocaleString(),
-                messages: [],
-                members: [currentUser]
+                messages: []
             };
 
+            // Lưu vào phòng do mình làm chủ
+            myCreatedRooms[newRoom.id] = newRoom;
             publicRooms[newRoom.id] = newRoom;
-            
-            // Phát sóng cho tất cả trang web trên thế giới biết có phòng mới
+
+            // Phát sóng cho toàn thế giới biết
             client.publish(TOPIC_GLOBAL, JSON.stringify({
-                type: 'NEW_ROOM',
+                type: 'ANNOUNCE_ROOM',
                 room: newRoom
             }));
 
-            // Vào phòng ngay lập tức
             joinRoom(newRoom.id);
         }
 
+        // CẬP NHẬT GIAO DIỆN PHÒNG (Đã tích hợp cơ chế chống giật 0.1s)
         function renderRoomList() {
+            const keys = Object.keys(publicRooms).sort();
+            const currentHash = JSON.stringify(keys.map(k => publicRooms[k].name + publicRooms[k].host));
+            
+            // NẾU DỮ LIỆU KHÔNG THAY ĐỔI -> BỎ QUA KHÔNG VẼ LAI (Chống nháy màn hình)
+            if (currentHash === lastRenderedHash) return;
+            lastRenderedHash = currentHash;
+
             const roomListEl = document.getElementById('room-list');
             roomListEl.innerHTML = '';
 
-            const roomKeys = Object.keys(publicRooms);
-            if (roomKeys.length === 0) {
-                roomListEl.innerHTML = '<small style="color:#aaa; padding: 10px;">Chưa có phòng nào. Hãy ấn "+ Tạo Phòng Mới"!</small>';
+            if (keys.length === 0) {
+                roomListEl.innerHTML = '<small style="color:#aaa; padding: 10px;">Chưa có phòng nào. Hãy tạo phòng mới!</small>';
                 return;
             }
 
-            roomKeys.forEach(key => {
+            keys.forEach(key => {
                 const room = publicRooms[key];
                 const item = document.createElement('div');
                 item.className = 'room-item';
@@ -497,7 +515,7 @@
 
         function joinRoom(roomId) {
             if (currentRoomId) {
-                client.unsubscribe(`game_online_chat_v4/room/${currentRoomId}`);
+                client.unsubscribe(`game_online_chat_v5/room/${currentRoomId}`);
             }
 
             const room = publicRooms[roomId];
@@ -506,8 +524,8 @@
             currentRoomId = roomId;
             isOwner = room.host === currentUser;
 
-            // Đăng ký nghe tin nhắn của phòng được chọn
-            client.subscribe(`game_online_chat_v4/room/${currentRoomId}`);
+            // Đăng ký nghe kênh chat riêng của phòng này
+            client.subscribe(`game_online_chat_v5/room/${currentRoomId}`);
 
             document.getElementById('room-title').innerText = room.name;
             document.getElementById('room-subtitle').innerText = `Chủ phòng: ${room.host}`;
@@ -516,11 +534,11 @@
             renderMessages();
         }
 
-        // TỰ ĐỘNG PHÁT HIỆN GÕ PHÍM "..."
+        // XỬ LÝ GÕ PHÍM HIỂN THỊ "..."
         function handleTyping() {
             const input = document.getElementById('message-input');
             if (input.value.length > 0 && currentRoomId) {
-                client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                     type: 'TYPING',
                     user: currentUser,
                     isTyping: true
@@ -528,16 +546,22 @@
 
                 clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(() => {
-                    client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+                    client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                         type: 'TYPING',
                         user: currentUser,
                         isTyping: false
                     }));
                 }, 1500);
+            } else if (input.value.length === 0 && currentRoomId) {
+                client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
+                    type: 'TYPING',
+                    user: currentUser,
+                    isTyping: false
+                }));
             }
         }
 
-        // XỬ LÝ MEDIA & ĐƯỜNG LINK NEON
+        // XỬ LÝ MEDIA & NEON LINK
         function handleFileSelect(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -578,8 +602,7 @@
                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
 
-            // Gửi tin nhắn qua Server Realtime
-            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                 type: 'MESSAGE',
                 msg: newMessage
             }));
@@ -588,12 +611,12 @@
             selectedMedia = null;
             document.getElementById('media-input').value = '';
             
-            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                 type: 'TYPING', user: currentUser, isTyping: false
             }));
         }
 
-        // HIỂN THỊ TIN NHẮN (Bên phải: Mình, Bên trái: Người khác)
+        // HIỂN THỊ TIN NHẮN (Right: Mình, Left: Người khác)
         function renderMessages() {
             if (!currentRoomId || !publicRooms[currentRoomId]) return;
             const room = publicRooms[currentRoomId];
@@ -634,7 +657,7 @@
 
                 msgEl.innerHTML = contentHtml;
 
-                // XÓA TIN NHẮN BẰNG CÁCH GIỮ NÚT (LONG PRESS)
+                // XÓA TIN NHẮN KHI GIỮ TAY (LONG PRESS 0.8s)
                 let pressTimer;
                 msgEl.addEventListener('mousedown', () => {
                     pressTimer = window.setTimeout(() => {
@@ -653,7 +676,7 @@
         }
 
         function deleteMessage(msgId) {
-            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                 type: 'DELETE_MSG',
                 msgId: msgId
             }));
@@ -695,7 +718,7 @@
                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
 
-            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                 type: 'MESSAGE',
                 msg: pollMsg
             }));
@@ -714,13 +737,13 @@
 
             msg.poll.options[optionIndex].votes.push(currentUser);
 
-            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                 type: 'MESSAGE',
                 msg: msg
             }));
         }
 
-        // THÔNG TIN PHÒNG & KICK
+        // THÔNG TIN PHÒNG & QUYỀN KICK
         function openRoomInfo() {
             const room = publicRooms[currentRoomId];
             if (!room) return;
@@ -757,7 +780,7 @@
         }
 
         function kickMember(member) {
-            client.publish(`game_online_chat_v4/room/${currentRoomId}`, JSON.stringify({
+            client.publish(`game_online_chat_v5/room/${currentRoomId}`, JSON.stringify({
                 type: 'KICK',
                 targetUser: member
             }));
