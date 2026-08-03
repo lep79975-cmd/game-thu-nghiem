@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wind & Sand Elemental Arena 2D</title>
-    <!-- Thư viện MQTT client để chơi Online qua WebSockets -->
+    <!-- Thư viện Three.js (3D Engine) & MQTT -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         * {
@@ -167,7 +168,7 @@
         #bottom-ui.transformed {
             transform: translateX(-50%) translateY(8px);
             border-color: #ff0055;
-            box-shadow: 0 0 25px rgba(ff, 0, 85, 0.4);
+            box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);
         }
         .skill-slot {
             width: 58px;
@@ -586,6 +587,7 @@ let mqttClient = null;
 let currentRoom = '';
 let isOnlineConnected = false;
 const otherPlayers = {};
+let lastSendTime = 0;
 
 function connectOnline() {
     const roomInput = document.getElementById('room-code').value.trim();
@@ -601,7 +603,7 @@ function connectOnline() {
         isOnlineConnected = true;
         statusText.innerText = `🟢 Online (${currentRoom})`;
         mqttClient.subscribe(`arena_2d_game/${currentRoom}/#`);
-        sendOnlineState();
+        sendOnlineState(true);
     });
 
     mqttClient.on('message', (topic, message) => {
@@ -632,16 +634,19 @@ function connectOnline() {
     });
 }
 
-function sendOnlineState() {
-    if (isOnlineConnected && mqttClient) {
+function sendOnlineState(force = false) {
+    const now = performance.now();
+    // Giới hạn tần suất gửi dữ liệu (Throttle) để tránh quá tải Broker gây rớt kết nối
+    if (isOnlineConnected && mqttClient && (force || now - lastSendTime > 40)) {
+        lastSendTime = now;
         mqttClient.publish(`arena_2d_game/${currentRoom}/pos`, JSON.stringify({
             id: myPlayerId,
-            x: player.x,
-            y: player.y,
+            x: Math.round(player.x),
+            y: Math.round(player.y),
             hp: player.hp,
             maxHp: player.maxHp,
-            dirX: player.dirX,
-            dirY: player.dirY,
+            dirX: Number(player.dirX.toFixed(2)),
+            dirY: Number(player.dirY.toFixed(2)),
             charId: player.charId,
             isDashing: player.isDashing,
             isUltActive: player.isUltActive
@@ -671,7 +676,7 @@ const player = {
     dashTimer: 0,
     dashDuration: 0.4,
     dashSpeed: 9.5,
-    qHitTargets: [], // Mảng lưu các mục tiêu đã chịu hiệu ứng Q trong đợt lướt này
+    qHitTargets: [],
     cdQ: 0,
     cdE: 0,
     cdR: 0,
@@ -892,7 +897,7 @@ function useSkill(slot) {
             player.cdQ = char.skills.q.cd;
             player.isDashing = true;
             player.dashTimer = player.dashDuration;
-            player.qHitTargets = []; // Reset danh sách trúng chiêu Q
+            player.qHitTargets = [];
             createParticles(player.x, player.y, 15, '#00e6ff');
             broadcastSkill('q');
         }
@@ -910,7 +915,7 @@ function useSkill(slot) {
         player.cdQ = char.skills.q.cd;
         player.isDashing = true;
         player.dashTimer = player.dashDuration;
-        player.qHitTargets = []; // Reset danh sách trúng chiêu Q để mỗi mục tiêu chỉ nhận 1 hiệu ứng duy nhất
+        player.qHitTargets = [];
         createParticles(player.x, player.y, 12, char.color);
         broadcastSkill('q');
     }
@@ -1087,7 +1092,6 @@ function update() {
 
     if (!gameRunning) return;
 
-    // Giảm thời gian các hiệu ứng bất lợi của bản thân
     if (player.stunTimer > 0) player.stunTimer = Math.max(0, player.stunTimer - dt);
     if (player.freezeTimer > 0) player.freezeTimer = Math.max(0, player.freezeTimer - dt);
     if (player.blindTimer > 0) player.blindTimer = Math.max(0, player.blindTimer - dt);
@@ -1163,12 +1167,11 @@ function update() {
             charColor, Math.random() * 6 + 3, 0.4
         ));
 
-        // --- CƠ CHẾ HIỆU ỨNG CHIÊU Q: MỖI NGƯỜI CHỈ HIỆN/NHẬN 1 HIỆU ỨNG DUY NHẤT KHI LƯỚT QUA ---
         const checkQEffectOnTarget = (targetId, targetObj) => {
             if (!player.qHitTargets.includes(targetId)) {
                 let dist = Math.hypot(targetObj.x - player.x, targetObj.y - player.y);
                 if (dist < player.radius + targetObj.radius + 15) {
-                    player.qHitTargets.push(targetId); // Khóa lại, chỉ cho trúng 1 lần trong suốt đợt lướt Q này
+                    player.qHitTargets.push(targetId);
                     
                     if (player.charId === 'sand') {
                         if (targetId === 'bot') {
@@ -1201,7 +1204,7 @@ function update() {
     player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
     player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
 
-    // Đồng bộ vị trí Online liên tục
+    // Gửi vị trí Online theo chu kỳ mượt mà
     sendOnlineState();
 
     if (bot.isDead) {
@@ -1296,35 +1299,56 @@ function draw() {
     });
 
     if (gameRunning) {
-        // Vẽ Người Chơi Khác (Online Players)
+        // --- VẼ NGƯỜI CHƠI KHÁC (ONLINE PLAYERS) ---
         const nowTime = performance.now();
         Object.keys(otherPlayers).forEach(pId => {
             const op = otherPlayers[pId];
-            if (nowTime - op.lastUpdate > 5000) return; // Quá 5s không gửi tin thì không vẽ
+            if (nowTime - op.lastUpdate > 4000) return; // Mất kết nối quá 4s thì giấu đi
 
             const oChar = CHARACTERS[op.charId] || CHARACTERS.wind;
 
+            // Bóng đổ
             ctx.fillStyle = 'rgba(0,0,0,0.3)';
             ctx.beginPath();
             ctx.ellipse(op.x, op.y + 20, 20, 8, 0, 0, Math.PI * 2);
             ctx.fill();
 
+            // Vòng viền năng lượng
             ctx.strokeStyle = op.isUltActive ? '#ff0055' : oChar.color;
             ctx.lineWidth = op.isDashing ? 5 : 2;
             ctx.beginPath();
             ctx.arc(op.x, op.y, player.radius + 4, 0, Math.PI * 2);
             ctx.stroke();
 
-            ctx.fillStyle = oChar.color;
+            // Thân nhân vật
+            ctx.fillStyle = op.isUltActive ? '#ff0055' : oChar.color;
             ctx.beginPath();
             ctx.arc(op.x, op.y, player.radius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Nhãn tên Online
+            // Hướng nhìn
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(op.x + (op.dirX || 1) * 12, op.y + (op.dirY || 0) * 12, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Avatar Icon
+            ctx.font = '14px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillText(oChar.avatar, op.x, op.y + 5);
+
+            // Nhãn Tên Người Chơi
             ctx.fillStyle = '#00e6ff';
             ctx.font = 'bold 11px Segoe UI';
-            ctx.textAlign = 'center';
-            ctx.fillText(`Player (${op.charId})`, op.x, op.y - 30);
+            ctx.fillText(`P-${pId.slice(-4)} (${oChar.name.split(' ')[0]})`, op.x, op.y - 32);
+
+            // Thanh Máu
+            if (op.hp !== undefined) {
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(op.x - 20, op.y - 25, 40, 5);
+                ctx.fillStyle = '#ff416c';
+                ctx.fillRect(op.x - 20, op.y - 25, Math.max(0, (op.hp / (op.maxHp || 100)) * 40), 5);
+            }
         });
 
         // Vẽ Bot
@@ -1345,7 +1369,6 @@ function draw() {
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Hiển thị 1 vòng hiệu ứng của Q nếu đang bị dính mù/băng
             if (bot.blindTimer > 0) {
                 ctx.fillStyle = 'rgba(230, 194, 128, 0.7)';
                 ctx.beginPath();
