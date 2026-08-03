@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wind & Sand Elemental Arena 2D</title>
+    <title>Wind & Sand Elemental Arena 2D - PvP Enabled</title>
     <!-- Thư viện Three.js (3D Engine) & MQTT -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -511,7 +511,7 @@ const CHARACTERS = {
         price: 0,
         avatar: '🌀',
         color: '#00e6ff',
-        desc: 'Q: Lướt 0.4s (3s)<br>E: Đấm ngất 1s, -26 máu (6s)<br>⚡ Ult (Đủ 10 hit): Xoay bão 4s hút bot & gây dame, biến đổi E/R Thức Tỉnh trong 20s!',
+        desc: 'Q: Lướt 0.4s (3s)<br>E: Đấm ngất 1s, -26 máu (6s)<br>⚡ Ult (Đủ 10 hit): Xoay bão 4s hút bot & người chơi & gây dame, biến đổi E/R Thức Tỉnh trong 20s!',
         skills: {
             q: { icon: '💨', name: 'Lướt Gió', cd: 3 },
             e: { icon: '👊', name: 'Phong Quyền', cd: 6 },
@@ -617,13 +617,17 @@ function connectOnline() {
                 triggerRemoteSkill(data);
             } else if (topic.endsWith('/hit')) {
                 if (data.targetId === 'bot') {
-                    bot.takeDamage(data.damage, data.kbX, data.kbY);
+                    if (data.damage) bot.takeDamage(data.damage, data.kbX, data.kbY);
                     if (data.stun) bot.applyStun(data.stun);
                     if (data.freeze) bot.applyFreeze(data.freeze);
                     if (data.blind) bot.applyBlind(data.blind);
                     if (data.silence) bot.applySilence(data.silence);
                 } else if (data.targetId === myPlayerId) {
-                    player.takeDamage(data.damage);
+                    if (data.damage) player.takeDamage(data.damage);
+                    if (data.kbX || data.kbY) {
+                        player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x + (data.kbX || 0)));
+                        player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y + (data.kbY || 0)));
+                    }
                     if (data.stun) player.applyStun(data.stun);
                     if (data.freeze) player.applyFreeze(data.freeze);
                     if (data.blind) player.applyBlind(data.blind);
@@ -795,6 +799,47 @@ function registerHit() {
     }
 }
 
+// Target Helper for Bot + Online Players PvP
+function getValidTargets() {
+    const targets = [];
+    if (!bot.isDead) {
+        targets.push({ id: 'bot', obj: bot, radius: bot.radius });
+    }
+    const nowTime = performance.now();
+    Object.keys(otherPlayers).forEach(pId => {
+        const op = otherPlayers[pId];
+        if (nowTime - op.lastUpdate <= 4000) {
+            targets.push({ id: pId, obj: op, radius: player.radius });
+        }
+    });
+    return targets;
+}
+
+function hitTarget(targetId, targetObj, damage, kbX = 0, kbY = 0, effects = {}) {
+    if (targetId === 'bot') {
+        if (bot.isDead) return;
+        if (damage > 0) bot.takeDamage(damage, kbX, kbY);
+        if (effects.stun) bot.applyStun(effects.stun);
+        if (effects.freeze) bot.applyFreeze(effects.freeze);
+        if (effects.blind) bot.applyBlind(effects.blind);
+        if (effects.silence) bot.applySilence(effects.silence);
+        registerHit();
+    } else {
+        if (isOnlineConnected && mqttClient) {
+            mqttClient.publish(`arena_2d_game/${currentRoom}/hit`, JSON.stringify({
+                targetId: targetId,
+                damage: damage,
+                kbX: kbX,
+                kbY: kbY,
+                ...effects
+            }));
+        }
+        if (damage > 0) createDamageText(targetObj.x, targetObj.y - 25, `-${damage}`, '#ff416c');
+        createParticles(targetObj.x, targetObj.y, 10, '#ff0055');
+        registerHit();
+    }
+}
+
 // Particle & Text Systems
 class Particle {
     constructor(x, y, vx, vy, color, size, life) {
@@ -949,17 +994,20 @@ function executeAwakenedE() {
     if (player.punchInterval) clearInterval(player.punchInterval);
 
     player.punchInterval = setInterval(() => {
-        if (player.punchCount >= 15 || bot.isDead) {
+        const targets = getValidTargets();
+        if (player.punchCount >= 15 || targets.length === 0) {
             clearInterval(player.punchInterval);
             return;
         }
         player.punchCount++;
 
-        bot.x = player.x + dirX * 35;
-        bot.y = player.y + dirY * 35;
-        bot.takeDamage(5);
-        bot.applyStun(0.3);
-        createParticles(bot.x, bot.y, 8, '#ff0055');
+        targets.forEach(t => {
+            let dist = Math.hypot(t.obj.x - (player.x + dirX * 35), t.obj.y - (player.y + dirY * 35));
+            if (dist < 80) {
+                hitTarget(t.id, t.obj, 5, 0, 0, { stun: 0.3 });
+                createParticles(t.obj.x, t.obj.y, 8, '#ff0055');
+            }
+        });
     }, 133);
 }
 
@@ -977,10 +1025,12 @@ function executeAwakenedR() {
         ));
     }
 
-    let dist = Math.hypot(bot.x - player.x, bot.y - player.y);
-    if (!bot.isDead && dist < 140) {
-        bot.takeDamage(20, dirX * 22, dirY * 22);
-    }
+    getValidTargets().forEach(t => {
+        let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
+        if (dist < 140) {
+            hitTarget(t.id, t.obj, 20, dirX * 22, dirY * 22, {});
+        }
+    });
 }
 
 function executeSkillE(charId) {
@@ -994,13 +1044,13 @@ function executeSkillE(charId) {
 
         let hitX = player.x + dirX * 40;
         let hitY = player.y + dirY * 40;
-        let dist = Math.hypot(bot.x - hitX, bot.y - hitY);
 
-        if (!bot.isDead && dist < 65) {
-            bot.takeDamage(26, dirX * 12, dirY * 12);
-            bot.applyStun(1.0);
-            registerHit();
-        }
+        getValidTargets().forEach(t => {
+            let dist = Math.hypot(t.obj.x - hitX, t.obj.y - hitY);
+            if (dist < 65) {
+                hitTarget(t.id, t.obj, 26, dirX * 12, dirY * 12, { stun: 1.0 });
+            }
+        });
     }
     else if (charId === 'sand') {
         let handX = player.x + dirX * 60;
@@ -1023,11 +1073,12 @@ function executeSkillE(charId) {
         let sweepY = player.y + dirY * 50;
         createParticles(sweepX, sweepY, 35, '#00bfff');
 
-        let dist = Math.hypot(bot.x - sweepX, bot.y - sweepY);
-        if (!bot.isDead && dist < 70) {
-            bot.takeDamage(28, dirX * 3, dirY * 3);
-            bot.applyFreeze(1.0);
-        }
+        getValidTargets().forEach(t => {
+            let dist = Math.hypot(t.obj.x - sweepX, t.obj.y - sweepY);
+            if (dist < 70) {
+                hitTarget(t.id, t.obj, 28, dirX * 3, dirY * 3, { freeze: 1.0 });
+            }
+        });
     }
     else if (charId === 'iron') {
         let daggerCount = 0;
@@ -1057,29 +1108,32 @@ function executeSkillR(charId) {
         createParticles(targetX, targetY, 20, '#e6c280');
 
         setTimeout(() => {
-            let dist = Math.hypot(bot.x - targetX, bot.y - targetY);
-            if (!bot.isDead && dist < 85) {
-                bot.applySilence(1.5);
-                bot.takeDamage(20);
-                createParticles(bot.x, bot.y, 40, '#c29b38');
-            }
+            getValidTargets().forEach(t => {
+                let dist = Math.hypot(t.obj.x - targetX, t.obj.y - targetY);
+                if (dist < 85) {
+                    hitTarget(t.id, t.obj, 20, 0, 0, { silence: 1.5 });
+                    createParticles(t.obj.x, t.obj.y, 40, '#c29b38');
+                }
+            });
         }, 300);
     }
     else if (charId === 'ice') {
         createParticles(player.x, player.y, 50, '#00bfff');
-        let dist = Math.hypot(bot.x - player.x, bot.y - player.y);
-        if (!bot.isDead && dist < 90) {
-            bot.takeDamage(10);
-            bot.applyStun(0.5);
-            bot.applyFreeze(0.5);
-        }
+        getValidTargets().forEach(t => {
+            let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
+            if (dist < 90) {
+                hitTarget(t.id, t.obj, 10, 0, 0, { stun: 0.5, freeze: 0.5 });
+            }
+        });
     }
     else if (charId === 'iron') {
         createParticles(player.x, player.y, 40, '#ff4500');
-        let dist = Math.hypot(bot.x - player.x, bot.y - player.y);
-        if (!bot.isDead && dist < 80) {
-            bot.takeDamage(25, dirX * 8, dirY * 8);
-        }
+        getValidTargets().forEach(t => {
+            let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
+            if (dist < 80) {
+                hitTarget(t.id, t.obj, 25, dirX * 8, dirY * 8, {});
+            }
+        });
     }
 }
 
@@ -1113,21 +1167,26 @@ function update() {
             player.ultSpinTimer -= dt;
             player.ultSpinInterval += dt;
 
-            let distToBot = Math.hypot(bot.x - player.x, bot.y - player.y);
-            if (!bot.isDead && distToBot < 120) {
-                bot.x += (player.x - bot.x) * 0.08;
-                bot.y += (player.y - bot.y) * 0.08;
+            getValidTargets().forEach(t => {
+                let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
+                if (dist < 120) {
+                    t.obj.x += (player.x - t.obj.x) * 0.08;
+                    t.obj.y += (player.y - t.obj.y) * 0.08;
 
-                if (player.ultSpinInterval >= 0.1) {
-                    bot.takeDamage(1);
-                    player.ultSpinInterval = 0;
+                    if (player.ultSpinInterval >= 0.1) {
+                        hitTarget(t.id, t.obj, 1, 0, 0, {});
+                    }
                 }
-            }
 
-            if (player.ultSpinTimer <= 0 && !bot.isDead) {
-                let angle = Math.atan2(bot.y - player.y, bot.x - player.x);
-                bot.takeDamage(0, Math.cos(angle) * 25, Math.sin(angle) * 25);
-                createDamageText(bot.x, bot.y - 30, 'BỊ HẤT VĂNG!', '#ff0055', 16);
+                if (player.ultSpinTimer <= 0) {
+                    let angle = Math.atan2(t.obj.y - player.y, t.obj.x - player.x);
+                    hitTarget(t.id, t.obj, 0, Math.cos(angle) * 25, Math.sin(angle) * 25, {});
+                    createDamageText(t.obj.x, t.obj.y - 30, 'BỊ HẤT VĂNG!', '#ff0055', 16);
+                }
+            });
+
+            if (player.ultSpinInterval >= 0.1) {
+                player.ultSpinInterval = 0;
             }
         }
 
@@ -1170,28 +1229,23 @@ function update() {
         const checkQEffectOnTarget = (targetId, targetObj) => {
             if (!player.qHitTargets.includes(targetId)) {
                 let dist = Math.hypot(targetObj.x - player.x, targetObj.y - player.y);
-                if (dist < player.radius + targetObj.radius + 15) {
+                if (dist < player.radius + (targetObj.radius || player.radius) + 15) {
                     player.qHitTargets.push(targetId);
                     
+                    let dmg = 0;
+                    let effects = {};
                     if (player.charId === 'sand') {
-                        if (targetId === 'bot') {
-                            bot.applyBlind(1.0);
-                            bot.takeDamage(3);
-                        }
+                        dmg = 3;
+                        effects.blind = 1.0;
                     } else if (player.charId === 'ice') {
-                        if (targetId === 'bot') {
-                            bot.applyFreeze(0.5);
-                        }
+                        effects.freeze = 0.5;
                     }
-                    registerHit();
+                    hitTarget(targetId, targetObj, dmg, player.dirX * 5, player.dirY * 5, effects);
                 }
             }
         };
 
-        if (!bot.isDead) checkQEffectOnTarget('bot', bot);
-        Object.keys(otherPlayers).forEach(pId => {
-            checkQEffectOnTarget(pId, otherPlayers[pId]);
-        });
+        getValidTargets().forEach(t => checkQEffectOnTarget(t.id, t.obj));
 
         if (player.dashTimer <= 0) player.isDashing = false;
     } else {
@@ -1236,21 +1290,20 @@ function update() {
         p.y += p.vy;
         p.life -= dt;
 
-        if (!bot.isDead) {
-            let dist = Math.hypot(bot.x - p.x, bot.y - p.y);
-            if (dist < bot.radius + 12) {
-                bot.takeDamage(p.damage, p.vx * 0.2, p.vy * 0.2);
-                if (p.type === 'sand_hand') {
-                    bot.applyBlind(1.4);
-                }
-                registerHit();
+        let hitSomething = false;
+        getValidTargets().forEach(t => {
+            if (hitSomething) return;
+            let dist = Math.hypot(t.obj.x - p.x, t.obj.y - p.y);
+            if (dist < (t.radius || 22) + 12) {
+                let effects = {};
+                if (p.type === 'sand_hand') effects.blind = 1.4;
+                hitTarget(t.id, t.obj, p.damage, p.vx * 0.2, p.vy * 0.2, effects);
                 createParticles(p.x, p.y, 10, p.color);
-                projectiles.splice(i, 1);
-                continue;
+                hitSomething = true;
             }
-        }
+        });
 
-        if (p.life <= 0) projectiles.splice(i, 1);
+        if (hitSomething || p.life <= 0) projectiles.splice(i, 1);
     }
 
     for (let i = particles.length - 1; i >= 0; i--) {
