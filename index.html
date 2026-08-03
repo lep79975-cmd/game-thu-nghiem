@@ -3,676 +3,1524 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Online - Đăng Video & Bình Luận</title>
-    <!-- Thư viện MQTT WebSocket kết nối Online Realtime -->
+    <title>Wind & Sand Elemental Arena 2D</title>
+    <!-- Thư viện MQTT client để chơi Online qua WebSockets -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --accent-color: #fe2c55;
-            --text-color: #ffffff;
-        }
-
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            box-sizing: border-box;
+            user-select: none;
         }
-
         body {
-            background-color: #000;
-            color: var(--text-color);
-            height: 100vh;
+            background-color: #0d0f12;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: auto; /* Cho phép cuộn trang web khi màn hình nhỏ */
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
+            min-height: 100vh;
+            padding: 20px 0;
         }
-
-        /* KHUNG TIKTOK PHONG CÁCH MÀN HÌNH DỌC */
-        #tiktok-app {
-            width: 100%;
-            max-width: 420px;
-            height: 100vh;
-            background: #000;
+        #game-container {
             position: relative;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+            width: 950px;
+            height: 620px;
+            box-shadow: 0 0 35px rgba(0, 230, 255, 0.25);
+            border-radius: 16px;
+            overflow: hidden;
+            background: #181a20;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-
-        /* HEADER THANH CÔNG CỤ */
-        .header {
+        canvas {
+            display: block;
+            background: radial-gradient(circle, #222634 0%, #0f1117 100%);
+        }
+        
+        /* UI Top Bar */
+        #top-ui {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 10;
-            padding: 15px;
+            top: 15px;
+            left: 20px;
+            right: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            z-index: 10;
+            pointer-events: none;
         }
-
-        .user-info {
-            font-size: 14px;
-            font-weight: bold;
+        .ui-box {
+            background: rgba(15, 20, 30, 0.85);
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            pointer-events: auto;
         }
-
-        .btn {
-            background: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 13px;
-            transition: 0.2s;
-        }
-
-        .btn:hover { opacity: 0.9; transform: scale(1.03); }
-        .btn-secondary { background: rgba(255,255,255,0.2); }
-
-        /* DANH SÁCH VIDEO SCROLL SNAP */
-        .feed-container {
-            flex: 1;
-            overflow-y: scroll;
-            scroll-snap-type: y mandatory;
-            scrollbar-width: none; /* Firefox */
-        }
-
-        .feed-container::-webkit-scrollbar { display: none; } /* Chrome/Safari */
-
-        /* THẺ VIDEO TIKTOK */
-        .video-card {
-            width: 100%;
-            height: 100vh;
-            scroll-snap-align: start;
+        .hp-bar-bg {
+            width: 220px;
+            height: 18px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1.5px solid #3d445d;
+            border-radius: 10px;
+            overflow: hidden;
             position: relative;
-            background: #111;
+        }
+        .hp-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+            transition: width 0.15s ease-out;
+        }
+        .hp-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 16px;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .money-badge {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffd700;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Ultimate Button UI */
+        #ult-container {
+            position: absolute;
+            bottom: 95px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 12;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #ult-btn {
+            width: 180px;
+            height: 36px;
+            background: rgba(20, 20, 30, 0.9);
+            border: 2px solid #555;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+        #ult-btn.ready {
+            border-color: #ff0055;
+            box-shadow: 0 0 20px #ff0055;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.06); }
+        }
+        #ult-fill {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 0%;
+            background: linear-gradient(90deg, #ff0055, #ff9900);
+            transition: width 0.2s ease;
+        }
+        #ult-text {
+            position: relative;
+            z-index: 2;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: #fff;
+            text-shadow: 1px 1px 3px #000;
         }
 
-        .video-card video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* THÔNG TIN VIDEO (BÊN DƯỚI) */
-        .video-details {
+        /* Bottom Skill Bar */
+        #bottom-ui {
             position: absolute;
             bottom: 20px;
-            left: 15px;
-            right: 80px;
-            z-index: 5;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(15, 20, 30, 0.88);
+            padding: 10px 20px;
+            border-radius: 18px;
+            border: 1px solid rgba(0, 230, 255, 0.3);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
-        .video-author {
+        #bottom-ui.transformed {
+            transform: translateX(-50%) translateY(8px);
+            border-color: #ff0055;
+            box-shadow: 0 0 25px rgba(ff, 0, 85, 0.4);
+        }
+        .skill-slot {
+            width: 58px;
+            height: 58px;
+            background: #232736;
+            border: 2px solid #00e6ff;
+            border-radius: 12px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 6px;
+            box-shadow: 0 0 10px rgba(0, 230, 255, 0.15);
+            transition: all 0.3s;
+        }
+        .skill-slot.awakened {
+            border-color: #ff0055;
+            background: #3a1525;
+            box-shadow: 0 0 15px #ff0055;
+        }
+        .skill-key {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            background: #00e6ff;
+            color: #000;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 900;
+        }
+        .skill-slot.awakened .skill-key {
+            background: #ff0055;
             color: #fff;
         }
-
-        .video-caption {
-            font-size: 14px;
-            line-height: 1.3;
-            color: #ddd;
-        }
-
-        /* CỘT TÁC VỤ BÊN PHẢI (TIM, BÌNH LUẬN) */
-        .side-actions {
+        .skill-icon { font-size: 20px; }
+        .skill-name { font-size: 9px; color: #aaa; margin-top: 2px; }
+        .cooldown-overlay {
             position: absolute;
-            right: 12px;
-            bottom: 40px;
-            z-index: 5;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
             display: flex;
-            flex-direction: column;
-            gap: 20px;
+            justify-content: center;
             align-items: center;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            display: none;
         }
 
-        .action-btn {
-            background: none;
-            border: none;
-            color: white;
+        /* Lobby Overlay & Scrollbar Customization */
+        #lobby-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(12, 14, 20, 0.96);
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
             align-items: center;
+            padding: 20px 30px;
+            z-index: 30;
+            overflow-y: auto; /* Cho phép cuộn Sảnh */
+        }
+        .lobby-header { text-align: center; margin-bottom: 10px; }
+        .lobby-header h1 {
+            font-size: 32px;
+            color: #00e6ff;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(0, 230, 255, 0.5);
+        }
+        .lobby-header p { color: #8a92a6; font-size: 13px; margin-top: 2px; }
+
+        /* Online Multiplayer UI Box */
+        .online-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 230, 255, 0.2);
+            margin-top: 8px;
+        }
+        .online-box input {
+            background: #11141d;
+            border: 1px solid #2d3448;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            width: 120px;
+            text-align: center;
+        }
+        .btn-online {
+            background: #00e6ff;
+            color: #000;
+            font-weight: bold;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 12px;
+            transition: all 0.2s;
+        }
+        .btn-online:hover { background: #66f0ff; }
+        .online-status {
+            font-size: 12px;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        /* Container danh sách nhân vật có thanh cuộn */
+        .char-container {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+            max-height: 350px;
+            overflow-y: auto; /* Cuộn dọc danh sách nhân vật */
+            padding: 10px 15px;
         }
 
-        .action-icon {
-            width: 45px;
-            height: 45px;
-            background: rgba(0, 0, 0, 0.4);
+        /* Tùy chỉnh thanh cuộn đẹp mắt */
+        .char-container::-webkit-scrollbar,
+        #lobby-screen::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .char-container::-webkit-scrollbar-thumb,
+        #lobby-screen::-webkit-scrollbar-thumb,
+        body::-webkit-scrollbar-thumb {
+            background: #00e6ff;
+            border-radius: 4px;
+            box-shadow: 0 0 10px #00e6ff;
+        }
+        .char-container::-webkit-scrollbar-track,
+        #lobby-screen::-webkit-scrollbar-track,
+        body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .char-card {
+            width: 200px;
+            background: #1c202d;
+            border: 2px solid #2d3448;
+            border-radius: 16px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+        .char-card.selected {
+            border-color: #00e6ff;
+            box-shadow: 0 0 20px rgba(0, 230, 255, 0.3);
+            background: #22293a;
+        }
+        .char-card:hover { transform: translateY(-4px); }
+        .char-avatar {
+            width: 55px;
+            height: 55px;
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 22px;
-            margin-bottom: 4px;
-            transition: transform 0.2s;
+            font-size: 26px;
+            margin-bottom: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
         }
-
-        .action-btn:active .action-icon {
-            transform: scale(1.2);
-        }
-
-        .action-icon.liked {
-            color: var(--accent-color);
-        }
-
-        /* MÀN HÌNH BÌNH LUẬN (SLIDE-UP MODAL) */
-        .comment-drawer {
-            position: absolute;
-            bottom: -100%;
-            left: 0;
-            right: 0;
-            height: 60%;
-            background: #181818;
-            border-top-left-radius: 16px;
-            border-top-right-radius: 16px;
-            z-index: 20;
-            transition: bottom 0.3s ease-in-out;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .comment-drawer.open {
-            bottom: 0;
-        }
-
-        .comment-header {
-            padding: 12px 15px;
+        .char-name { font-size: 15px; font-weight: bold; margin-bottom: 6px; }
+        .char-desc {
+            font-size: 10px;
+            color: #9aa1b2;
             text-align: center;
-            font-weight: bold;
-            font-size: 14px;
-            border-bottom: 1px solid #2a2a2a;
-            position: relative;
+            line-height: 1.3;
+            margin-bottom: 10px;
+            min-height: 75px;
         }
-
-        .close-comment {
-            position: absolute;
-            right: 15px;
-            top: 10px;
-            cursor: pointer;
-            font-size: 18px;
-            color: #888;
-        }
-
-        .comment-list {
-            flex: 1;
-            padding: 15px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .comment-item {
-            display: flex;
-            gap: 10px;
-            font-size: 13px;
-        }
-
-        .comment-user {
-            font-weight: bold;
-            color: #aaa;
-            margin-bottom: 2px;
-        }
-
-        .comment-text {
-            color: #fff;
-            word-break: break-word;
-        }
-
-        .comment-time {
-            font-size: 10px;
-            color: #666;
-            margin-left: 6px;
-        }
-
-        .comment-input-area {
-            padding: 10px 15px;
-            border-top: 1px solid #2a2a2a;
-            display: flex;
-            gap: 10px;
-            background: #111;
-        }
-
-        .comment-input-area input {
-            flex: 1;
-            background: #252525;
+        .btn-action {
+            width: 100%;
+            padding: 8px;
+            border-radius: 10px;
             border: none;
-            padding: 10px 14px;
-            border-radius: 20px;
-            color: white;
-            outline: none;
-            font-size: 13px;
-        }
-
-        /* MODAL ĐĂNG VIDEO */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        .modal-content {
-            background: #222;
-            padding: 20px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 350px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .modal-content input[type="text"], .modal-content textarea {
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #111;
-            color: white;
-            outline: none;
-        }
-
-        .status-badge {
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: #25d366;
-            color: black;
             font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
         }
+        .btn-buy { background: #ffd700; color: #000; }
+        .btn-buy:hover { background: #ffea75; }
+        .btn-select { background: #00e6ff; color: #000; }
+        .btn-select:hover { background: #66f0ff; }
+        .btn-equipped { background: #28a745; color: #fff; cursor: default; }
+        
+        .lobby-footer { display: flex; gap: 20px; align-items: center; margin-top: 10px; }
+        .btn-play {
+            padding: 12px 45px;
+            font-size: 17px;
+            font-weight: 800;
+            background: linear-gradient(45deg, #00e6ff, #0072ff);
+            border: none;
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 230, 255, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-play:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 35px rgba(0, 230, 255, 0.8);
+        }
+        .btn-lobby-return {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        .btn-lobby-return:hover { background: rgba(255, 255, 255, 0.2); }
     </style>
 </head>
 <body>
 
-    <div id="tiktok-app">
-        <!-- HEADER TRÊN CÙNG -->
-        <div class="header">
-            <div class="user-info">
-                <span id="display-user">Đang tải...</span>
-                <span id="server-status" class="status-badge">Online</span>
-            </div>
-            <div style="display: flex; gap: 6px;">
-                <button class="btn btn-secondary" onclick="changeName()">Đổi tên</button>
-                <button class="btn" onclick="openUploadModal()">+ Đăng Video</button>
+<div id="game-container">
+    <!-- Lobby / Shop Screen -->
+    <div id="lobby-screen">
+        <div class="lobby-header">
+            <h1>SẢNH TỰ CHỌN NHÂN VẬT</h1>
+            <p>Chọn hoặc mua nhân vật mới với số tiền tích lũy từ trận đấu</p>
+            
+            <!-- Bộ điều khiển chế độ Online -->
+            <div class="online-box">
+                <span>Mã Phòng:</span>
+                <input type="text" id="room-code" value="ROOM101" maxlength="10">
+                <button class="btn-online" onclick="connectOnline()">Kết Nối Online</button>
+                <span class="online-status" id="online-status-text">🔴 Offline</span>
             </div>
         </div>
 
-        <!-- BẢNG TIN VIDEO (FEED) -->
-        <div class="feed-container" id="feed-container">
-            <!-- Các Video sẽ được tự động vẽ ra ở đây -->
-        </div>
+        <div class="char-container" id="char-list"></div>
 
-        <!-- CỬA SỔ BÌNH LUẬN (SLIDE-UP) -->
-        <div class="comment-drawer" id="comment-drawer">
-            <div class="comment-header">
-                <span id="comment-count-title">Bình luận</span>
-                <span class="close-comment" onclick="closeComments()">✕</span>
-            </div>
-            <div class="comment-list" id="comment-list">
-                <!-- Danh sách bình luận -->
-            </div>
-            <div class="comment-input-area">
-                <input type="text" id="comment-input" placeholder="Thêm bình luận..." onkeypress="if(event.key==='Enter') submitComment()">
-                <button class="btn" onclick="submitComment()">Đăng</button>
+        <div class="lobby-footer">
+            <div class="money-badge">💰 <span id="lobby-money">$0</span></div>
+            <button class="btn-play" onclick="enterBattle()">VÀO TRẬN</button>
+        </div>
+    </div>
+
+    <!-- Top UI Bar in Game -->
+    <div id="top-ui">
+        <div class="ui-box">
+            <div class="money-badge">💰 <span id="game-money">$0</span></div>
+        </div>
+        <button class="btn-lobby-return" onclick="returnToLobby()">🏠 Về Sảnh</button>
+        <div class="ui-box">
+            <div style="font-size: 11px; color: #a0a5b5; margin-right: 8px;" id="char-title-display">NHÂN VẬT</div>
+            <div class="hp-bar-bg">
+                <div id="hp-fill" class="hp-bar-fill"></div>
+                <div id="hp-text" class="hp-text">100 / 100</div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL ĐĂNG VIDEO MỚI -->
-    <div class="modal" id="upload-modal">
-        <div class="modal-content">
-            <h3 style="text-align: center;">Đăng Video Mới</h3>
-            <label style="font-size: 12px; color: #aaa;">Chọn video từ thiết bị:</label>
-            <input type="file" id="video-file-input" accept="video/*">
-            
-            <textarea id="video-caption-input" rows="3" placeholder="Viết mô tả cho video của bạn..."></textarea>
-            
-            <button class="btn" onclick="uploadVideo()">Đăng ngay</button>
-            <button class="btn btn-secondary" onclick="closeUploadModal()">Hủy</button>
+    <!-- Ultimate UI Slot -->
+    <div id="ult-container">
+        <div id="ult-btn" onclick="useUlt()">
+            <div id="ult-fill"></div>
+            <div id="ult-text">ULTIMATE (0/10) [T]</div>
         </div>
     </div>
 
-    <script>
-        // DỮ LIỆU TÀI KHOẢN VÀ BÀI ĐĂNG
-        let currentUser = localStorage.getItem('tiktok_username') || '';
-        let posts = JSON.parse(localStorage.getItem('tiktok_posts') || '[]');
-        let activePostIdForComment = null;
+    <!-- Bottom UI Skill Bar -->
+    <div id="bottom-ui">
+        <div class="skill-slot" id="slot-q">
+            <div class="skill-key">Q</div>
+            <div class="skill-icon" id="icon-q">💨</div>
+            <div class="skill-name" id="name-q">Lướt</div>
+            <div id="cd-q" class="cooldown-overlay">3s</div>
+        </div>
+        <div class="skill-slot" id="slot-e">
+            <div class="skill-key">E</div>
+            <div class="skill-icon" id="icon-e">🌪️</div>
+            <div class="skill-name" id="name-e">Đấm</div>
+            <div id="cd-e" class="cooldown-overlay">6s</div>
+        </div>
+        <div class="skill-slot" id="slot-r">
+            <div class="skill-key">R</div>
+            <div class="skill-icon" id="icon-r">💥</div>
+            <div class="skill-name" id="name-r">Nổ</div>
+            <div id="cd-r" class="cooldown-overlay">10s</div>
+        </div>
+    </div>
 
-        // KẾT NỐI SERVER ONLINE REALTIME
-        const BROKER = 'wss://broker.emqx.io:8084/mqtt';
-        const client = mqtt.connect(BROKER, {
-            clientId: 'tiktok_user_' + Math.random().toString(16).substring(2, 10),
-            keepalive: 60
+    <canvas id="gameCanvas" width="950" height="620"></canvas>
+</div>
+
+<script>
+// --- GAME DATA & SAVE SYSTEM ---
+let saveData = {
+    money: 0,
+    unlocked: ['wind'],
+    selected: 'wind'
+};
+
+function loadProgress() {
+    const local = localStorage.getItem('arena_2d_save');
+    if (local) {
+        try { saveData = JSON.parse(local); } catch(e) {}
+    }
+    updateMoneyUI();
+}
+
+function saveProgress() {
+    localStorage.setItem('arena_2d_save', JSON.stringify(saveData));
+    updateMoneyUI();
+}
+
+function updateMoneyUI() {
+    document.getElementById('lobby-money').innerText = `$${saveData.money}`;
+    document.getElementById('game-money').innerText = `$${saveData.money}`;
+}
+
+// Character Configs
+const CHARACTERS = {
+    wind: {
+        id: 'wind',
+        name: 'Gió (Wind)',
+        price: 0,
+        avatar: '🌀',
+        color: '#00e6ff',
+        desc: 'Q: Lướt 0.4s (3s)<br>E: Đấm ngất 1s, -26 máu (6s)<br>⚡ Ult (Đủ 10 hit): Xoay bão 4s hút bot & gây dame, biến đổi E/R Thức Tỉnh trong 20s!',
+        skills: {
+            q: { icon: '💨', name: 'Lướt Gió', cd: 3 },
+            e: { icon: '👊', name: 'Phong Quyền', cd: 6 },
+            r: { icon: '🌪️', name: 'Phong Bão', cd: 10 }
+        }
+    },
+    sand: {
+        id: 'sand',
+        name: 'Linh Hồn Cát (Sand)',
+        price: 65,
+        avatar: '⏳',
+        color: '#e6c280',
+        desc: 'Q: Lướt cát, che mắt 1s & +3 dame (3s)<br>E: Bàn tay cát đấm, mù 1.4s & -43 máu (15s)<br>R: Nắm cát bóp chặt (khóa skill) & -20 máu (9s)',
+        skills: {
+            q: { icon: '🏜️', name: 'Lướt Cát', cd: 3 },
+            e: { icon: '🖐️', name: 'Bàn Tay Cát', cd: 15 },
+            r: { icon: '✊', name: 'Nắm Cát', cd: 9 }
+        }
+    },
+    ice: {
+        id: 'ice',
+        name: 'Băng Cực (Ice)',
+        price: 30,
+        avatar: '❄️',
+        color: '#00bfff',
+        desc: 'Q: Lướt đóng băng 0.5s (3s)<br>E: Băng Trảm mù 1s, -28 máu (6.5s)<br>R: Đập đất đóng băng 0.5s, -10 máu (10s)',
+        skills: {
+            q: { icon: '❄️', name: 'Băng Lướt', cd: 3 },
+            e: { icon: '🧊', name: 'Băng Trảm', cd: 6.5 },
+            r: { icon: '💥', name: 'Đội Băng', cd: 10 }
+        }
+    },
+    iron: {
+        id: 'iron',
+        name: 'Dao Sắt (Iron)',
+        price: 50,
+        avatar: '🗡️',
+        color: '#d1d5db',
+        desc: 'Q: Lướt tốc hành (3s)<br>E: Bắn 4 phi dao (-15 máu/con) (10s)<br>R: Chém vòng 180° (-25 máu) (6s)',
+        skills: {
+            q: { icon: '💨', name: 'Tốc Hành', cd: 3 },
+            e: { icon: '🗡️', name: 'Phi Dao', cd: 10 },
+            r: { icon: '⚔️', name: 'Vòng Dao', cd: 6 }
+        }
+    }
+};
+
+// Canvas Setup
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let gameRunning = false;
+const keys = {};
+const particles = [];
+const projectiles = [];
+const floatingTexts = [];
+
+// Input Handlers
+window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if (gameRunning) {
+        if (e.key.toLowerCase() === 'q') useSkill('q');
+        if (e.key.toLowerCase() === 'e') useSkill('e');
+        if (e.key.toLowerCase() === 'r') useSkill('r');
+        if (e.key.toLowerCase() === 't') useUlt();
+    }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// --- ONLINE MULTIPLAYER (MQTT) SETUP ---
+const myPlayerId = 'P_' + Math.floor(Math.random() * 899999 + 100000);
+let mqttClient = null;
+let currentRoom = '';
+let isOnlineConnected = false;
+const otherPlayers = {};
+
+function connectOnline() {
+    const roomInput = document.getElementById('room-code').value.trim();
+    if (!roomInput) { alert('Vui lòng nhập mã phòng!'); return; }
+    
+    currentRoom = roomInput.toUpperCase();
+    const statusText = document.getElementById('online-status-text');
+    statusText.innerText = '🟡 Đang nối...';
+
+    mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+    mqttClient.on('connect', () => {
+        isOnlineConnected = true;
+        statusText.innerText = `🟢 Online (${currentRoom})`;
+        mqttClient.subscribe(`arena_2d_game/${currentRoom}/#`);
+        sendOnlineState();
+    });
+
+    mqttClient.on('message', (topic, message) => {
+        try {
+            const data = JSON.parse(message.toString());
+            if (data.id === myPlayerId) return; // Bỏ qua gói tin của chính mình
+
+            if (topic.endsWith('/pos')) {
+                otherPlayers[data.id] = { ...otherPlayers[data.id], ...data, lastUpdate: performance.now() };
+            } else if (topic.endsWith('/skill')) {
+                triggerRemoteSkill(data);
+            } else if (topic.endsWith('/hit')) {
+                if (data.targetId === 'bot') {
+                    bot.takeDamage(data.damage, data.kbX, data.kbY);
+                    if (data.stun) bot.applyStun(data.stun);
+                    if (data.freeze) bot.applyFreeze(data.freeze);
+                    if (data.blind) bot.applyBlind(data.blind);
+                    if (data.silence) bot.applySilence(data.silence);
+                } else if (data.targetId === myPlayerId) {
+                    player.takeDamage(data.damage);
+                    if (data.stun) player.applyStun(data.stun);
+                    if (data.freeze) player.applyFreeze(data.freeze);
+                    if (data.blind) player.applyBlind(data.blind);
+                    if (data.silence) player.applySilence(data.silence);
+                }
+            }
+        } catch(e) {}
+    });
+}
+
+function sendOnlineState() {
+    if (isOnlineConnected && mqttClient) {
+        mqttClient.publish(`arena_2d_game/${currentRoom}/pos`, JSON.stringify({
+            id: myPlayerId,
+            x: player.x,
+            y: player.y,
+            hp: player.hp,
+            maxHp: player.maxHp,
+            dirX: player.dirX,
+            dirY: player.dirY,
+            charId: player.charId,
+            isDashing: player.isDashing,
+            isUltActive: player.isUltActive
+        }));
+    }
+}
+
+function triggerRemoteSkill(data) {
+    if (data.skill === 'q') {
+        createParticles(data.x, data.y, 12, CHARACTERS[data.charId]?.color || '#00e6ff');
+    }
+}
+
+// Player State
+const player = {
+    x: 250,
+    y: 310,
+    radius: 22,
+    speed: 3.8,
+    hp: 100,
+    maxHp: 100,
+    dirX: 1,
+    dirY: 0,
+    spinAngle: 0,
+    // Skill states
+    isDashing: false,
+    dashTimer: 0,
+    dashDuration: 0.4,
+    dashSpeed: 9.5,
+    qHitTargets: [], // Mảng lưu các mục tiêu đã chịu hiệu ứng Q trong đợt lướt này
+    cdQ: 0,
+    cdE: 0,
+    cdR: 0,
+    charId: 'wind',
+    // Ultimate & Hit counter
+    hitCount: 0,
+    isUltActive: false,
+    ultDuration: 0,
+    ultSpinTimer: 0,
+    ultSpinInterval: 0,
+    punchSequenceTimer: 0,
+    punchCount: 0,
+    // Status effects
+    stunTimer: 0,
+    freezeTimer: 0,
+    blindTimer: 0,
+    silenceTimer: 0,
+
+    takeDamage(amount) {
+        this.hp = Math.max(0, this.hp - amount);
+        createDamageText(this.x, this.y - 25, `-${amount}`, '#ff416c');
+        updateHpUI();
+    },
+    applyStun(duration) {
+        this.stunTimer = Math.max(this.stunTimer, duration);
+        createDamageText(this.x, this.y - 10, 'STUNNED!', '#ff9900', 14);
+    },
+    applyFreeze(duration) {
+        this.freezeTimer = Math.max(this.freezeTimer, duration);
+        createDamageText(this.x, this.y - 10, 'FROZEN!', '#00e6ff', 14);
+    },
+    applyBlind(duration) {
+        this.blindTimer = Math.max(this.blindTimer, duration);
+        createDamageText(this.x, this.y - 10, 'BLINDED!', '#e6c280', 14);
+    },
+    applySilence(duration) {
+        this.silenceTimer = Math.max(this.silenceTimer, duration);
+        createDamageText(this.x, this.y - 10, 'SILENCED!', '#ff0055', 14);
+    }
+};
+
+function updateHpUI() {
+    const fill = document.getElementById('hp-fill');
+    const text = document.getElementById('hp-text');
+    if (fill && text) {
+        fill.style.width = `${(player.hp / player.maxHp) * 100}%`;
+        text.innerText = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+    }
+}
+
+// Bot State
+const bot = {
+    x: 680,
+    y: 310,
+    radius: 24,
+    hp: 100,
+    maxHp: 100,
+    isDead: false,
+    respawnTimer: 0,
+    knockbackVx: 0,
+    knockbackVy: 0,
+    // Status effects
+    stunTimer: 0,
+    freezeTimer: 0,
+    blindTimer: 0,
+    silenceTimer: 0,
+    
+    takeDamage(amount, kbX = 0, kbY = 0) {
+        if (this.isDead) return;
+        this.hp -= amount;
+        this.knockbackVx = kbX;
+        this.knockbackVy = kbY;
+        createDamageText(this.x, this.y - 25, `-${amount}`, '#ffea00');
+        
+        if (this.hp <= 0) {
+            this.hp = 0;
+            this.isDead = true;
+            this.respawnTimer = 2.5;
+            saveData.money += 5;
+            saveProgress();
+            createDamageText(this.x, this.y - 45, '+$5 Gold!', '#28a745', 20);
+            createParticles(this.x, this.y, 20, '#ffd700');
+        }
+    },
+    
+    applyStun(duration) {
+        if (this.isDead) return;
+        this.stunTimer = Math.max(this.stunTimer, duration);
+        createDamageText(this.x, this.y - 10, 'STUNNED!', '#ff9900', 14);
+    },
+    
+    applyFreeze(duration) {
+        if (this.isDead) return;
+        this.freezeTimer = Math.max(this.freezeTimer, duration);
+        createDamageText(this.x, this.y - 10, 'FROZEN!', '#00e6ff', 14);
+    },
+
+    applyBlind(duration) {
+        if (this.isDead) return;
+        this.blindTimer = Math.max(this.blindTimer, duration);
+        createDamageText(this.x, this.y - 10, 'BLINDED!', '#e6c280', 14);
+    },
+
+    applySilence(duration) {
+        if (this.isDead) return;
+        this.silenceTimer = Math.max(this.silenceTimer, duration);
+        createDamageText(this.x, this.y - 10, 'SILENCED!', '#ff0055', 14);
+    }
+};
+
+// Hit Registration Helper
+function registerHit() {
+    if (player.charId === 'wind' && !player.isUltActive) {
+        player.hitCount = Math.min(10, player.hitCount + 1);
+        updateUltUI();
+    }
+}
+
+// Particle & Text Systems
+class Particle {
+    constructor(x, y, vx, vy, color, size, life) {
+        this.x = x; this.y = y;
+        this.vx = vx; this.vy = vy;
+        this.color = color; this.size = size;
+        this.life = life; this.maxLife = life;
+    }
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= dt;
+        this.size *= 0.95;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+function createParticles(x, y, count, color = '#00e6ff') {
+    for (let i = 0; i < count; i++) {
+        let angle = Math.random() * Math.PI * 2;
+        let speed = Math.random() * 5 + 1;
+        particles.push(new Particle(
+            x, y,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            color,
+            Math.random() * 6 + 3,
+            0.6
+        ));
+    }
+}
+
+function createDamageText(x, y, text, color = '#fff', fontSize = 16) {
+    floatingTexts.push({ x, y, text, color, fontSize, life: 1.0 });
+}
+
+// --- ULTIMATE ACTIVATION ---
+function useUlt() {
+    if (player.charId === 'wind' && player.hitCount >= 10 && !player.isUltActive) {
+        player.isUltActive = true;
+        player.ultDuration = 20.0;
+        player.ultSpinTimer = 4.0;
+        player.hitCount = 0;
+        updateUltUI();
+
+        document.getElementById('bottom-ui').classList.add('transformed');
+        document.getElementById('slot-e').classList.add('awakened');
+        document.getElementById('slot-r').classList.add('awakened');
+        document.getElementById('name-e').innerText = '15 Cú Đấm';
+        document.getElementById('icon-e').innerText = '🥊';
+        document.getElementById('name-r').innerText = 'Dậm Đất';
+        document.getElementById('icon-r').innerText = '👣';
+
+        createDamageText(player.x, player.y - 40, 'ULTIMATE THỨC TỈNH!', '#ff0055', 22);
+        createParticles(player.x, player.y, 60, '#ff0055');
+    }
+}
+
+function updateUltUI() {
+    const fill = document.getElementById('ult-fill');
+    const text = document.getElementById('ult-text');
+    const btn = document.getElementById('ult-btn');
+
+    if (player.charId !== 'wind') {
+        document.getElementById('ult-container').style.display = 'none';
+        return;
+    }
+    document.getElementById('ult-container').style.display = 'flex';
+
+    if (player.isUltActive) {
+        fill.style.width = `${(player.ultDuration / 20.0) * 100}%`;
+        text.innerText = `ULT ACTIVE (${Math.ceil(player.ultDuration)}s)`;
+        btn.classList.add('ready');
+    } else {
+        fill.style.width = `${(player.hitCount / 10) * 100}%`;
+        text.innerText = `ULTIMATE (${player.hitCount}/10) [T]`;
+        if (player.hitCount >= 10) {
+            btn.classList.add('ready');
+        } else {
+            btn.classList.remove('ready');
+        }
+    }
+}
+
+// --- SKILL IMPLEMENTATIONS ---
+function useSkill(slot) {
+    if (player.silenceTimer > 0 || player.stunTimer > 0 || player.freezeTimer > 0) return;
+    const char = CHARACTERS[player.charId];
+    
+    if (player.charId === 'wind' && player.isUltActive) {
+        if (slot === 'q' && player.cdQ <= 0) {
+            player.cdQ = char.skills.q.cd;
+            player.isDashing = true;
+            player.dashTimer = player.dashDuration;
+            player.qHitTargets = []; // Reset danh sách trúng chiêu Q
+            createParticles(player.x, player.y, 15, '#00e6ff');
+            broadcastSkill('q');
+        }
+        else if (slot === 'e') {
+            executeAwakenedE();
+        }
+        else if (slot === 'r' && player.cdR <= 0) {
+            player.cdR = 10;
+            executeAwakenedR();
+        }
+        return;
+    }
+
+    if (slot === 'q' && player.cdQ <= 0) {
+        player.cdQ = char.skills.q.cd;
+        player.isDashing = true;
+        player.dashTimer = player.dashDuration;
+        player.qHitTargets = []; // Reset danh sách trúng chiêu Q để mỗi mục tiêu chỉ nhận 1 hiệu ứng duy nhất
+        createParticles(player.x, player.y, 12, char.color);
+        broadcastSkill('q');
+    }
+    else if (slot === 'e' && player.cdE <= 0) {
+        player.cdE = char.skills.e.cd;
+        executeSkillE(player.charId);
+    }
+    else if (slot === 'r' && char.skills.r && player.cdR <= 0) {
+        player.cdR = char.skills.r.cd;
+        executeSkillR(player.charId);
+    }
+}
+
+function broadcastSkill(skillName) {
+    if (isOnlineConnected && mqttClient) {
+        mqttClient.publish(`arena_2d_game/${currentRoom}/skill`, JSON.stringify({
+            id: myPlayerId,
+            skill: skillName,
+            charId: player.charId,
+            x: player.x,
+            y: player.y
+        }));
+    }
+}
+
+function executeAwakenedE() {
+    let dirX = player.dirX || 1;
+    let dirY = player.dirY || 0;
+    
+    player.punchCount = 0;
+    if (player.punchInterval) clearInterval(player.punchInterval);
+
+    player.punchInterval = setInterval(() => {
+        if (player.punchCount >= 15 || bot.isDead) {
+            clearInterval(player.punchInterval);
+            return;
+        }
+        player.punchCount++;
+
+        bot.x = player.x + dirX * 35;
+        bot.y = player.y + dirY * 35;
+        bot.takeDamage(5);
+        bot.applyStun(0.3);
+        createParticles(bot.x, bot.y, 8, '#ff0055');
+    }, 133);
+}
+
+function executeAwakenedR() {
+    let dirX = player.dirX || 1;
+    let dirY = player.dirY || 0;
+
+    createParticles(player.x, player.y, 60, '#ff0055');
+    for (let a = 0; a < Math.PI * 2; a += 0.2) {
+        particles.push(new Particle(
+            player.x + Math.cos(a) * 80,
+            player.y + Math.sin(a) * 80,
+            Math.cos(a) * 4, Math.sin(a) * 4,
+            '#ff4500', 8, 0.6
+        ));
+    }
+
+    let dist = Math.hypot(bot.x - player.x, bot.y - player.y);
+    if (!bot.isDead && dist < 140) {
+        bot.takeDamage(20, dirX * 22, dirY * 22);
+    }
+}
+
+function executeSkillE(charId) {
+    let dirX = player.dirX || 1;
+    let dirY = player.dirY || 0;
+
+    if (charId === 'wind') {
+        player.x += dirX * 30;
+        player.y += dirY * 30;
+        createParticles(player.x, player.y, 25, '#00e6ff');
+
+        let hitX = player.x + dirX * 40;
+        let hitY = player.y + dirY * 40;
+        let dist = Math.hypot(bot.x - hitX, bot.y - hitY);
+
+        if (!bot.isDead && dist < 65) {
+            bot.takeDamage(26, dirX * 12, dirY * 12);
+            bot.applyStun(1.0);
+            registerHit();
+        }
+    }
+    else if (charId === 'sand') {
+        let handX = player.x + dirX * 60;
+        let handY = player.y + dirY * 60;
+        createParticles(handX, handY, 35, '#e6c280');
+
+        projectiles.push({
+            x: player.x,
+            y: player.y,
+            vx: dirX * 12,
+            vy: dirY * 12,
+            damage: 43,
+            life: 0.4,
+            type: 'sand_hand',
+            color: '#e6c280'
         });
+    }
+    else if (charId === 'ice') {
+        let sweepX = player.x + dirX * 50;
+        let sweepY = player.y + dirY * 50;
+        createParticles(sweepX, sweepY, 35, '#00bfff');
 
-        const TOPIC_GLOBAL = 'tiktok_app_v7/global_feed';
+        let dist = Math.hypot(bot.x - sweepX, bot.y - sweepY);
+        if (!bot.isDead && dist < 70) {
+            bot.takeDamage(28, dirX * 3, dirY * 3);
+            bot.applyFreeze(1.0);
+        }
+    }
+    else if (charId === 'iron') {
+        let daggerCount = 0;
+        let daggerInterval = setInterval(() => {
+            if (daggerCount >= 4) {
+                clearInterval(daggerInterval);
+                return;
+            }
+            daggerCount++;
+            projectiles.push({
+                x: player.x, y: player.y,
+                vx: dirX * 14, vy: dirY * 14,
+                damage: 15, life: 0.8,
+                type: 'dagger', color: '#d1d5db'
+            });
+        }, 100);
+    }
+}
 
-        client.on('connect', () => {
-            document.getElementById('server-status').innerText = 'Online';
-            client.subscribe(TOPIC_GLOBAL);
-            // Đồng bộ dữ liệu video từ những người dùng khác
-            client.publish(TOPIC_GLOBAL, JSON.stringify({ type: 'REQ_SYNC' }));
-        });
+function executeSkillR(charId) {
+    let dirX = player.dirX || 1;
+    let dirY = player.dirY || 0;
 
-        client.on('message', (topic, payload) => {
-            try {
-                const data = JSON.parse(payload.toString());
+    if (charId === 'sand') {
+        let targetX = player.x + dirX * 70;
+        let targetY = player.y + dirY * 70;
+        createParticles(targetX, targetY, 20, '#e6c280');
 
-                if (data.type === 'NEW_POST') {
-                    if (!posts.some(p => p.id === data.post.id)) {
-                        posts.unshift(data.post);
-                        saveAndRender();
-                    }
-                } else if (data.type === 'TOGGLE_LIKE') {
-                    const post = posts.find(p => p.id === data.postId);
-                    if (post) {
-                        post.likes = data.likes;
-                        saveAndRender(false);
-                    }
-                } else if (data.type === 'ADD_COMMENT') {
-                    const post = posts.find(p => p.id === data.postId);
-                    if (post) {
-                        post.comments.push(data.comment);
-                        saveAndRender(false);
-                        if (activePostIdForComment === data.postId) {
-                            renderComments();
+        setTimeout(() => {
+            let dist = Math.hypot(bot.x - targetX, bot.y - targetY);
+            if (!bot.isDead && dist < 85) {
+                bot.applySilence(1.5);
+                bot.takeDamage(20);
+                createParticles(bot.x, bot.y, 40, '#c29b38');
+            }
+        }, 300);
+    }
+    else if (charId === 'ice') {
+        createParticles(player.x, player.y, 50, '#00bfff');
+        let dist = Math.hypot(bot.x - player.x, bot.y - player.y);
+        if (!bot.isDead && dist < 90) {
+            bot.takeDamage(10);
+            bot.applyStun(0.5);
+            bot.applyFreeze(0.5);
+        }
+    }
+    else if (charId === 'iron') {
+        createParticles(player.x, player.y, 40, '#ff4500');
+        let dist = Math.hypot(bot.x - player.x, bot.y - player.y);
+        if (!bot.isDead && dist < 80) {
+            bot.takeDamage(25, dirX * 8, dirY * 8);
+        }
+    }
+}
+
+// --- MAIN GAME LOOP ---
+let lastTime = performance.now();
+function update() {
+    let now = performance.now();
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    if (!gameRunning) return;
+
+    // Giảm thời gian các hiệu ứng bất lợi của bản thân
+    if (player.stunTimer > 0) player.stunTimer = Math.max(0, player.stunTimer - dt);
+    if (player.freezeTimer > 0) player.freezeTimer = Math.max(0, player.freezeTimer - dt);
+    if (player.blindTimer > 0) player.blindTimer = Math.max(0, player.blindTimer - dt);
+    if (player.silenceTimer > 0) player.silenceTimer = Math.max(0, player.silenceTimer - dt);
+
+    if (player.cdQ > 0) player.cdQ = Math.max(0, player.cdQ - dt);
+    if (player.cdE > 0) player.cdE = Math.max(0, player.cdE - dt);
+    if (player.cdR > 0) player.cdR = Math.max(0, player.cdR - dt);
+
+    updateCdUI('cd-q', player.cdQ);
+    updateCdUI('cd-e', player.cdE);
+    updateCdUI('cd-r', player.cdR);
+
+    if (player.isUltActive) {
+        player.ultDuration -= dt;
+        player.spinAngle += 0.3;
+
+        if (player.ultSpinTimer > 0) {
+            player.ultSpinTimer -= dt;
+            player.ultSpinInterval += dt;
+
+            let distToBot = Math.hypot(bot.x - player.x, bot.y - player.y);
+            if (!bot.isDead && distToBot < 120) {
+                bot.x += (player.x - bot.x) * 0.08;
+                bot.y += (player.y - bot.y) * 0.08;
+
+                if (player.ultSpinInterval >= 0.1) {
+                    bot.takeDamage(1);
+                    player.ultSpinInterval = 0;
+                }
+            }
+
+            if (player.ultSpinTimer <= 0 && !bot.isDead) {
+                let angle = Math.atan2(bot.y - player.y, bot.x - player.x);
+                bot.takeDamage(0, Math.cos(angle) * 25, Math.sin(angle) * 25);
+                createDamageText(bot.x, bot.y - 30, 'BỊ HẤT VĂNG!', '#ff0055', 16);
+            }
+        }
+
+        if (player.ultDuration <= 0) {
+            player.isUltActive = false;
+            document.getElementById('bottom-ui').classList.remove('transformed');
+            document.getElementById('slot-e').classList.remove('awakened');
+            document.getElementById('slot-r').classList.remove('awakened');
+            setupSkillUI();
+        }
+        updateUltUI();
+    }
+
+    let moveX = 0, moveY = 0;
+    if (player.stunTimer <= 0 && player.freezeTimer <= 0) {
+        if (keys['w'] || keys['arrowup']) moveY -= 1;
+        if (keys['s'] || keys['arrowdown']) moveY += 1;
+        if (keys['a'] || keys['arrowleft']) moveX -= 1;
+        if (keys['d'] || keys['arrowright']) moveX += 1;
+    }
+
+    if (moveX !== 0 || moveY !== 0) {
+        let len = Math.hypot(moveX, moveY);
+        player.dirX = moveX / len;
+        player.dirY = moveY / len;
+    }
+
+    if (player.isDashing) {
+        player.dashTimer -= dt;
+        player.x += player.dirX * player.dashSpeed;
+        player.y += player.dirY * player.dashSpeed;
+
+        let charColor = CHARACTERS[player.charId].color;
+        particles.push(new Particle(
+            player.x, player.y,
+            (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2,
+            charColor, Math.random() * 6 + 3, 0.4
+        ));
+
+        // --- CƠ CHẾ HIỆU ỨNG CHIÊU Q: MỖI NGƯỜI CHỈ HIỆN/NHẬN 1 HIỆU ỨNG DUY NHẤT KHI LƯỚT QUA ---
+        const checkQEffectOnTarget = (targetId, targetObj) => {
+            if (!player.qHitTargets.includes(targetId)) {
+                let dist = Math.hypot(targetObj.x - player.x, targetObj.y - player.y);
+                if (dist < player.radius + targetObj.radius + 15) {
+                    player.qHitTargets.push(targetId); // Khóa lại, chỉ cho trúng 1 lần trong suốt đợt lướt Q này
+                    
+                    if (player.charId === 'sand') {
+                        if (targetId === 'bot') {
+                            bot.applyBlind(1.0);
+                            bot.takeDamage(3);
+                        }
+                    } else if (player.charId === 'ice') {
+                        if (targetId === 'bot') {
+                            bot.applyFreeze(0.5);
                         }
                     }
-                } else if (data.type === 'REQ_SYNC') {
-                    // Gửi toàn bộ danh sách bài đăng hiện có cho người mới vào
-                    posts.forEach(p => {
-                        client.publish(TOPIC_GLOBAL, JSON.stringify({ type: 'NEW_POST', post: p }));
-                    });
+                    registerHit();
                 }
-            } catch(e) { console.error(e); }
-        });
-
-        // KHỞI TẠO BAN ĐẦU
-        window.onload = () => {
-            if (!currentUser) {
-                changeName();
-            } else {
-                document.getElementById('display-user').innerText = '@' + currentUser;
             }
-
-            // Nếu chưa có video nào, tạo video mẫu ban đầu
-            if (posts.length === 0) {
-                posts = [
-                    {
-                        id: 'post_demo_1',
-                        author: 'GamingPro',
-                        caption: 'Pha xử lý thần thánh hôm nay nè mọi người! 🎮🔥',
-                        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-game-animation-of-a-robot-character-42964-large.mp4',
-                        likes: ['GamingPro'],
-                        comments: [
-                            { id: 'c1', user: 'NamGame', text: 'Đỉnh quá bạn ơi!', timestamp: '12:00' }
-                        ]
-                    }
-                ];
-                saveToStorage();
-            }
-
-            renderFeed();
         };
 
-        function changeName() {
-            let name = prompt("Nhập tên người dùng TikTok của bạn:", currentUser);
-            if (name && name.trim() !== '') {
-                currentUser = name.trim().replace(/\s+/g, '_');
-                localStorage.setItem('tiktok_username', currentUser);
-                document.getElementById('display-user').innerText = '@' + currentUser;
+        if (!bot.isDead) checkQEffectOnTarget('bot', bot);
+        Object.keys(otherPlayers).forEach(pId => {
+            checkQEffectOnTarget(pId, otherPlayers[pId]);
+        });
+
+        if (player.dashTimer <= 0) player.isDashing = false;
+    } else {
+        if (player.stunTimer <= 0 && player.freezeTimer <= 0) {
+            player.x += moveX * player.speed;
+            player.y += moveY * player.speed;
+        }
+    }
+
+    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+    player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+    // Đồng bộ vị trí Online liên tục
+    sendOnlineState();
+
+    if (bot.isDead) {
+        bot.respawnTimer -= dt;
+        if (bot.respawnTimer <= 0) {
+            bot.isDead = false;
+            bot.hp = bot.maxHp;
+            bot.x = 680;
+            bot.y = 310;
+            bot.stunTimer = 0; bot.freezeTimer = 0;
+            bot.blindTimer = 0; bot.silenceTimer = 0;
+            createParticles(bot.x, bot.y, 20, '#28a745');
+        }
+    } else {
+        if (bot.stunTimer > 0) bot.stunTimer = Math.max(0, bot.stunTimer - dt);
+        if (bot.freezeTimer > 0) bot.freezeTimer = Math.max(0, bot.freezeTimer - dt);
+        if (bot.blindTimer > 0) bot.blindTimer = Math.max(0, bot.blindTimer - dt);
+        if (bot.silenceTimer > 0) bot.silenceTimer = Math.max(0, bot.silenceTimer - dt);
+
+        bot.x += bot.knockbackVx;
+        bot.y += bot.knockbackVy;
+        bot.knockbackVx *= 0.85;
+        bot.knockbackVy *= 0.85;
+    }
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        let p = projectiles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= dt;
+
+        if (!bot.isDead) {
+            let dist = Math.hypot(bot.x - p.x, bot.y - p.y);
+            if (dist < bot.radius + 12) {
+                bot.takeDamage(p.damage, p.vx * 0.2, p.vy * 0.2);
+                if (p.type === 'sand_hand') {
+                    bot.applyBlind(1.4);
+                }
+                registerHit();
+                createParticles(p.x, p.y, 10, p.color);
+                projectiles.splice(i, 1);
+                continue;
             }
         }
 
-        function saveToStorage() {
-            try {
-                localStorage.setItem('tiktok_posts', JSON.stringify(posts));
-            } catch(e) {
-                console.warn("Bộ nhớ trình duyệt đầy:", e);
-            }
-        }
+        if (p.life <= 0) projectiles.splice(i, 1);
+    }
 
-        function saveAndRender(fullReRender = true) {
-            saveToStorage();
-            if (fullReRender) renderFeed();
-        }
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update(dt);
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
 
-        // VẼ DỰ LIỆU FEED VIDEO
-        function renderFeed() {
-            const feedContainer = document.getElementById('feed-container');
-            feedContainer.innerHTML = '';
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        floatingTexts[i].y -= 0.8;
+        floatingTexts[i].life -= dt;
+        if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+    }
+}
 
-            posts.forEach(post => {
-                const isLiked = post.likes.includes(currentUser);
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                
-                card.innerHTML = `
-                    <video src="${post.videoUrl}" loop playsinline onclick="togglePlay(this)"></video>
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                    <div class="video-details">
-                        <div class="video-author">@${post.author}</div>
-                        <div class="video-caption">${escapeHtml(post.caption)}</div>
-                    </div>
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
 
-                    <div class="side-actions">
-                        <button class="action-btn" onclick="toggleLike('${post.id}')">
-                            <div class="action-icon ${isLiked ? 'liked' : ''}">
-                                ${isLiked ? '❤️' : '🤍'}
-                            </div>
-                            <span>${post.likes.length}</span>
-                        </button>
+    if (player.isUltActive) {
+        ctx.save();
+        let grad = ctx.createRadialGradient(player.x, player.y, 100, player.x, player.y, 450);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        grad.addColorStop(1, 'rgba(10, 0, 20, 0.85)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
 
-                        <button class="action-btn" onclick="openComments('${post.id}')">
-                            <div class="action-icon">💬</div>
-                            <span>${post.comments.length}</span>
-                        </button>
-                    </div>
-                `;
+    particles.forEach(p => p.draw(ctx));
 
-                feedContainer.appendChild(card);
-            });
+    projectiles.forEach(p => {
+        ctx.save();
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
 
-            // Tự động phát video khi lướt tới
-            setupIntersectionObserver();
-        }
+    if (gameRunning) {
+        // Vẽ Người Chơi Khác (Online Players)
+        const nowTime = performance.now();
+        Object.keys(otherPlayers).forEach(pId => {
+            const op = otherPlayers[pId];
+            if (nowTime - op.lastUpdate > 5000) return; // Quá 5s không gửi tin thì không vẽ
 
-        function togglePlay(videoEl) {
-            if (videoEl.paused) {
-                videoEl.play();
-            } else {
-                videoEl.pause();
-            }
-        }
+            const oChar = CHARACTERS[op.charId] || CHARACTERS.wind;
 
-        // TỰ ĐỘNG PHÁT/DỪNG VIDEO KHI SCROLL
-        function setupIntersectionObserver() {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    const video = entry.target.querySelector('video');
-                    if (video) {
-                        if (entry.isIntersecting) {
-                            video.play().catch(() => {});
-                        } else {
-                            video.pause();
-                        }
-                    }
-                });
-            }, { threshold: 0.6 });
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(op.x, op.y + 20, 20, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-            document.querySelectorAll('.video-card').forEach(card => observer.observe(card));
-        }
+            ctx.strokeStyle = op.isUltActive ? '#ff0055' : oChar.color;
+            ctx.lineWidth = op.isDashing ? 5 : 2;
+            ctx.beginPath();
+            ctx.arc(op.x, op.y, player.radius + 4, 0, Math.PI * 2);
+            ctx.stroke();
 
-        // THẢ TIM (LIKE)
-        function toggleLike(postId) {
-            const post = posts.find(p => p.id === postId);
-            if (!post) return;
+            ctx.fillStyle = oChar.color;
+            ctx.beginPath();
+            ctx.arc(op.x, op.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
 
-            const index = post.likes.indexOf(currentUser);
-            if (index === -1) {
-                post.likes.push(currentUser);
-            } else {
-                post.likes.splice(index, 1);
-            }
+            // Nhãn tên Online
+            ctx.fillStyle = '#00e6ff';
+            ctx.font = 'bold 11px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Player (${op.charId})`, op.x, op.y - 30);
+        });
 
-            saveToStorage();
-            renderFeed();
+        // Vẽ Bot
+        if (!bot.isDead) {
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(bot.x, bot.y + 20, 20, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-            client.publish(TOPIC_GLOBAL, JSON.stringify({
-                type: 'TOGGLE_LIKE',
-                postId: postId,
-                likes: post.likes
-            }));
-        }
+            ctx.fillStyle = bot.freezeTimer > 0 ? '#00bfff' :
+                            bot.blindTimer > 0 ? '#e6c280' :
+                            bot.silenceTimer > 0 ? '#ff0055' :
+                            (bot.stunTimer > 0 ? '#f39c12' : '#e74c3c');
+            ctx.beginPath();
+            ctx.arc(bot.x, bot.y, bot.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#c0392b';
+            ctx.lineWidth = 3;
+            ctx.stroke();
 
-        // MỞ VÀ ĐĂNG BÌNH LUẬN (BAO GỒM CẢ VIDEO CỦA CHÍNH MÌNH)
-        function openComments(postId) {
-            activePostIdForComment = postId;
-            renderComments();
-            document.getElementById('comment-drawer').classList.add('open');
-        }
-
-        function closeComments() {
-            document.getElementById('comment-drawer').classList.remove('open');
-            activePostIdForComment = null;
-        }
-
-        function renderComments() {
-            if (!activePostIdForComment) return;
-            const post = posts.find(p => p.id === activePostIdForComment);
-            if (!post) return;
-
-            document.getElementById('comment-count-title').innerText = `${post.comments.length} bình luận`;
-            const commentList = document.getElementById('comment-list');
-            commentList.innerHTML = '';
-
-            if (post.comments.length === 0) {
-                commentList.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">Chưa có bình luận nào. Hãy là người đầu tiên!</p>';
-                return;
+            // Hiển thị 1 vòng hiệu ứng của Q nếu đang bị dính mù/băng
+            if (bot.blindTimer > 0) {
+                ctx.fillStyle = 'rgba(230, 194, 128, 0.7)';
+                ctx.beginPath();
+                ctx.arc(bot.x, bot.y, bot.radius + 6, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (bot.freezeTimer > 0) {
+                ctx.fillStyle = 'rgba(0, 191, 255, 0.6)';
+                ctx.beginPath();
+                ctx.arc(bot.x, bot.y, bot.radius + 6, 0, Math.PI * 2);
+                ctx.fill();
             }
 
-            post.comments.forEach(c => {
-                const item = document.createElement('div');
-                item.className = 'comment-item';
-                item.innerHTML = `
-                    <div>
-                        <div class="comment-user">
-                            @${c.user} ${c.user === post.author ? '<span style="color:#fe2c55; font-size:10px;">(Tác giả)</span>' : ''}
-                            <span class="comment-time">${c.timestamp}</span>
-                        </div>
-                        <div class="comment-text">${escapeHtml(c.text)}</div>
-                    </div>
-                `;
-                commentList.appendChild(item);
-            });
-
-            commentList.scrollTop = commentList.scrollHeight;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(bot.x - 25, bot.y - 35, 50, 6);
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(bot.x - 25, bot.y - 35, (bot.hp / bot.maxHp) * 50, 6);
+        } else {
+            ctx.fillStyle = '#888';
+            ctx.font = '12px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Bot hồi sinh: ${Math.ceil(bot.respawnTimer)}s`, 680, 310);
         }
 
-        function submitComment() {
-            const input = document.getElementById('comment-input');
-            const text = input.value.trim();
+        // Vẽ Người Chơi Chính
+        const activeChar = CHARACTERS[player.charId];
 
-            if (!text || !activePostIdForComment) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(player.x, player.y + 20, 20, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-            const post = posts.find(p => p.id === activePostIdForComment);
-            if (!post) return;
-
-            const newComment = {
-                id: 'cm_' + Date.now(),
-                user: currentUser,
-                text: text,
-                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            };
-
-            post.comments.push(newComment);
-            saveToStorage();
-            renderComments();
-            renderFeed();
-
-            client.publish(TOPIC_GLOBAL, JSON.stringify({
-                type: 'ADD_COMMENT',
-                postId: activePostIdForComment,
-                comment: newComment
-            }));
-
-            input.value = '';
+        if (player.isUltActive && player.ultSpinTimer > 0) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 0, 85, 0.4)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 120, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
         }
 
-        // MỞ VÀ ĐĂNG VIDEO CÁ NHÂN
-        function openUploadModal() {
-            document.getElementById('upload-modal').style.display = 'flex';
+        ctx.strokeStyle = player.isUltActive ? '#ff0055' : activeChar.color;
+        ctx.lineWidth = player.isDashing ? 5 : 2;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius + 4, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = player.isUltActive ? '#ff0055' : activeChar.color;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(player.x + player.dirX * 12, player.y + player.dirY * 12, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        floatingTexts.forEach(ft => {
+            ctx.fillStyle = ft.color;
+            ctx.font = `bold ${ft.fontSize}px Segoe UI`;
+            ctx.textAlign = 'center';
+            ctx.fillText(ft.text, ft.x, ft.y);
+        });
+    }
+
+    requestAnimationFrame(() => {
+        update();
+        draw();
+    });
+}
+
+function updateCdUI(id, cd) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (cd > 0) {
+        el.style.display = 'flex';
+        el.innerText = `${cd.toFixed(1)}s`;
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+// --- LOBBY & SHOP SYSTEM ---
+function renderLobby() {
+    const container = document.getElementById('char-list');
+    container.innerHTML = '';
+
+    Object.values(CHARACTERS).forEach(char => {
+        const isUnlocked = saveData.unlocked.includes(char.id);
+        const isSelected = saveData.selected === char.id;
+
+        const card = document.createElement('div');
+        card.className = `char-card ${isSelected ? 'selected' : ''}`;
+        
+        let buttonHtml = '';
+        if (isSelected) {
+            buttonHtml = `<button class="btn-action btn-equipped">ĐÃ CHỌN</button>`;
+        } else if (isUnlocked) {
+            buttonHtml = `<button class="btn-action btn-select" onclick="selectChar('${char.id}')">CHỌN</button>`;
+        } else {
+            buttonHtml = `<button class="btn-action btn-buy" onclick="buyChar('${char.id}')">MUA ($${char.price})</button>`;
         }
 
-        function closeUploadModal() {
-            document.getElementById('upload-modal').style.display = 'none';
-        }
+        card.innerHTML = `
+            <div class="char-avatar" style="background: ${char.color}22; border: 2px solid ${char.color};">${char.avatar}</div>
+            <div class="char-name" style="color: ${char.color}">${char.name}</div>
+            <div class="char-desc">${char.desc}</div>
+            ${buttonHtml}
+        `;
+        container.appendChild(card);
+    });
 
-        function uploadVideo() {
-            const fileInput = document.getElementById('video-file-input');
-            const captionInput = document.getElementById('video-caption-input');
+    updateMoneyUI();
+}
 
-            const file = fileInput.files[0];
-            const caption = captionInput.value.trim();
+function selectChar(id) {
+    saveData.selected = id;
+    saveProgress();
+    renderLobby();
+}
 
-            if (!file) {
-                alert("Vui lòng chọn 1 tệp video!");
-                return;
-            }
+function buyChar(id) {
+    const char = CHARACTERS[id];
+    if (saveData.money >= char.price) {
+        saveData.money -= char.price;
+        saveData.unlocked.push(id);
+        saveData.selected = id;
+        saveProgress();
+        renderLobby();
+    } else {
+        alert('Bạn không đủ tiền! Hãy vào trận đánh bot để tích thêm tiền ($).');
+    }
+}
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const newPost = {
-                    id: 'post_' + Date.now(),
-                    author: currentUser,
-                    caption: caption || 'Video mới đăng!',
-                    videoUrl: e.target.result,
-                    likes: [],
-                    comments: []
-                };
+function setupSkillUI() {
+    const char = CHARACTERS[saveData.selected];
+    player.charId = char.id;
 
-                posts.unshift(newPost);
-                saveAndRender();
+    document.getElementById('char-title-display').innerText = char.name.toUpperCase();
+    
+    document.getElementById('icon-q').innerText = char.skills.q.icon;
+    document.getElementById('name-q').innerText = char.skills.q.name;
 
-                client.publish(TOPIC_GLOBAL, JSON.stringify({
-                    type: 'NEW_POST',
-                    post: newPost
-                }));
+    document.getElementById('icon-e').innerText = char.skills.e.icon;
+    document.getElementById('name-e').innerText = char.skills.e.name;
 
-                closeUploadModal();
-                fileInput.value = '';
-                captionInput.value = '';
-            };
+    const slotR = document.getElementById('slot-r');
+    if (char.skills.r) {
+        slotR.style.display = 'flex';
+        document.getElementById('icon-r').innerText = char.skills.r.icon;
+        document.getElementById('name-r').innerText = char.skills.r.name;
+    } else {
+        slotR.style.display = 'none';
+    }
 
-            reader.readAsDataURL(file);
-        }
+    updateUltUI();
+    updateHpUI();
+}
 
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-    </script>
+function enterBattle() {
+    document.getElementById('lobby-screen').style.display = 'none';
+    setupSkillUI();
+    gameRunning = true;
+}
+
+function returnToLobby() {
+    gameRunning = false;
+    document.getElementById('lobby-screen').style.display = 'flex';
+    renderLobby();
+}
+
+// Init Game
+loadProgress();
+renderLobby();
+draw();
+</script>
 </body>
 </html>
