@@ -2,1601 +2,1354 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wind & Sand Elemental Arena 2D - PvP Enabled</title>
-    <!-- Thư viện Three.js (3D Engine) & MQTT -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sống Sót Vòng Bo - Đa Nền Tảng V8 (Hard Mode & Max Level Rewards)</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
-        body {
-            background-color: #0d0f12;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: auto; /* Cho phép cuộn trang web khi màn hình nhỏ */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px 0;
-        }
-        #game-container {
-            position: relative;
-            width: 950px;
-            height: 620px;
-            box-shadow: 0 0 35px rgba(0, 230, 255, 0.25);
-            border-radius: 16px;
-            overflow: hidden;
-            background: #181a20;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        canvas {
-            display: block;
-            background: radial-gradient(circle, #222634 0%, #0f1117 100%);
-        }
-        
-        /* UI Top Bar */
-        #top-ui {
-            position: absolute;
-            top: 15px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 10;
-            pointer-events: none;
-        }
-        .ui-box {
-            background: rgba(15, 20, 30, 0.85);
-            padding: 8px 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            pointer-events: auto;
-        }
-        .hp-bar-bg {
-            width: 220px;
-            height: 18px;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1.5px solid #3d445d;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-        }
-        .hp-bar-fill {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #ff416c, #ff4b2b);
-            transition: width 0.15s ease-out;
-        }
-        .hp-text {
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            font-size: 11px;
-            font-weight: bold;
-            line-height: 16px;
-            text-shadow: 1px 1px 2px #000;
-        }
-        .money-badge {
-            font-size: 18px;
-            font-weight: 800;
-            color: #ffd700;
-            text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* Ultimate Button UI */
-        #ult-container {
-            position: absolute;
-            bottom: 95px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 12;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #ult-btn {
-            width: 180px;
-            height: 36px;
-            background: rgba(20, 20, 30, 0.9);
-            border: 2px solid #555;
-            border-radius: 20px;
-            position: relative;
-            overflow: hidden;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
-        }
-        #ult-btn.ready {
-            border-color: #ff0055;
-            box-shadow: 0 0 20px #ff0055;
-            animation: pulse 1s infinite alternate;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.06); }
-        }
-        #ult-fill {
-            position: absolute;
-            left: 0; top: 0; bottom: 0;
-            width: 0%;
-            background: linear-gradient(90deg, #ff0055, #ff9900);
-            transition: width 0.2s ease;
-        }
-        #ult-text {
-            position: relative;
-            z-index: 2;
-            font-size: 12px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            color: #fff;
-            text-shadow: 1px 1px 3px #000;
-        }
-
-        /* Bottom Skill Bar */
-        #bottom-ui {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            background: rgba(15, 20, 30, 0.88);
-            padding: 10px 20px;
-            border-radius: 18px;
-            border: 1px solid rgba(0, 230, 255, 0.3);
-            backdrop-filter: blur(8px);
-            z-index: 10;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        #bottom-ui.transformed {
-            transform: translateX(-50%) translateY(8px);
-            border-color: #ff0055;
-            box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);
-        }
-        .skill-slot {
-            width: 58px;
-            height: 58px;
-            background: #232736;
-            border: 2px solid #00e6ff;
-            border-radius: 12px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            box-shadow: 0 0 10px rgba(0, 230, 255, 0.15);
-            transition: all 0.3s;
-        }
-        .skill-slot.awakened {
-            border-color: #ff0055;
-            background: #3a1525;
-            box-shadow: 0 0 15px #ff0055;
-        }
-        .skill-key {
-            position: absolute;
-            top: -8px;
-            left: -8px;
-            background: #00e6ff;
-            color: #000;
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-weight: 900;
-        }
-        .skill-slot.awakened .skill-key {
-            background: #ff0055;
-            color: #fff;
-        }
-        .skill-icon { font-size: 20px; }
-        .skill-name { font-size: 9px; color: #aaa; margin-top: 2px; }
-        .cooldown-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-            font-size: 14px;
-            font-weight: bold;
-            display: none;
-        }
-
-        /* Lobby Overlay & Scrollbar Customization */
-        #lobby-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(12, 14, 20, 0.96);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 30px;
-            z-index: 30;
-            overflow-y: auto; /* Cho phép cuộn Sảnh */
-        }
-        .lobby-header { text-align: center; margin-bottom: 10px; }
-        .lobby-header h1 {
-            font-size: 32px;
-            color: #00e6ff;
-            letter-spacing: 2px;
-            text-shadow: 0 0 20px rgba(0, 230, 255, 0.5);
-        }
-        .lobby-header p { color: #8a92a6; font-size: 13px; margin-top: 2px; }
-
-        /* Online Multiplayer UI Box */
-        .online-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 8px 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(0, 230, 255, 0.2);
-            margin-top: 8px;
-        }
-        .online-box input {
-            background: #11141d;
-            border: 1px solid #2d3448;
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            outline: none;
-            width: 120px;
-            text-align: center;
-        }
-        .btn-online {
-            background: #00e6ff;
-            color: #000;
-            font-weight: bold;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-        .btn-online:hover { background: #66f0ff; }
-        .online-status {
-            font-size: 12px;
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        /* Container danh sách nhân vật có thanh cuộn */
-        .char-container {
-            display: flex;
-            gap: 15px;
-            width: 100%;
-            justify-content: center;
-            flex-wrap: wrap;
-            max-height: 350px;
-            overflow-y: auto; /* Cuộn dọc danh sách nhân vật */
-            padding: 10px 15px;
-        }
-
-        /* Tùy chỉnh thanh cuộn đẹp mắt */
-        .char-container::-webkit-scrollbar,
-        #lobby-screen::-webkit-scrollbar,
-        body::-webkit-scrollbar {
-            width: 8px;
-        }
-        .char-container::-webkit-scrollbar-thumb,
-        #lobby-screen::-webkit-scrollbar-thumb,
-        body::-webkit-scrollbar-thumb {
-            background: #00e6ff;
-            border-radius: 4px;
-            box-shadow: 0 0 10px #00e6ff;
-        }
-        .char-container::-webkit-scrollbar-track,
-        #lobby-screen::-webkit-scrollbar-track,
-        body::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-
-        .char-card {
-            width: 200px;
-            background: #1c202d;
-            border: 2px solid #2d3448;
-            border-radius: 16px;
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: all 0.25s ease;
-            position: relative;
-        }
-        .char-card.selected {
-            border-color: #00e6ff;
-            box-shadow: 0 0 20px rgba(0, 230, 255, 0.3);
-            background: #22293a;
-        }
-        .char-card:hover { transform: translateY(-4px); }
-        .char-avatar {
-            width: 55px;
-            height: 55px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 26px;
-            margin-bottom: 8px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
-        }
-        .char-name { font-size: 15px; font-weight: bold; margin-bottom: 6px; }
-        .char-desc {
-            font-size: 10px;
-            color: #9aa1b2;
-            text-align: center;
-            line-height: 1.3;
-            margin-bottom: 10px;
-            min-height: 75px;
-        }
-        .btn-action {
-            width: 100%;
-            padding: 8px;
-            border-radius: 10px;
-            border: none;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-        }
-        .btn-buy { background: #ffd700; color: #000; }
-        .btn-buy:hover { background: #ffea75; }
-        .btn-select { background: #00e6ff; color: #000; }
-        .btn-select:hover { background: #66f0ff; }
-        .btn-equipped { background: #28a745; color: #fff; cursor: default; }
-        
-        .lobby-footer { display: flex; gap: 20px; align-items: center; margin-top: 10px; }
-        .btn-play {
-            padding: 12px 45px;
-            font-size: 17px;
-            font-weight: 800;
-            background: linear-gradient(45deg, #00e6ff, #0072ff);
-            border: none;
-            color: white;
-            border-radius: 30px;
-            cursor: pointer;
-            box-shadow: 0 0 25px rgba(0, 230, 255, 0.4);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-play:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 35px rgba(0, 230, 255, 0.8);
-        }
-        .btn-lobby-return {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            z-index: 10;
-        }
-        .btn-lobby-return:hover { background: rgba(255, 255, 255, 0.2); }
+        body { margin: 0; padding: 0; background-color: #1a1a1a; color: #fff; font-family: Arial, sans-serif; user-select: none; touch-action: none; }
+        #lobby, #game-screen { display: none; width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+        #lobby { display: flex; background: linear-gradient(135deg, #2c3e50, #000000); }
+        .lobby-left { width: 340px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; border-right: 2px solid #444; padding: 15px; box-sizing: border-box; overflow-y: auto; }
+        .lobby-right { flex: 1; padding: 20px; overflow-y: auto; box-sizing: border-box; }
+        .upgrade-section { background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; width: 100%; box-sizing: border-box; }
+        .btn { background-color: #27ae60; color: white; border: none; padding: 12px 30px; font-size: 20px; cursor: pointer; border-radius: 5px; font-weight: bold; transition: 0.2s; width: 100%; }
+        .btn:hover { background-color: #2ecc71; }
+        .btn-sm { font-size: 13px; padding: 6px 12px; background-color: #f39c12; border: none; color: white; border-radius: 4px; cursor: pointer; }
+        .btn-sm:hover { background-color: #f1c40f; }
+        .btn-sm:disabled { background-color: #555; cursor: not-allowed; }
+        .circle-btn { width: 90%; padding: 10px 0; background-color: #9b59b4; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s; }
+        .circle-btn:hover { background-color: #8e44ad; }
+        .shop-header { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; }
+        .shop-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        .shop-title { color: #f1c40f; margin: 0; font-size: 22px; }
+        .filter-select, .search-input { background: #34495e; color: #fff; padding: 8px 12px; border: 2px solid #f1c40f; border-radius: 6px; font-weight: bold; outline: none; }
+        .search-input { flex: 1; min-width: 200px; font-weight: normal; }
+        .combo-toggle-wrapper { background: #2c3e50; border: 2px solid #f1c40f; border-radius: 6px; margin-bottom: 15px; overflow: hidden; }
+        .combo-toggle-header { background: #34495e; padding: 12px; font-weight: bold; color: #f1c40f; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .combo-toggle-header:hover { background: #415b76; }
+        .combo-body-content { display: none; padding: 12px; background: rgba(0,0,0,0.3); border-top: 1px solid #f1c40f; }
+        .combo-body-content.show { display: block; }
+        .combo-container { background: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px dashed #555; }
+        .combo-title { font-size: 13px; color: #2ecc71; font-weight: bold; margin-bottom: 6px; }
+        .combo-slots { display: flex; gap: 8px; }
+        .combo-slot { flex: 1; height: 42px; background: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; text-align: center; padding: 2px; font-weight: bold; cursor: pointer; border: 1px solid #666; transition: 0.2s; overflow: hidden; text-overflow: ellipsis; }
+        .combo-slot.not-owned { background: #111 !important; color: #444 !important; border-color: #222 !important; box-shadow: inset 0 0 8px #000; }
+        .combo-slot.not-owned:hover { border-color: #e74c3c; color: #e74c3c !important; }
+        .combo-slot.owned { background: #27ae60; color: white; border-color: #2ecc71; }
+        .character-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
+        .char-card { background: #333; border: 2px solid #555; border-radius: 8px; padding: 12px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; position: relative; transition: background 0.3s; }
+        .char-card.equipped { border-color: #2ecc71; background: #1e3d2f; }
+        .char-card.highlight-flash { animation: flash-animation 0.5s ease 3; }
+        @keyframes flash-animation { 0% { background: #333; } 50% { background: #f1c40f; } 100% { background: #333; } }
+        .char-name { font-size: 15px; font-weight: bold; color: #e74c3c; display: flex; justify-content: center; align-items: center; gap: 4px; min-height: 38px; }
+        .char-price { color: #f1c40f; font-weight: bold; margin: 3px 0; font-size: 14px; }
+        .char-info { font-size: 12px; color: #ccc; min-height: 75px; margin-bottom: 8px; text-align: left; line-height: 1.3;}
+        .upgrade-icon-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; background: #f39c12; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; color: white; font-weight: bold; font-size: 11px; z-index: 5; }
+        .upgrade-icon-btn.max-lvl { background: #d35400; font-size: 10px; }
+        .upgrade-icon-btn:hover { transform: scale(1.1); }
+        .char-btn { background: #2980b9; color: white; border: none; padding: 6px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; }
+        .char-btn:disabled { background: #555; cursor: not-allowed; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: #2c3e50; padding: 20px; border-radius: 10px; text-align: center; width: 420px; border: 2px solid #2ecc71; max-height: 90vh; overflow-y: auto; }
+        #game-canvas { background-color: #252525; display: block; }
+        #ui-top { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; pointer-events: none; min-width: 290px; font-size: 12px; z-index: 20; }
+        @media (max-width: 768px) { #ui-top { min-width: 210px; font-size: 11px; padding: 8px; } #lobby { flex-direction: column; } .lobby-left { width: 100%; border-right: none; border-bottom: 2px solid #444; height: 40vh; } .lobby-right { height: 60vh; } }
+        .bar-container { width: 100%; background: #c0392b; height: 10px; border-radius: 5px; overflow: hidden; margin: 3px 0; }
+        #hp-bar { width: 100%; height: 100%; background: #2ecc71; }
+        #shield-bar { width: 0%; height: 100%; background: #9b59b4; }
+        #ep-bar { width: 0%; height: 100%; background: #00bcd4; }
+        .mobile-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 220px; pointer-events: none; z-index: 30; }
+        .dpad { position: absolute; bottom: 20px; left: 20px; width: 130px; height: 130px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: auto; border: 2px solid rgba(255, 255, 255, 0.3); }
+        .dpad-stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .action-buttons { position: absolute; bottom: 10px; right: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; pointer-events: auto; }
+        .action-btn { width: 55px; height: 55px; background: rgba(0, 0, 0, 0.6); border: 2px solid #fff; border-radius: 50%; color: #fff; font-weight: bold; font-size: 10px; display: flex; justify-content: center; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; }
+        .action-btn:active { background: rgba(255, 255, 255, 0.3); }
+        #mb-btn-skill { background: #e67e22; border-color: #fff; display: none; }
+        #mb-btn-v-skill { background: #9b59b4; border-color: #fff; display: none; }
+        #mb-btn-v-knife { background: #c0392b; border-color: #fff; display: none; }
+        #death-screen, #win-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); flex-direction: column; justify-content: center; align-items: center; z-index: 40; }
+        .death-buttons { display: flex; gap: 20px; margin-top: 20px; width: 60%; }
+        .pet-option { background: #34495e; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: left; border: 1px solid #555; }
+        .pet-option.equipped-pet { border-color: #9b59b4; background: #2e3d4d; }
+        .page-arrow-btn { background: #2980b9; color: white; border: none; padding: 6px 14px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .page-arrow-btn:hover { background: #3498db; }
+        .craft-card { background: #2c3e50; border: 2px solid #9b59b4; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+        .craft-status { font-size: 13px; font-weight: bold; color: #f1c40f; margin: 5px 0; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <!-- Lobby / Shop Screen -->
-    <div id="lobby-screen">
-        <div class="lobby-header">
-            <h1>SẢNH TỰ CHỌN NHÂN VẬT</h1>
-            <p>Chọn hoặc mua nhân vật mới với số tiền tích lũy từ trận đấu</p>
+    <div id="lobby">
+        <div class="lobby-left">
+            <h2 style="color: #f1c40f; margin: 5px 0 10px 0; text-align:center;">Ví Tiền: $<span id="lobby-money">0</span></h2>
             
-            <!-- Bộ điều khiển chế độ Online -->
-            <div class="online-box">
-                <span>Mã Phòng:</span>
-                <input type="text" id="room-code" value="ROOM101" maxlength="10">
-                <button class="btn-online" onclick="connectOnline()">Kết Nối Online</button>
-                <span class="online-status" id="online-status-text">🔴 Offline</span>
+            <div class="upgrade-section" style="background: rgba(46, 204, 113, 0.15); border: 1px solid #2ecc71; cursor: pointer;" onclick="openLevelRewardsModal()">
+                <h4 style="margin: 0 0 5px 0; color: #2ecc71;">CẤP ĐỘ TÀI KHOẢN (Bấm xem quà)</h4>
+                <p style="font-size: 16px; margin: 2px 0; font-weight: bold;">Cấp: <span id="lobby-level" style="color: #f1c40f;">1</span></p>
+                <p style="font-size: 11px; margin: 2px 0; color: #ccc;">EXP: <span id="lobby-exp">0</span> / <span id="lobby-max-exp">200</span></p>
+            </div>
+
+            <div class="upgrade-section" id="gacha-section" style="background: rgba(155, 89, 182, 0.2); border: 2px dashed #9b59b4; text-align: center; width: 100%;">
+                <h4 style="margin: 0 0 5px 0; color: #9b59b4;">HÒM UNIT THẦN THOẠI</h4>
+                <p id="gacha-lock-msg" style="font-size: 11px; color: #e74c3c; margin: 3px 0; font-weight: bold;"></p>
+                <button id="btn-gacha-1" class="btn btn-sm" style="width:100%; margin-top:3px; background:#9b59b4;" onclick="buyCrate(1)">MUA 1 THÙNG ($1000)</button>
+                <button id="btn-gacha-5" class="btn btn-sm" style="width:100%; margin-top:3px; background:#8e44ad;" onclick="buyCrate(5)">MUA 5 THÙNG ($5000)</button>
+                <button id="btn-gacha-10" class="btn btn-sm" style="width:100%; margin-top:3px; background:#6c3483;" onclick="buyCrate(10)">MUA 10 THÙNG ($10000)</button>
+            </div>
+
+            <div class="upgrade-section">
+                <h5 style="margin: 0 0 5px 0; color: #e67e22;">Ô TRANG BỊ NHÂN VẬT</h5>
+                <p style="font-size: 11px; margin: 2px 0;">Giá: <b style="color: #f1c40f;">$50</b> (Tối đa +2 ô)</p>
+                <p style="font-size: 11px; margin: 2px 0;">Hiện có: <b id="ui-max-slot">2</b> ô chứa</p>
+                <button id="btn-upgrade-slot" class="btn btn-sm" style="width:100%; margin-top:3px;" onclick="upgradeSlots()">MUA Ô CHỨA</button>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.2); width:100%; padding:8px; border-radius:6px; font-size:12px; box-sizing:border-box;">
+                <p style="margin: 3px 0; color:#aaa;">Đã chọn: <span id="equip-list" style="color:#fff; font-weight:bold;">Trống</span></p>
+                <p style="margin: 3px 0; color:#9b59b4;">Pet (Max 3): <span id="lobby-pet-status" style="color:#fff; font-weight:bold;">Trống</span></p>
+            </div>
+            
+            <div class="circle-btn" onclick="openPetModal()">QUẢN LÝ THÚ CƯNG (PET)</div>
+            
+            <div class="upgrade-section" style="background: rgba(231, 76, 60, 0.15); border: 1px solid #e74c3c; width: 100%; box-sizing: border-box; margin-top: 15px;">
+                <h4 style="margin: 0 0 5px 0; color: #e74c3c;">CHẾ ĐỘ CHƠI</h4>
+                <select id="game-mode-select" class="filter-select" style="width: 100%; border-color: #e74c3c; box-sizing: border-box; text-align: center;">
+                    <option value="easy">Chế Độ: Thường (Sinh tồn tự do)</option>
+                    <option value="hard">Chế Độ: KHÓ (X2 Tiền & Cốt truyện)</option>
+                </select>
+            </div>
+            <button class="btn" style="margin-top: 5px; background:#e74c3c;" onclick="startGame()">VÀO TRẬN ĐẤU</button>
+        </div>
+
+        <div class="lobby-right">
+            <div class="shop-header">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 class="shop-title" id="menu-title">HỆ THỐNG TRANG BỊ & SHOP</h2>
+                    <div style="display:flex; gap: 5px;">
+                        <button class="page-arrow-btn" onclick="switchPage(1)">◀ Shop (Trang 1)</button>
+                        <button class="page-arrow-btn" style="background:#e67e22;" onclick="switchPage(2)">Chế Tạo (Trang 2) ▶</button>
+                    </div>
+                </div>
+                
+                <div class="shop-controls" id="shop-controls-bar">
+                    <input type="text" id="combo-search" class="search-input" placeholder="Tìm kiếm tên nhân vật..." oninput="renderShop()">
+                    <select id="tag-filter" class="filter-select" onchange="renderShop()">
+                        <option value="ALL">Tất cả Nhãn</option>
+                        <option value="Hồi máu">Nhãn: Hồi máu</option>
+                        <option value="Hỗ trợ nhân vật">Nhãn: Hỗ trợ nhân vật</option>
+                        <option value="Thêm tiền">Nhãn: Thêm tiền</option>
+                        <option value="Tăng tốc">Nhãn: Tăng tốc</option>
+                        <option value="Lá chắn">Nhãn: Lá chắn</option>
+                        <option value="Bất tử">Nhãn: Bất tử</option>
+                        <option value="Giảm ST Bo">Nhãn: Giảm ST Bo</option>
+                        <option value="Chặn sát thương">Nhãn: Chặn sát thương</option>
+                        <option value="Hồi sinh">Nhãn: Hồi sinh</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="page-1">
+                <div class="combo-toggle-wrapper">
+                    <div class="combo-toggle-header" onclick="toggleComboBody()">
+                        <span>💡 ĐỀ XUẤT 5 COMBO ĐỘI HÌNH BÁ NHẤT (Bấm để xem/ẩn)</span>
+                        <span id="combo-arrow">▼</span>
+                    </div>
+                    <div class="combo-body-content" id="combo-body-content">
+                        <div id="recommended-combos-container"></div>
+                    </div>
+                </div>
+                <div class="character-grid" id="shop-grid"></div>
+            </div>
+
+            <div id="page-2" style="display: none;">
+                <div style="background: rgba(155, 89, 182, 0.1); border: 1px solid #9b59b4; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size:13px;">
+                    💡 <b>Xưởng Chế Tạo Thủ Công:</b> Khi tích lũy đủ các yêu cầu nhiệm vụ của từng mục, bạn hãy nhấn nút <b>[NHẬN THỦ CÔNG]</b> để kích hoạt vật phẩm hoặc sở hữu nhân vật.
+                </div>
+                <div class="character-grid" id="craft-grid"></div>
             </div>
         </div>
+    </div>
 
-        <div class="char-container" id="char-list"></div>
-
-        <div class="lobby-footer">
-            <div class="money-badge">💰 <span id="lobby-money">$0</span></div>
-            <button class="btn-play" onclick="enterBattle()">VÀO TRẬN</button>
+    <div id="level-rewards-modal" class="modal" onclick="document.getElementById('level-rewards-modal').style.display='none'">
+        <div class="modal-content" onclick="event.stopPropagation()" style="width: 380px; max-height: 80vh; overflow-y: auto;">
+            <h3 style="color: #2ecc71; margin-top: 0;">DANH SÁCH THƯỞNG CẤP ĐỘ</h3>
+            <p style="font-size:11px; color:#aaa; margin-top:-5px;">Mỗi cấp tăng 10% giá trị tiền mặt thưởng</p>
+            <div id="level-rewards-list" style="text-align: left; font-size: 13px; line-height: 1.6; max-height: 50vh; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px;"></div>
+            <button class="btn-sm" style="margin-top: 10px; background:#7f8c8d; width:100%;" onclick="document.getElementById('level-rewards-modal').style.display='none'">Đóng</button>
         </div>
     </div>
 
-    <!-- Top UI Bar in Game -->
-    <div id="top-ui">
-        <div class="ui-box">
-            <div class="money-badge">💰 <span id="game-money">$0</span></div>
+    <div id="gacha-modal" class="modal" onclick="document.getElementById('gacha-modal').style.display='none'">
+        <div class="modal-content" onclick="event.stopPropagation()" style="border-color: #9b59b4; width: 380px;">
+            <h3 style="color: #9b59b4; margin-top: 0;">KẾT QUẢ MỞ HÒM UNIT</h3>
+            <div id="gacha-results-body" style="background: #34495e; padding: 12px; border-radius: 8px; text-align: left; font-size: 13px; margin-bottom: 12px; line-height: 1.5; max-height: 40vh; overflow-y: auto;"></div>
+            <button class="btn-sm" style="margin-top: 8px; background:#7f8c8d; width:100%;" onclick="document.getElementById('gacha-modal').style.display='none'">Đóng</button>
         </div>
-        <button class="btn-lobby-return" onclick="returnToLobby()">🏠 Về Sảnh</button>
-        <div class="ui-box">
-            <div style="font-size: 11px; color: #a0a5b5; margin-right: 8px;" id="char-title-display">NHÂN VẬT</div>
-            <div class="hp-bar-bg">
-                <div id="hp-fill" class="hp-bar-fill"></div>
-                <div id="hp-text" class="hp-text">100 / 100</div>
+    </div>
+
+    <div id="pet-modal" class="modal" onclick="closePetModal()">
+        <div class="modal-content" style="border-color: #9b59b4; width: 400px;" onclick="event.stopPropagation()">
+            <h3 style="color: #9b59b4; margin-top: 0;">CỬA HÀNG THÚ CƯNG (TỐI ĐA 3 CON)</h3>
+            <div id="pet-list-container"></div>
+            <button class="btn-sm" style="margin-top: 10px; background:#7f8c8d; width:100%;" onclick="closePetModal()">Đóng</button>
+        </div>
+    </div>
+
+    <div id="upgrade-modal" class="modal" onclick="document.getElementById('upgrade-modal').style.display='none'">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3 id="up-modal-title" style="color: #2ecc71; margin-top: 0;">TIẾN HÓA NHÂN VẬT</h3>
+            <div id="up-modal-body" style="background: #34495e; padding: 12px; border-radius: 8px; text-align: left; font-size: 12px; margin-bottom: 12px; line-height: 1.4;"></div>
+            <button id="btn-confirm-upgrade" class="btn btn-sm" style="width: 100%; background: #27ae60; font-size:15px; padding:8px;" onclick="executeCharacterUpgrade()">TIẾN HÀNH TIẾN HÓA</button>
+            <button class="btn-sm" style="margin-top: 8px; background:#7f8c8d; width:100%;" onclick="document.getElementById('upgrade-modal').style.display='none'">Đóng</button>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <div id="ui-top">
+            <div style="font-weight: bold; color: #f1c40f;" id="ui-equipped">Trang bị: </div>
+            <div>Máu: <span id="ui-hp-text">200/200</span></div>
+            <div class="bar-container"><div id="hp-bar"></div></div>
+            
+            <div id="ui-shield-container">
+                <div>Lá chắn: <span id="ui-shield-text">0/75</span></div>
+                <div class="bar-container" style="background:#555;"><div id="shield-bar"></div></div>
             </div>
+
+            <div>Năng lượng (EP): <span id="ui-ep-text">0/200</span></div>
+            <div class="bar-container" style="background:#111;"><div id="ep-bar"></div></div>
+
+            <div style="color: #e74c3c; font-weight:bold;">Sát thương bo: -<span id="ui-zone-dmg">0</span> HP/s</div>
+            <div id="ui-hard-mode" style="color: #e74c3c; font-weight:bold; display:none; background:rgba(255,0,0,0.2); padding:2px 5px; border-radius:3px;">Chế độ Khó</div>
+            <div id="ui-skill-cooldown" style="color: #9b59b4; font-weight:bold;">Kỹ năng [G]: Sẵn sàng</div>
+            <div id="ui-v-skill-cooldown" style="color: #e74c3c; font-weight:bold; display:none;">Kỹ năng Gọi Người [E]: Sẵn sàng</div>
+            <div id="ui-buff-status" style="color: #1abc9c; font-size:11px; font-weight:bold; margin-top:2px;"></div>
+            <div style="color: #2ecc71;">Tiền sinh tồn trận này: $<span id="game-money">0</span></div>
+            <div style="color: #2ecc71;" id="ui-match-heals">Băng gạc: 0 lần</div>
+            <div style="color: #e67e22; font-weight:bold;" id="ui-match-own-regen">Hồi máu riêng trận này: 0 HP</div>
+            <div style="color: #ff5722; font-weight:bold;" id="ui-big-medkit">Túi cứu thương lớn [Phím 1]: 0 túi</div>
         </div>
-    </div>
-
-    <!-- Ultimate UI Slot -->
-    <div id="ult-container">
-        <div id="ult-btn" onclick="useUlt()">
-            <div id="ult-fill"></div>
-            <div id="ult-text">ULTIMATE (0/10) [T]</div>
-        </div>
-    </div>
-
-    <!-- Bottom UI Skill Bar -->
-    <div id="bottom-ui">
-        <div class="skill-slot" id="slot-q">
-            <div class="skill-key">Q</div>
-            <div class="skill-icon" id="icon-q">💨</div>
-            <div class="skill-name" id="name-q">Lướt</div>
-            <div id="cd-q" class="cooldown-overlay">3s</div>
-        </div>
-        <div class="skill-slot" id="slot-e">
-            <div class="skill-key">E</div>
-            <div class="skill-icon" id="icon-e">🌪️</div>
-            <div class="skill-name" id="name-e">Đấm</div>
-            <div id="cd-e" class="cooldown-overlay">6s</div>
-        </div>
-        <div class="skill-slot" id="slot-r">
-            <div class="skill-key">R</div>
-            <div class="skill-icon" id="icon-r">💥</div>
-            <div class="skill-name" id="name-r">Nổ</div>
-            <div id="cd-r" class="cooldown-overlay">10s</div>
-        </div>
-    </div>
-
-    <canvas id="gameCanvas" width="950" height="620"></canvas>
-</div>
-
-<script>
-// --- GAME DATA & SAVE SYSTEM ---
-let saveData = {
-    money: 0,
-    unlocked: ['wind'],
-    selected: 'wind'
-};
-
-function loadProgress() {
-    const local = localStorage.getItem('arena_2d_save');
-    if (local) {
-        try { saveData = JSON.parse(local); } catch(e) {}
-    }
-    updateMoneyUI();
-}
-
-function saveProgress() {
-    localStorage.setItem('arena_2d_save', JSON.stringify(saveData));
-    updateMoneyUI();
-}
-
-function updateMoneyUI() {
-    document.getElementById('lobby-money').innerText = `$${saveData.money}`;
-    document.getElementById('game-money').innerText = `$${saveData.money}`;
-}
-
-// Character Configs
-const CHARACTERS = {
-    wind: {
-        id: 'wind',
-        name: 'Gió (Wind)',
-        price: 0,
-        avatar: '🌀',
-        color: '#00e6ff',
-        desc: 'Q: Lướt 0.4s (3s)<br>E: Đấm ngất 1s, -26 máu (6s)<br>⚡ Ult (Đủ 10 hit): Xoay bão 4s hút bot & người chơi & gây dame, biến đổi E/R Thức Tỉnh trong 20s!',
-        skills: {
-            q: { icon: '💨', name: 'Lướt Gió', cd: 3 },
-            e: { icon: '👊', name: 'Phong Quyền', cd: 6 },
-            r: { icon: '🌪️', name: 'Phong Bão', cd: 10 }
-        }
-    },
-    sand: {
-        id: 'sand',
-        name: 'Linh Hồn Cát (Sand)',
-        price: 65,
-        avatar: '⏳',
-        color: '#e6c280',
-        desc: 'Q: Lướt cát, che mắt 1s & +3 dame (3s)<br>E: Bàn tay cát đấm, mù 1.4s & -43 máu (15s)<br>R: Nắm cát bóp chặt (khóa skill) & -20 máu (9s)',
-        skills: {
-            q: { icon: '🏜️', name: 'Lướt Cát', cd: 3 },
-            e: { icon: '🖐️', name: 'Bàn Tay Cát', cd: 15 },
-            r: { icon: '✊', name: 'Nắm Cát', cd: 9 }
-        }
-    },
-    ice: {
-        id: 'ice',
-        name: 'Băng Cực (Ice)',
-        price: 30,
-        avatar: '❄️',
-        color: '#00bfff',
-        desc: 'Q: Lướt đóng băng 0.5s (3s)<br>E: Băng Trảm mù 1s, -28 máu (6.5s)<br>R: Đập đất đóng băng 0.5s, -10 máu (10s)',
-        skills: {
-            q: { icon: '❄️', name: 'Băng Lướt', cd: 3 },
-            e: { icon: '🧊', name: 'Băng Trảm', cd: 6.5 },
-            r: { icon: '💥', name: 'Đội Băng', cd: 10 }
-        }
-    },
-    iron: {
-        id: 'iron',
-        name: 'Dao Sắt (Iron)',
-        price: 50,
-        avatar: '🗡️',
-        color: '#d1d5db',
-        desc: 'Q: Lướt tốc hành (3s)<br>E: Bắn 4 phi dao (-15 máu/con) (10s)<br>R: Chém vòng 180° (-25 máu) (6s)',
-        skills: {
-            q: { icon: '💨', name: 'Tốc Hành', cd: 3 },
-            e: { icon: '🗡️', name: 'Phi Dao', cd: 10 },
-            r: { icon: '⚔️', name: 'Vòng Dao', cd: 6 }
-        }
-    }
-};
-
-// Canvas Setup
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-let gameRunning = false;
-const keys = {};
-const particles = [];
-const projectiles = [];
-const floatingTexts = [];
-
-// Input Handlers
-window.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
-    if (gameRunning) {
-        if (e.key.toLowerCase() === 'q') useSkill('q');
-        if (e.key.toLowerCase() === 'e') useSkill('e');
-        if (e.key.toLowerCase() === 'r') useSkill('r');
-        if (e.key.toLowerCase() === 't') useUlt();
-    }
-});
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-// --- ONLINE MULTIPLAYER (MQTT) SETUP ---
-const myPlayerId = 'P_' + Math.floor(Math.random() * 899999 + 100000);
-let mqttClient = null;
-let currentRoom = '';
-let isOnlineConnected = false;
-const otherPlayers = {};
-let lastSendTime = 0;
-
-function connectOnline() {
-    const roomInput = document.getElementById('room-code').value.trim();
-    if (!roomInput) { alert('Vui lòng nhập mã phòng!'); return; }
-    
-    currentRoom = roomInput.toUpperCase();
-    const statusText = document.getElementById('online-status-text');
-    statusText.innerText = '🟡 Đang nối...';
-
-    mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-
-    mqttClient.on('connect', () => {
-        isOnlineConnected = true;
-        statusText.innerText = `🟢 Online (${currentRoom})`;
-        mqttClient.subscribe(`arena_2d_game/${currentRoom}/#`);
-        sendOnlineState(true);
-    });
-
-    mqttClient.on('message', (topic, message) => {
-        try {
-            const data = JSON.parse(message.toString());
-            if (data.id === myPlayerId) return; // Bỏ qua gói tin của chính mình
-
-            if (topic.endsWith('/pos')) {
-                otherPlayers[data.id] = { ...otherPlayers[data.id], ...data, lastUpdate: performance.now() };
-            } else if (topic.endsWith('/skill')) {
-                triggerRemoteSkill(data);
-            } else if (topic.endsWith('/hit')) {
-                if (data.targetId === 'bot') {
-                    if (data.damage) bot.takeDamage(data.damage, data.kbX, data.kbY);
-                    if (data.stun) bot.applyStun(data.stun);
-                    if (data.freeze) bot.applyFreeze(data.freeze);
-                    if (data.blind) bot.applyBlind(data.blind);
-                    if (data.silence) bot.applySilence(data.silence);
-                } else if (data.targetId === myPlayerId) {
-                    if (data.damage) player.takeDamage(data.damage);
-                    if (data.kbX || data.kbY) {
-                        player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x + (data.kbX || 0)));
-                        player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y + (data.kbY || 0)));
-                    }
-                    if (data.stun) player.applyStun(data.stun);
-                    if (data.freeze) player.applyFreeze(data.freeze);
-                    if (data.blind) player.applyBlind(data.blind);
-                    if (data.silence) player.applySilence(data.silence);
-                }
-            }
-        } catch(e) {}
-    });
-}
-
-function sendOnlineState(force = false) {
-    const now = performance.now();
-    // Giới hạn tần suất gửi dữ liệu (Throttle) để tránh quá tải Broker gây rớt kết nối
-    if (isOnlineConnected && mqttClient && (force || now - lastSendTime > 40)) {
-        lastSendTime = now;
-        mqttClient.publish(`arena_2d_game/${currentRoom}/pos`, JSON.stringify({
-            id: myPlayerId,
-            x: Math.round(player.x),
-            y: Math.round(player.y),
-            hp: player.hp,
-            maxHp: player.maxHp,
-            dirX: Number(player.dirX.toFixed(2)),
-            dirY: Number(player.dirY.toFixed(2)),
-            charId: player.charId,
-            isDashing: player.isDashing,
-            isUltActive: player.isUltActive
-        }));
-    }
-}
-
-function triggerRemoteSkill(data) {
-    if (data.skill === 'q') {
-        createParticles(data.x, data.y, 12, CHARACTERS[data.charId]?.color || '#00e6ff');
-    }
-}
-
-// Player State
-const player = {
-    x: 250,
-    y: 310,
-    radius: 22,
-    speed: 3.8,
-    hp: 100,
-    maxHp: 100,
-    dirX: 1,
-    dirY: 0,
-    spinAngle: 0,
-    // Skill states
-    isDashing: false,
-    dashTimer: 0,
-    dashDuration: 0.4,
-    dashSpeed: 9.5,
-    qHitTargets: [],
-    cdQ: 0,
-    cdE: 0,
-    cdR: 0,
-    charId: 'wind',
-    // Ultimate & Hit counter
-    hitCount: 0,
-    isUltActive: false,
-    ultDuration: 0,
-    ultSpinTimer: 0,
-    ultSpinInterval: 0,
-    punchSequenceTimer: 0,
-    punchCount: 0,
-    // Status effects
-    stunTimer: 0,
-    freezeTimer: 0,
-    blindTimer: 0,
-    silenceTimer: 0,
-
-    takeDamage(amount) {
-        this.hp = Math.max(0, this.hp - amount);
-        createDamageText(this.x, this.y - 25, `-${amount}`, '#ff416c');
-        updateHpUI();
-    },
-    applyStun(duration) {
-        this.stunTimer = Math.max(this.stunTimer, duration);
-        createDamageText(this.x, this.y - 10, 'STUNNED!', '#ff9900', 14);
-    },
-    applyFreeze(duration) {
-        this.freezeTimer = Math.max(this.freezeTimer, duration);
-        createDamageText(this.x, this.y - 10, 'FROZEN!', '#00e6ff', 14);
-    },
-    applyBlind(duration) {
-        this.blindTimer = Math.max(this.blindTimer, duration);
-        createDamageText(this.x, this.y - 10, 'BLINDED!', '#e6c280', 14);
-    },
-    applySilence(duration) {
-        this.silenceTimer = Math.max(this.silenceTimer, duration);
-        createDamageText(this.x, this.y - 10, 'SILENCED!', '#ff0055', 14);
-    }
-};
-
-function updateHpUI() {
-    const fill = document.getElementById('hp-fill');
-    const text = document.getElementById('hp-text');
-    if (fill && text) {
-        fill.style.width = `${(player.hp / player.maxHp) * 100}%`;
-        text.innerText = `${Math.ceil(player.hp)} / ${player.maxHp}`;
-    }
-}
-
-// Bot State
-const bot = {
-    x: 680,
-    y: 310,
-    radius: 24,
-    hp: 100,
-    maxHp: 100,
-    isDead: false,
-    respawnTimer: 0,
-    knockbackVx: 0,
-    knockbackVy: 0,
-    // Status effects
-    stunTimer: 0,
-    freezeTimer: 0,
-    blindTimer: 0,
-    silenceTimer: 0,
-    
-    takeDamage(amount, kbX = 0, kbY = 0) {
-        if (this.isDead) return;
-        this.hp -= amount;
-        this.knockbackVx = kbX;
-        this.knockbackVy = kbY;
-        createDamageText(this.x, this.y - 25, `-${amount}`, '#ffea00');
         
-        if (this.hp <= 0) {
-            this.hp = 0;
-            this.isDead = true;
-            this.respawnTimer = 2.5;
-            saveData.money += 5;
-            saveProgress();
-            createDamageText(this.x, this.y - 45, '+$5 Gold!', '#28a745', 20);
-            createParticles(this.x, this.y, 20, '#ffd700');
-        }
-    },
-    
-    applyStun(duration) {
-        if (this.isDead) return;
-        this.stunTimer = Math.max(this.stunTimer, duration);
-        createDamageText(this.x, this.y - 10, 'STUNNED!', '#ff9900', 14);
-    },
-    
-    applyFreeze(duration) {
-        if (this.isDead) return;
-        this.freezeTimer = Math.max(this.freezeTimer, duration);
-        createDamageText(this.x, this.y - 10, 'FROZEN!', '#00e6ff', 14);
-    },
+        <canvas id="game-canvas"></canvas>
 
-    applyBlind(duration) {
-        if (this.isDead) return;
-        this.blindTimer = Math.max(this.blindTimer, duration);
-        createDamageText(this.x, this.y - 10, 'BLINDED!', '#e6c280', 14);
-    },
+        <div class="mobile-controls">
+            <div class="dpad" id="dpad">
+                <div class="dpad-stick" id="dpad-stick"></div>
+            </div>
+            <div class="action-buttons">
+                <div class="action-btn" id="mb-btn-turret" style="display:none;" onclick="placeTurret()">TRỤ<br>[F]</div>
+                <div class="action-btn" id="mb-btn-bigkit" onclick="useBigMedkit()">TÚI LỚN<br>[1]</div>
+                <div class="action-btn" id="mb-btn-heal" onclick="startHealing()">GẠC<br>[Space]</div>
+                <div class="action-btn" id="mb-btn-skill" onclick="activateActiveSkill()">SKILL<br>[G]</div>
+                <div class="action-btn" id="mb-btn-v-skill" onclick="activateVartealthaisSkill()">TRIỆU HỒI<br>[E]</div>
+                <div class="action-btn" id="mb-btn-v-knife" onclick="triggerKnifeAttack()">DAO<br>[Q]</div>
+            </div>
+        </div>
+        
+        <div id="death-screen">
+            <h1 style="color: #e74c3c; font-size: 42px; margin-bottom: 5px;">BẠN ĐÃ CHẾ TẠO / THẤT BẠI</h1>
+            <p id="death-reward-text" style="color: #2ecc71; font-size: 16px; margin: 5px 0; text-align: center; white-space: pre-line;"></p>
+            <div class="death-buttons">
+                <button class="btn" style="flex:1;" onclick="restartGame()">Chơi lại</button>
+                <button class="btn" style="background:#7f8c8d; flex:1;" onclick="goLobby()">Về sảnh</button>
+            </div>
+        </div>
 
-    applySilence(duration) {
-        if (this.isDead) return;
-        this.silenceTimer = Math.max(this.silenceTimer, duration);
-        createDamageText(this.x, this.y - 10, 'SILENCED!', '#ff0055', 14);
-    }
-};
+        <div id="win-screen">
+            <h1 style="color: #f1c40f; font-size: 42px; margin-bottom: 5px; text-shadow: 0 0 10px #f39c12;">CHIẾN THẮNG!</h1>
+            <p id="win-reward-text" style="color: #2ecc71; font-size: 16px; margin: 5px 0; text-align: center; white-space: pre-line;"></p>
+            <div class="death-buttons">
+                <button class="btn" style="flex:1; background: #27ae60;" onclick="restartGame()">Chơi lại</button>
+                <button class="btn" style="background:#7f8c8d; flex:1;" onclick="goLobby()">Về sảnh</button>
+            </div>
+        </div>
+    </div>
 
-// Hit Registration Helper
-function registerHit() {
-    if (player.charId === 'wind' && !player.isUltActive) {
-        player.hitCount = Math.min(10, player.hitCount + 1);
-        updateUltUI();
-    }
-}
-
-// Target Helper for Bot + Online Players PvP
-function getValidTargets() {
-    const targets = [];
-    if (!bot.isDead) {
-        targets.push({ id: 'bot', obj: bot, radius: bot.radius });
-    }
-    const nowTime = performance.now();
-    Object.keys(otherPlayers).forEach(pId => {
-        const op = otherPlayers[pId];
-        if (nowTime - op.lastUpdate <= 4000) {
-            targets.push({ id: pId, obj: op, radius: player.radius });
-        }
-    });
-    return targets;
-}
-
-function hitTarget(targetId, targetObj, damage, kbX = 0, kbY = 0, effects = {}) {
-    if (targetId === 'bot') {
-        if (bot.isDead) return;
-        if (damage > 0) bot.takeDamage(damage, kbX, kbY);
-        if (effects.stun) bot.applyStun(effects.stun);
-        if (effects.freeze) bot.applyFreeze(effects.freeze);
-        if (effects.blind) bot.applyBlind(effects.blind);
-        if (effects.silence) bot.applySilence(effects.silence);
-        registerHit();
-    } else {
-        if (isOnlineConnected && mqttClient) {
-            mqttClient.publish(`arena_2d_game/${currentRoom}/hit`, JSON.stringify({
-                targetId: targetId,
-                damage: damage,
-                kbX: kbX,
-                kbY: kbY,
-                ...effects
-            }));
-        }
-        if (damage > 0) createDamageText(targetObj.x, targetObj.y - 25, `-${damage}`, '#ff416c');
-        createParticles(targetObj.x, targetObj.y, 10, '#ff0055');
-        registerHit();
-    }
-}
-
-// Particle & Text Systems
-class Particle {
-    constructor(x, y, vx, vy, color, size, life) {
-        this.x = x; this.y = y;
-        this.vx = vx; this.vy = vy;
-        this.color = color; this.size = size;
-        this.life = life; this.maxLife = life;
-    }
-    update(dt) {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.life -= dt;
-        this.size *= 0.95;
-    }
-    draw(ctx) {
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    }
-}
-
-function createParticles(x, y, count, color = '#00e6ff') {
-    for (let i = 0; i < count; i++) {
-        let angle = Math.random() * Math.PI * 2;
-        let speed = Math.random() * 5 + 1;
-        particles.push(new Particle(
-            x, y,
-            Math.cos(angle) * speed,
-            Math.sin(angle) * speed,
-            color,
-            Math.random() * 6 + 3,
-            0.6
-        ));
-    }
-}
-
-function createDamageText(x, y, text, color = '#fff', fontSize = 16) {
-    floatingTexts.push({ x, y, text, color, fontSize, life: 1.0 });
-}
-
-// --- ULTIMATE ACTIVATION ---
-function useUlt() {
-    if (player.charId === 'wind' && player.hitCount >= 10 && !player.isUltActive) {
-        player.isUltActive = true;
-        player.ultDuration = 20.0;
-        player.ultSpinTimer = 4.0;
-        player.hitCount = 0;
-        updateUltUI();
-
-        document.getElementById('bottom-ui').classList.add('transformed');
-        document.getElementById('slot-e').classList.add('awakened');
-        document.getElementById('slot-r').classList.add('awakened');
-        document.getElementById('name-e').innerText = '15 Cú Đấm';
-        document.getElementById('icon-e').innerText = '🥊';
-        document.getElementById('name-r').innerText = 'Dậm Đất';
-        document.getElementById('icon-r').innerText = '👣';
-
-        createDamageText(player.x, player.y - 40, 'ULTIMATE THỨC TỈNH!', '#ff0055', 22);
-        createParticles(player.x, player.y, 60, '#ff0055');
-    }
-}
-
-function updateUltUI() {
-    const fill = document.getElementById('ult-fill');
-    const text = document.getElementById('ult-text');
-    const btn = document.getElementById('ult-btn');
-
-    if (player.charId !== 'wind') {
-        document.getElementById('ult-container').style.display = 'none';
-        return;
-    }
-    document.getElementById('ult-container').style.display = 'flex';
-
-    if (player.isUltActive) {
-        fill.style.width = `${(player.ultDuration / 20.0) * 100}%`;
-        text.innerText = `ULT ACTIVE (${Math.ceil(player.ultDuration)}s)`;
-        btn.classList.add('ready');
-    } else {
-        fill.style.width = `${(player.hitCount / 10) * 100}%`;
-        text.innerText = `ULTIMATE (${player.hitCount}/10) [T]`;
-        if (player.hitCount >= 10) {
-            btn.classList.add('ready');
-        } else {
-            btn.classList.remove('ready');
-        }
-    }
-}
-
-// --- SKILL IMPLEMENTATIONS ---
-function useSkill(slot) {
-    if (player.silenceTimer > 0 || player.stunTimer > 0 || player.freezeTimer > 0) return;
-    const char = CHARACTERS[player.charId];
-    
-    if (player.charId === 'wind' && player.isUltActive) {
-        if (slot === 'q' && player.cdQ <= 0) {
-            player.cdQ = char.skills.q.cd;
-            player.isDashing = true;
-            player.dashTimer = player.dashDuration;
-            player.qHitTargets = [];
-            createParticles(player.x, player.y, 15, '#00e6ff');
-            broadcastSkill('q');
-        }
-        else if (slot === 'e') {
-            executeAwakenedE();
-        }
-        else if (slot === 'r' && player.cdR <= 0) {
-            player.cdR = 10;
-            executeAwakenedR();
-        }
-        return;
-    }
-
-    if (slot === 'q' && player.cdQ <= 0) {
-        player.cdQ = char.skills.q.cd;
-        player.isDashing = true;
-        player.dashTimer = player.dashDuration;
-        player.qHitTargets = [];
-        createParticles(player.x, player.y, 12, char.color);
-        broadcastSkill('q');
-    }
-    else if (slot === 'e' && player.cdE <= 0) {
-        player.cdE = char.skills.e.cd;
-        executeSkillE(player.charId);
-    }
-    else if (slot === 'r' && char.skills.r && player.cdR <= 0) {
-        player.cdR = char.skills.r.cd;
-        executeSkillR(player.charId);
-    }
-}
-
-function broadcastSkill(skillName) {
-    if (isOnlineConnected && mqttClient) {
-        mqttClient.publish(`arena_2d_game/${currentRoom}/skill`, JSON.stringify({
-            id: myPlayerId,
-            skill: skillName,
-            charId: player.charId,
-            x: player.x,
-            y: player.y
-        }));
-    }
-}
-
-function executeAwakenedE() {
-    let dirX = player.dirX || 1;
-    let dirY = player.dirY || 0;
-    
-    player.punchCount = 0;
-    if (player.punchInterval) clearInterval(player.punchInterval);
-
-    player.punchInterval = setInterval(() => {
-        const targets = getValidTargets();
-        if (player.punchCount >= 15 || targets.length === 0) {
-            clearInterval(player.punchInterval);
-            return;
-        }
-        player.punchCount++;
-
-        targets.forEach(t => {
-            let dist = Math.hypot(t.obj.x - (player.x + dirX * 35), t.obj.y - (player.y + dirY * 35));
-            if (dist < 80) {
-                hitTarget(t.id, t.obj, 5, 0, 0, { stun: 0.3 });
-                createParticles(t.obj.x, t.obj.y, 8, '#ff0055');
-            }
-        });
-    }, 133);
-}
-
-function executeAwakenedR() {
-    let dirX = player.dirX || 1;
-    let dirY = player.dirY || 0;
-
-    createParticles(player.x, player.y, 60, '#ff0055');
-    for (let a = 0; a < Math.PI * 2; a += 0.2) {
-        particles.push(new Particle(
-            player.x + Math.cos(a) * 80,
-            player.y + Math.sin(a) * 80,
-            Math.cos(a) * 4, Math.sin(a) * 4,
-            '#ff4500', 8, 0.6
-        ));
-    }
-
-    getValidTargets().forEach(t => {
-        let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
-        if (dist < 140) {
-            hitTarget(t.id, t.obj, 20, dirX * 22, dirY * 22, {});
-        }
-    });
-}
-
-function executeSkillE(charId) {
-    let dirX = player.dirX || 1;
-    let dirY = player.dirY || 0;
-
-    if (charId === 'wind') {
-        player.x += dirX * 30;
-        player.y += dirY * 30;
-        createParticles(player.x, player.y, 25, '#00e6ff');
-
-        let hitX = player.x + dirX * 40;
-        let hitY = player.y + dirY * 40;
-
-        getValidTargets().forEach(t => {
-            let dist = Math.hypot(t.obj.x - hitX, t.obj.y - hitY);
-            if (dist < 65) {
-                hitTarget(t.id, t.obj, 26, dirX * 12, dirY * 12, { stun: 1.0 });
-            }
-        });
-    }
-    else if (charId === 'sand') {
-        let handX = player.x + dirX * 60;
-        let handY = player.y + dirY * 60;
-        createParticles(handX, handY, 35, '#e6c280');
-
-        projectiles.push({
-            x: player.x,
-            y: player.y,
-            vx: dirX * 12,
-            vy: dirY * 12,
-            damage: 43,
-            life: 0.4,
-            type: 'sand_hand',
-            color: '#e6c280'
-        });
-    }
-    else if (charId === 'ice') {
-        let sweepX = player.x + dirX * 50;
-        let sweepY = player.y + dirY * 50;
-        createParticles(sweepX, sweepY, 35, '#00bfff');
-
-        getValidTargets().forEach(t => {
-            let dist = Math.hypot(t.obj.x - sweepX, t.obj.y - sweepY);
-            if (dist < 70) {
-                hitTarget(t.id, t.obj, 28, dirX * 3, dirY * 3, { freeze: 1.0 });
-            }
-        });
-    }
-    else if (charId === 'iron') {
-        let daggerCount = 0;
-        let daggerInterval = setInterval(() => {
-            if (daggerCount >= 4) {
-                clearInterval(daggerInterval);
-                return;
-            }
-            daggerCount++;
-            projectiles.push({
-                x: player.x, y: player.y,
-                vx: dirX * 14, vy: dirY * 14,
-                damage: 15, life: 0.8,
-                type: 'dagger', color: '#d1d5db'
-            });
-        }, 100);
-    }
-}
-
-function executeSkillR(charId) {
-    let dirX = player.dirX || 1;
-    let dirY = player.dirY || 0;
-
-    if (charId === 'sand') {
-        let targetX = player.x + dirX * 70;
-        let targetY = player.y + dirY * 70;
-        createParticles(targetX, targetY, 20, '#e6c280');
-
-        setTimeout(() => {
-            getValidTargets().forEach(t => {
-                let dist = Math.hypot(t.obj.x - targetX, t.obj.y - targetY);
-                if (dist < 85) {
-                    hitTarget(t.id, t.obj, 20, 0, 0, { silence: 1.5 });
-                    createParticles(t.obj.x, t.obj.y, 40, '#c29b38');
-                }
-            });
-        }, 300);
-    }
-    else if (charId === 'ice') {
-        createParticles(player.x, player.y, 50, '#00bfff');
-        getValidTargets().forEach(t => {
-            let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
-            if (dist < 90) {
-                hitTarget(t.id, t.obj, 10, 0, 0, { stun: 0.5, freeze: 0.5 });
-            }
-        });
-    }
-    else if (charId === 'iron') {
-        createParticles(player.x, player.y, 40, '#ff4500');
-        getValidTargets().forEach(t => {
-            let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
-            if (dist < 80) {
-                hitTarget(t.id, t.obj, 25, dirX * 8, dirY * 8, {});
-            }
-        });
-    }
-}
-
-// --- MAIN GAME LOOP ---
-let lastTime = performance.now();
-function update() {
-    let now = performance.now();
-    let dt = (now - lastTime) / 1000;
-    lastTime = now;
-
-    if (!gameRunning) return;
-
-    if (player.stunTimer > 0) player.stunTimer = Math.max(0, player.stunTimer - dt);
-    if (player.freezeTimer > 0) player.freezeTimer = Math.max(0, player.freezeTimer - dt);
-    if (player.blindTimer > 0) player.blindTimer = Math.max(0, player.blindTimer - dt);
-    if (player.silenceTimer > 0) player.silenceTimer = Math.max(0, player.silenceTimer - dt);
-
-    if (player.cdQ > 0) player.cdQ = Math.max(0, player.cdQ - dt);
-    if (player.cdE > 0) player.cdE = Math.max(0, player.cdE - dt);
-    if (player.cdR > 0) player.cdR = Math.max(0, player.cdR - dt);
-
-    updateCdUI('cd-q', player.cdQ);
-    updateCdUI('cd-e', player.cdE);
-    updateCdUI('cd-r', player.cdR);
-
-    if (player.isUltActive) {
-        player.ultDuration -= dt;
-        player.spinAngle += 0.3;
-
-        if (player.ultSpinTimer > 0) {
-            player.ultSpinTimer -= dt;
-            player.ultSpinInterval += dt;
-
-            getValidTargets().forEach(t => {
-                let dist = Math.hypot(t.obj.x - player.x, t.obj.y - player.y);
-                if (dist < 120) {
-                    t.obj.x += (player.x - t.obj.x) * 0.08;
-                    t.obj.y += (player.y - t.obj.y) * 0.08;
-
-                    if (player.ultSpinInterval >= 0.1) {
-                        hitTarget(t.id, t.obj, 1, 0, 0, {});
-                    }
-                }
-
-                if (player.ultSpinTimer <= 0) {
-                    let angle = Math.atan2(t.obj.y - player.y, t.obj.x - player.x);
-                    hitTarget(t.id, t.obj, 0, Math.cos(angle) * 25, Math.sin(angle) * 25, {});
-                    createDamageText(t.obj.x, t.obj.y - 30, 'BỊ HẤT VĂNG!', '#ff0055', 16);
-                }
-            });
-
-            if (player.ultSpinInterval >= 0.1) {
-                player.ultSpinInterval = 0;
-            }
-        }
-
-        if (player.ultDuration <= 0) {
-            player.isUltActive = false;
-            document.getElementById('bottom-ui').classList.remove('transformed');
-            document.getElementById('slot-e').classList.remove('awakened');
-            document.getElementById('slot-r').classList.remove('awakened');
-            setupSkillUI();
-        }
-        updateUltUI();
-    }
-
-    let moveX = 0, moveY = 0;
-    if (player.stunTimer <= 0 && player.freezeTimer <= 0) {
-        if (keys['w'] || keys['arrowup']) moveY -= 1;
-        if (keys['s'] || keys['arrowdown']) moveY += 1;
-        if (keys['a'] || keys['arrowleft']) moveX -= 1;
-        if (keys['d'] || keys['arrowright']) moveX += 1;
-    }
-
-    if (moveX !== 0 || moveY !== 0) {
-        let len = Math.hypot(moveX, moveY);
-        player.dirX = moveX / len;
-        player.dirY = moveY / len;
-    }
-
-    if (player.isDashing) {
-        player.dashTimer -= dt;
-        player.x += player.dirX * player.dashSpeed;
-        player.y += player.dirY * player.dashSpeed;
-
-        let charColor = CHARACTERS[player.charId].color;
-        particles.push(new Particle(
-            player.x, player.y,
-            (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2,
-            charColor, Math.random() * 6 + 3, 0.4
-        ));
-
-        const checkQEffectOnTarget = (targetId, targetObj) => {
-            if (!player.qHitTargets.includes(targetId)) {
-                let dist = Math.hypot(targetObj.x - player.x, targetObj.y - player.y);
-                if (dist < player.radius + (targetObj.radius || player.radius) + 15) {
-                    player.qHitTargets.push(targetId);
-                    
-                    let dmg = 0;
-                    let effects = {};
-                    if (player.charId === 'sand') {
-                        dmg = 3;
-                        effects.blind = 1.0;
-                    } else if (player.charId === 'ice') {
-                        effects.freeze = 0.5;
-                    }
-                    hitTarget(targetId, targetObj, dmg, player.dirX * 5, player.dirY * 5, effects);
-                }
-            }
+    <script>
+        const characters = {
+            madasalitting: { name: "madasalitting", price: 0, tags: ["Hồi máu", "Thêm tiền", "Tăng Máu", "Hỗ trợ nhân vật"], desc: "[Trang 2] Mỗi 5s nhận $2, +25 Max HP. Các NV mang cùng x1.3 hiệu quả thông tin. Khi nhận sát thương, sau 4s trì hoãn hồi 5 HP/s trong 15s liên tiếp.", owned: false },
+            lius: { name: "lius", price: 0, tags: ["Bất tử", "Lá chắn", "Đặc biệt"], desc: "[Hòm Unit] Bất tử 40s đầu trận. Khi có 80 giáp lá chắn = bất tử thêm 15s. Cho phép mang tối đa 5 nhân vật cùng lúc.", owned: false, gacha: true },
+            silimuss: { name: "silimuss", price: 0, tags: ["Hồi máu", "Giảm ST Bo"], desc: "[Hòm Unit] Cứ sống sót qua mỗi 30s tăng vĩnh viễn +2 máu hồi của mọi loại băng gạc. Có 30% né 3 điểm st bo.", owned: false, gacha: true },
+            neutuin: { name: "neutuin", price: 0, tags: ["Hồi sinh", "Giảm ST Bo"], desc: "[Hòm Unit] Khi chết tự động hồi sinh, nhận thêm +25 máu tối đa, giảm 80% st bo nhưng tốc độ quấn gạc giảm sâu 50%.", owned: false, gacha: true },
+            xiphung: { name: "xĩ phưng", price: 0, tags: ["Bất tử", "Hồi sinh", "Lá chắn", "Giảm ST Bo"], desc: "[Hòm Unit] Cứ hồi 5 lần gạc = bất tử trong 5s, +30 max HP và +25 lá chắn. Giảm 35% st bo. Hồi sinh tối đa 3 lần bằng hồn ma.", owned: false, gacha: true },
+            hexicoins: { name: "hexicoins", price: 135, tags: ["Thêm tiền"], desc: "Mỗi 30s trong trận nhận thêm $2 (Tổng $7). [Có thể tiến hóa]", level: 1, owned: false },
+            geople_galaxy: { name: "geople galaxy", price: 135, tags: ["Thời gian hiệu ứng"], desc: "Bấm G tạo vùng Galaxy miễn nhiễm hoàn toàn sát thương bo trong 20s. Hồi chiêu 60s.", owned: false },
+            quossesp: { name: "quossesp", price: 130, tags: ["EP", "Hồi máu", "Tăng tốc"], desc: "Tự hồi 10 EP/s. Khi đầy EP (300) nhận nộ x3 hồi máu và x3 tốc độ di chuyển trong 10s.", owned: false },
+            allyas: { name: "allyas", price: 125, tags: ["Lá chắn"], desc: "Nhấn G nhận Lá Chắn 75 HP hấp thụ sát thương bo trước. Hồi chiêu 120s.", owned: false },
+            doctors: { name: "doctors", price: 100, tags: ["Hồi máu", "Hỗ trợ nhân vật"], desc: "Tăng hồi máu của các nhân vật hệ hồi máu thêm 30%. [Có thể tiến hóa]", level: 1, owned: false },
+            autriled: { name: "autriled", price: 100, tags: ["Bất tử", "EP"], desc: "Max EP lên 300. Khi đủ 200 EP, nhấn G hóa cầu xung kích bất tử hoàn toàn trong 5s.", owned: false },
+            missingnoo: { name: "missingnoo", price: 90, tags: ["Hồi máu"], desc: "Đặt tối đa 4 trụ hồi máu (5 HP/s). Pin giảm 5%/s. Giữ E để sạc lại pin.", owned: false },
+            dingsera: { name: "dingsera", price: 90, tags: ["Giảm ST Bo", "Lá chắn"], desc: "Giảm trực tiếp 25% sát thương nhận vào từ vòng bo. [Có thể tiến hóa]", level: 1, owned: false },
+            thanenicoxexer: { name: "thanenicoxexer", price: 90, tags: ["Thêm tiền", "Hồi máu"], desc: "Chạy liên tục 8s nhận liền $5 và kích hoạt hồi 1 máu/0.7s trong 20s.", owned: false },
+            mexicoxnent: { name: "mexicoxnent", price: 85, tags: ["Hồi máu", "Thêm tiền"], desc: "Bơm máu 2 lần thì lần tiếp theo x2 lượng máu hồi phục trong 2 lần kế tiếp. Thua nhận thêm $2.", owned: false },
+            malatuliss: { name: "malatuliss", price: 80, tags: ["Lá chắn"], desc: "Khi kích hoạt kỹ năng chủ động, hồi thêm 15 giáp lá chắn (tồn tại trong 30s).", owned: false },
+            supermasix: { name: "supermasix", price: 76, tags: ["Tăng tốc"], desc: "Khi dùng băng gạc đủ 10 lần, tăng gấp 10 lần tốc độ di chuyển trong 30s.", owned: false },
+            sonygodly: { name: "sonygodly", price: 75, tags: ["Thêm tiền"], desc: "Cộng thêm $10 trực tiếp vào tài khoản sau mỗi trận thua. [Có thể tiến hóa]", level: 1, owned: false },
+            bunkolesses: { name: "bunkolesses", price: 70, tags: ["Hồi máu"], desc: "Giảm 35% thời gian quấn băng gạc hồi máu.", owned: false },
+            riostudio: { name: "riostudio", price: 60, tags: ["Hồi máu"], desc: "Khi lượng máu bản thân dưới 55 HP, tăng thêm 50% hiệu quả khi quấn băng gạc.", owned: false },
+            athaira_son: { name: "athaira son", price: 50, tags: ["Chặn sát thương", "EP"], desc: "Chặn 50% sát thương từ bo bằng cách trừ thẳng vào EP (Tỷ lệ 1:1) nếu EP còn lớn hơn 0.", owned: false },
+            kalukaka: { name: "kalukaka", price: 50, tags: ["Tăng Máu"], desc: "Tăng giới hạn máu gốc của bản thân lên tối đa 250 HP.", owned: false },
+            sanids: { name: "sanids", price: 45, tags: ["Hồi máu"], desc: "Hồi thêm 10 máu khi dùng băng gạc. [Có thể tiến hóa]", level: 1, owned: false },
+            conilos: { name: "conilos", price: 30, tags: ["Hồi máu"], desc: "Khi mất máu: tự động hồi 10 máu/s trong 3s (Hồi chiêu 60s). [Có thể tiến hóa]", level: 1, owned: false },
+            dagandas: { name: "dagandas", price: 25, tags: ["Hồi máu"], desc: "Cải tiến băng gạc cơ bản giúp hồi hẳn 22 máu cho mỗi lần sử dụng.", owned: false },
+            sxphonacer: { name: "sxphonacer", price: 10, tags: ["Tăng tốc"], desc: "Tăng vĩnh viễn x2 tốc độ di chuyển xuyên suốt toàn bộ trận đấu.", owned: false },
+            vartealthais: { name: "vartealthais", price: 0, tags: ["Hồi máu", "Đặc biệt"], desc: "Phần thưởng Cấp 5. Phím E triệu hồi 4 người, chém bằng Q (Dao) để hồi máu & tạo huyết trận khi chết.", owned: false }
         };
 
-        getValidTargets().forEach(t => checkQEffectOnTarget(t.id, t.obj));
+        const pets = {
+            conilas: { name: "conilas", price: 235, desc: "Tăng thêm 150 max máu. Kích hoạt giảm st bo và tăng x2 hồi máu bằng băng gạc/nhân vật hệ hồi máu." },
+            fox: { name: "Hồ Ly", price: 10, desc: "Tăng thêm 5 máu khi dùng băng gạc." },
+            bone: { name: "Bạch Cốt", price: 32, desc: "Tăng 15% hiệu quả hồi máu cho nhân vật hệ hồi máu/hỗ trợ." },
+            ricaka: { name: "Ricaka Tosix", price: 30, desc: "Tỷ lệ 50% giúp băng gạc được x1.5 lượng máu hồi phục." },
+            cakaqua: { name: "Cakaqua Sazxki", price: 70, desc: "Nhận ngay $10 khởi đầu trận đấu." },
+            supix: { name: "Supix", price: 40, desc: "Tăng x2 tốc độ di chuyển và x1.5 lượng tiền nhận được khi thua trận." },
+            xosastions: { name: "Xosastions", price: 90, desc: "Cấp 30 túi cứu thương lớn [Phím 1]: Tốn 7s quấn, hồi vọt 40 máu (dạng chạy số 1 máu/0.1s)." },
+            manic: { name: "Manic Codilos", price: 120, desc: "Tự động hồi liên tục 5 HP/s xuyên suốt từ đầu tới cuối trận." }
+        };
 
-        if (player.dashTimer <= 0) player.isDashing = false;
-    } else {
-        if (player.stunTimer <= 0 && player.freezeTimer <= 0) {
-            player.x += moveX * player.speed;
-            player.y += moveY * player.speed;
-        }
-    }
+        const predefinedCombos = [
+            { name: "Combo 1: Siêu Cấp Hồi Phục", members: ["doctors", "sanids", "bunkolesses", "riostudio"] },
+            { name: "Combo 2: Hack Tiền Bất Tử", members: ["sonygodly", "thanenicoxexer", "mexicoxnent", "quossesp"] },
+            { name: "Combo 3: Vùng Không Gian Bất Hoại", members: ["geople_galaxy", "autriled", "allyas", "malatuliss"] },
+            { name: "Combo 4: Trụ Phòng Thủ Kiên Cố", members: ["missingnoo", "dingsera", "kalukaka", "conilos"] },
+            { name: "Combo 5: Đột Kích Tốc Độ Áp Đảo", members: ["sxphonacer", "supermasix", "quossesp", "thanenicoxexer"] }
+        ];
 
-    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
-    player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+        let wallet = 0; let slotUpgradesOwned = 0; let ownedPets = []; let equippedPets = []; let equippedChars = [];
+        let totalMatchesPlayed = 0; let totalHealsUsed = 0; let maxSingleMatchHealsSanids = 0;
+        let doctorsQualifyingMatches = 0; let historicalTotalHpRegened = 0; let maxSingleMatchSurvivalCash = 0;
+        let currentUpgradeTarget = ''; 
 
-    // Gửi vị trí Online theo chu kỳ mượt mà
-    sendOnlineState();
+        let conilosTotalOwnHealed = 0; let sanidsTotalBandageHealed = 0; let sonygodlyMatchesAbove90 = 0; let doctorsQualifyingMatchesV3 = 0;     
+        let dingseraL2Matches = 0; let dingseraL3Matches = 0; let hexicoinsL2Record = 0; let hexicoinsL3Matches = 0;
 
-    if (bot.isDead) {
-        bot.respawnTimer -= dt;
-        if (bot.respawnTimer <= 0) {
-            bot.isDead = false;
-            bot.hp = bot.maxHp;
-            bot.x = 680;
-            bot.y = 310;
-            bot.stunTimer = 0; bot.freezeTimer = 0;
-            bot.blindTimer = 0; bot.silenceTimer = 0;
-            createParticles(bot.x, bot.y, 20, '#28a745');
-        }
-    } else {
-        if (bot.stunTimer > 0) bot.stunTimer = Math.max(0, bot.stunTimer - dt);
-        if (bot.freezeTimer > 0) bot.freezeTimer = Math.max(0, bot.freezeTimer - dt);
-        if (bot.blindTimer > 0) bot.blindTimer = Math.max(0, bot.blindTimer - dt);
-        if (bot.silenceTimer > 0) bot.silenceTimer = Math.max(0, bot.silenceTimer - dt);
+        let playerLevel = 1; let playerExp = 0; let playerMaxExp = 200; let vartealthaisExpiry = 0; 
+        let activePage = 1;
 
-        bot.x += bot.knockbackVx;
-        bot.y += bot.knockbackVy;
-        bot.knockbackVx *= 0.85;
-        bot.knockbackVy *= 0.85;
-    }
+        let craftDoubleMoneyMatches = 0; let craftDoubleExpMatches = 0; let craftMadasaTeamMatches = 0; 
+        let potionX2MoneyExpiry = 0; let potionX2ExpExpiry = 0;       
+        let permanentExpMultiplier = 1.0; let hasClaimedLevel40Reward = false;
 
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-        let p = projectiles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= dt;
+        let currentMode = 'easy'; let hardMaxHpLost = 0; let hardModePhase2Timer = 0; let enemyBullets = [];
 
-        let hitSomething = false;
-        getValidTargets().forEach(t => {
-            if (hitSomething) return;
-            let dist = Math.hypot(t.obj.x - p.x, t.obj.y - p.y);
-            if (dist < (t.radius || 22) + 12) {
-                let effects = {};
-                if (p.type === 'sand_hand') effects.blind = 1.4;
-                hitTarget(t.id, t.obj, p.damage, p.vx * 0.2, p.vy * 0.2, effects);
-                createParticles(p.x, p.y, 10, p.color);
-                hitSomething = true;
-            }
-        });
+        let matchHpRegenAccumulator = 0; let matchOwnHealConilosAccumulator = 0; let matchBandageHealSanidsAccumulator = 0;
+        let matchZoneDmgTicksCount = 0; let matchUsedBandageInThisGame = false; let dingseraL3PassiveTriggered = false; 
+        let matchHexicoinsTriggerCount = 0; let currentMatchExpEarned = 0; 
 
-        if (hitSomething || p.life <= 0) projectiles.splice(i, 1);
-    }
+        let liusFirstImmortalTimer = 0; let liusShieldImmortalTimer = 0; let liusShieldTriggered = false;
+        let silimussBandageBonus = 0; let neutuinRevived = false; let xiPhungGhosts = 0;
+        let xiPhungBandageCount = 0; let xiPhungImmortalTimer = 0;
+        let madasaDelayTimer = 0; let madasaHealTimer = 0; 
+        let humansList = []; let bloodPoolsList = []; let vartealthaisCooldown = 0;
 
-    for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update(dt);
-        if (particles[i].life <= 0) particles.splice(i, 1);
-    }
-
-    for (let i = floatingTexts.length - 1; i >= 0; i--) {
-        floatingTexts[i].y -= 0.8;
-        floatingTexts[i].life -= dt;
-        if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
-    }
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    }
-    for (let y = 0; y < canvas.height; y += 40) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-    }
-
-    if (player.isUltActive) {
-        ctx.save();
-        let grad = ctx.createRadialGradient(player.x, player.y, 100, player.x, player.y, 450);
-        grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        grad.addColorStop(1, 'rgba(10, 0, 20, 0.85)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.restore();
-    }
-
-    particles.forEach(p => p.draw(ctx));
-
-    projectiles.forEach(p => {
-        ctx.save();
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    });
-
-    if (gameRunning) {
-        // --- VẼ NGƯỜI CHƠI KHÁC (ONLINE PLAYERS) ---
-        const nowTime = performance.now();
-        Object.keys(otherPlayers).forEach(pId => {
-            const op = otherPlayers[pId];
-            if (nowTime - op.lastUpdate > 4000) return; // Mất kết nối quá 4s thì giấu đi
-
-            const oChar = CHARACTERS[op.charId] || CHARACTERS.wind;
-
-            // Bóng đổ
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath();
-            ctx.ellipse(op.x, op.y + 20, 20, 8, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Vòng viền năng lượng
-            ctx.strokeStyle = op.isUltActive ? '#ff0055' : oChar.color;
-            ctx.lineWidth = op.isDashing ? 5 : 2;
-            ctx.beginPath();
-            ctx.arc(op.x, op.y, player.radius + 4, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Thân nhân vật
-            ctx.fillStyle = op.isUltActive ? '#ff0055' : oChar.color;
-            ctx.beginPath();
-            ctx.arc(op.x, op.y, player.radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Hướng nhìn
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(op.x + (op.dirX || 1) * 12, op.y + (op.dirY || 0) * 12, 5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Avatar Icon
-            ctx.font = '14px Segoe UI';
-            ctx.textAlign = 'center';
-            ctx.fillText(oChar.avatar, op.x, op.y + 5);
-
-            // Nhãn Tên Người Chơi
-            ctx.fillStyle = '#00e6ff';
-            ctx.font = 'bold 11px Segoe UI';
-            ctx.fillText(`P-${pId.slice(-4)} (${oChar.name.split(' ')[0]})`, op.x, op.y - 32);
-
-            // Thanh Máu
-            if (op.hp !== undefined) {
-                ctx.fillStyle = 'rgba(0,0,0,0.6)';
-                ctx.fillRect(op.x - 20, op.y - 25, 40, 5);
-                ctx.fillStyle = '#ff416c';
-                ctx.fillRect(op.x - 20, op.y - 25, Math.max(0, (op.hp / (op.maxHp || 100)) * 40), 5);
-            }
-        });
-
-        // Vẽ Bot
-        if (!bot.isDead) {
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath();
-            ctx.ellipse(bot.x, bot.y + 20, 20, 8, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = bot.freezeTimer > 0 ? '#00bfff' :
-                            bot.blindTimer > 0 ? '#e6c280' :
-                            bot.silenceTimer > 0 ? '#ff0055' :
-                            (bot.stunTimer > 0 ? '#f39c12' : '#e74c3c');
-            ctx.beginPath();
-            ctx.arc(bot.x, bot.y, bot.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#c0392b';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-
-            if (bot.blindTimer > 0) {
-                ctx.fillStyle = 'rgba(230, 194, 128, 0.7)';
-                ctx.beginPath();
-                ctx.arc(bot.x, bot.y, bot.radius + 6, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (bot.freezeTimer > 0) {
-                ctx.fillStyle = 'rgba(0, 191, 255, 0.6)';
-                ctx.beginPath();
-                ctx.arc(bot.x, bot.y, bot.radius + 6, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(bot.x - 25, bot.y - 35, 50, 6);
-            ctx.fillStyle = '#2ecc71';
-            ctx.fillRect(bot.x - 25, bot.y - 35, (bot.hp / bot.maxHp) * 50, 6);
-        } else {
-            ctx.fillStyle = '#888';
-            ctx.font = '12px Segoe UI';
-            ctx.textAlign = 'center';
-            ctx.fillText(`Bot hồi sinh: ${Math.ceil(bot.respawnTimer)}s`, 680, 310);
-        }
-
-        // Vẽ Người Chơi Chính
-        const activeChar = CHARACTERS[player.charId];
-
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(player.x, player.y + 20, 20, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (player.isUltActive && player.ultSpinTimer > 0) {
-            ctx.save();
-            ctx.strokeStyle = 'rgba(255, 0, 85, 0.4)';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, 120, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        ctx.strokeStyle = player.isUltActive ? '#ff0055' : activeChar.color;
-        ctx.lineWidth = player.isDashing ? 5 : 2;
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.radius + 4, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = player.isUltActive ? '#ff0055' : activeChar.color;
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(player.x + player.dirX * 12, player.y + player.dirY * 12, 6, 0, Math.PI * 2);
-        ctx.fill();
-
-        floatingTexts.forEach(ft => {
-            ctx.fillStyle = ft.color;
-            ctx.font = `bold ${ft.fontSize}px Segoe UI`;
-            ctx.textAlign = 'center';
-            ctx.fillText(ft.text, ft.x, ft.y);
-        });
-    }
-
-    requestAnimationFrame(() => {
-        update();
-        draw();
-    });
-}
-
-function updateCdUI(id, cd) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (cd > 0) {
-        el.style.display = 'flex';
-        el.innerText = `${cd.toFixed(1)}s`;
-    } else {
-        el.style.display = 'none';
-    }
-}
-
-// --- LOBBY & SHOP SYSTEM ---
-function renderLobby() {
-    const container = document.getElementById('char-list');
-    container.innerHTML = '';
-
-    Object.values(CHARACTERS).forEach(char => {
-        const isUnlocked = saveData.unlocked.includes(char.id);
-        const isSelected = saveData.selected === char.id;
-
-        const card = document.createElement('div');
-        card.className = `char-card ${isSelected ? 'selected' : ''}`;
+        const canvas = document.getElementById('game-canvas'); const ctx = canvas.getContext('2d');
+        let timers = { gameLoop: null, zoneStartTimeout: null, zoneGrowInterval: null, zoneDmgInterval: null, cashInterval: null, oneSecInterval: null, doctorRegenInterval: null, manicRegenInterval: null, bigMedkitInterval: null, dingseraShieldRegen: null, hexicoinsInterval: null };
         
-        let buttonHtml = '';
-        if (isSelected) {
-            buttonHtml = `<button class="btn-action btn-equipped">ĐÃ CHỌN</button>`;
-        } else if (isUnlocked) {
-            buttonHtml = `<button class="btn-action btn-select" onclick="selectChar('${char.id}')">CHỌN</button>`;
-        } else {
-            buttonHtml = `<button class="btn-action btn-buy" onclick="buyChar('${char.id}')">MUA ($${char.price})</button>`;
+        let player = {
+            x: 0, y: 0, radius: 15, baseSpeed: 4, speed: 4, maxHp: 200, hp: 200, shield: 0, maxShield: 15, shieldTimer: 0, maxEp: 200, ep: 0,
+            isHealing: false, healProgress: 0, isUsingBigMedkit: false, bigMedkitProgress: 0, bigMedkitCount: 0, bigMedkitRegenTicks: 0, lastX: 0, lastY: 0
+        };
+
+        let zoneDmg = 0; let gameMoneyEarned = 0; let matchTimer = 0; let turretsPlaced = 0; let turretsList = []; 
+        let keys = { w: false, a: false, s: false, d: false };
+        let conilosCooldown = 0; let conilosRegenTimer = 0; let activeSkillCooldown = 0; 
+        let matchHealCounter = 0; let supermasixTimer = 0; let runTimer = 0; let thanenicoRegenTimer = 0; 
+        let mexicoxnentDoubles = 0; let geopleGalaxyTimer = 0; let autriledImmortalTimer = 0; let quossespBuffTimer = 0;
+
+        let joystickActive = false; let joystickStartX = 0; let joystickStartY = 0;
+        const dpad = document.getElementById('dpad'); const stick = document.getElementById('dpad-stick'); const dpadRadius = 65;
+
+        function getMaxSlots() { if (equippedChars.includes('lius')) return 5; return 2 + slotUpgradesOwned; }
+        function clearAllGameTimers() { for (let key in timers) { if (timers[key]) { clearInterval(timers[key]); clearTimeout(timers[key]); } timers[key] = null; } }
+        
+        function toggleComboBody() {
+            let body = document.getElementById('combo-body-content'); let arrow = document.getElementById('combo-arrow');
+            if (body.classList.contains('show')) { body.classList.remove('show'); arrow.innerText = '▼'; } 
+            else { body.classList.add('show'); arrow.innerText = '▲'; }
         }
 
-        card.innerHTML = `
-            <div class="char-avatar" style="background: ${char.color}22; border: 2px solid ${char.color};">${char.avatar}</div>
-            <div class="char-name" style="color: ${char.color}">${char.name}</div>
-            <div class="char-desc">${char.desc}</div>
-            ${buttonHtml}
-        `;
-        container.appendChild(card);
-    });
+        function switchPage(pageNum) {
+            activePage = pageNum;
+            if (pageNum === 1) {
+                document.getElementById('page-1').style.display = 'block'; document.getElementById('page-2').style.display = 'none';
+                document.getElementById('shop-controls-bar').style.display = 'flex'; document.getElementById('menu-title').innerText = "HỆ THỐNG TRANG BỊ & SHOP";
+                renderShop();
+            } else {
+                document.getElementById('page-1').style.display = 'none'; document.getElementById('page-2').style.display = 'block';
+                document.getElementById('shop-controls-bar').style.display = 'none'; document.getElementById('menu-title').innerText = "XƯỞNG CHẾ TẠO (TRANG 2)";
+                renderCraftPage();
+            }
+        }
 
-    updateMoneyUI();
-}
+        function loadGameData() {
+            let parseOrZero = (key) => { let v = localStorage.getItem(key); return v ? parseFloat(v) : 0; };
+            let parseIntOrZero = (key) => { let v = localStorage.getItem(key); return v ? parseInt(v) : 0; };
 
-function selectChar(id) {
-    saveData.selected = id;
-    saveProgress();
-    renderLobby();
-}
+            wallet = parseIntOrZero('survival_wallet_v5'); slotUpgradesOwned = parseIntOrZero('survival_slots_v5');
+            if (localStorage.getItem('survival_owned_pets_v5')) ownedPets = JSON.parse(localStorage.getItem('survival_owned_pets_v5'));
+            if (localStorage.getItem('survival_equipped_pets_v5')) equippedPets = JSON.parse(localStorage.getItem('survival_equipped_pets_v5'));
+            
+            totalMatchesPlayed = parseIntOrZero('survival_total_matches_v5'); totalHealsUsed = parseIntOrZero('survival_total_heals_v5');
+            maxSingleMatchHealsSanids = parseIntOrZero('survival_sanids_record_v5'); doctorsQualifyingMatches = parseIntOrZero('survival_doc_matches_v5');
+            historicalTotalHpRegened = parseOrZero('survival_total_regened_v5'); maxSingleMatchSurvivalCash = parseIntOrZero('survival_max_single_cash_v5');
+            
+            if (localStorage.getItem('survival_conilos_lvl_v5')) characters.conilos.level = parseInt(localStorage.getItem('survival_conilos_lvl_v5'));
+            if (localStorage.getItem('survival_sanids_lvl_v5')) characters.sanids.level = parseInt(localStorage.getItem('survival_sanids_lvl_v5'));
+            if (localStorage.getItem('survival_doctors_lvl_v5')) characters.doctors.level = parseInt(localStorage.getItem('survival_doctors_lvl_v5'));
+            if (localStorage.getItem('survival_sonygodly_lvl_v5')) characters.sonygodly.level = parseInt(localStorage.getItem('survival_sonygodly_lvl_v5'));
+            if (localStorage.getItem('survival_dingsera_lvl_v6')) characters.dingsera.level = parseInt(localStorage.getItem('survival_dingsera_lvl_v6'));
+            if (localStorage.getItem('survival_hexicoins_lvl_v7')) characters.hexicoins.level = parseInt(localStorage.getItem('survival_hexicoins_lvl_v7'));
+            
+            conilosTotalOwnHealed = parseOrZero('survival_conilos_total_v6'); sanidsTotalBandageHealed = parseOrZero('survival_sanids_total_v6');
+            sonygodlyMatchesAbove90 = parseIntOrZero('survival_sony_90_v6'); doctorsQualifyingMatchesV3 = parseIntOrZero('survival_doc_v3_matches_v6');
+            dingseraL2Matches = parseIntOrZero('survival_dingsera_l2_matches_v6'); dingseraL3Matches = parseIntOrZero('survival_dingsera_l3_matches_v6');
+            hexicoinsL2Record = parseIntOrZero('survival_hexicoins_l2_rec_v7'); hexicoinsL3Matches = parseIntOrZero('survival_hexicoins_l3_mat_v7');
 
-function buyChar(id) {
-    const char = CHARACTERS[id];
-    if (saveData.money >= char.price) {
-        saveData.money -= char.price;
-        saveData.unlocked.push(id);
-        saveData.selected = id;
-        saveProgress();
-        renderLobby();
-    } else {
-        alert('Bạn không đủ tiền! Hãy vào trận đánh bot để tích thêm tiền ($).');
-    }
-}
+            playerLevel = parseIntOrZero('survival_player_level') || 1; playerExp = parseIntOrZero('survival_player_exp'); vartealthaisExpiry = parseIntOrZero('survival_v_expiry');
+            playerMaxExp = Math.round(200 * Math.pow(1.1, playerLevel - 1));
 
-function setupSkillUI() {
-    const char = CHARACTERS[saveData.selected];
-    player.charId = char.id;
+            permanentExpMultiplier = parseOrZero('survival_exp_mult_v8') || 1.0;
+            hasClaimedLevel40Reward = localStorage.getItem('survival_lv40_claim_v8') === 'true';
 
-    document.getElementById('char-title-display').innerText = char.name.toUpperCase();
-    
-    document.getElementById('icon-q').innerText = char.skills.q.icon;
-    document.getElementById('name-q').innerText = char.skills.q.name;
+            craftDoubleMoneyMatches = parseIntOrZero('craft_double_money_v8'); craftDoubleExpMatches = parseIntOrZero('craft_double_exp_v8');
+            craftMadasaTeamMatches = parseIntOrZero('craft_madasa_team_v8'); potionX2MoneyExpiry = parseIntOrZero('potion_x2_money_v8'); potionX2ExpExpiry = parseIntOrZero('potion_x2_exp_v8');
 
-    document.getElementById('icon-e').innerText = char.skills.e.icon;
-    document.getElementById('name-e').innerText = char.skills.e.name;
+            if (localStorage.getItem('survival_owned_chars_v5')) {
+                let ownedList = JSON.parse(localStorage.getItem('survival_owned_chars_v5'));
+                ownedList.forEach(key => { if(characters[key]) characters[key].owned = true; });
+            }
+            if (localStorage.getItem('survival_equipped_v5')) equippedChars = JSON.parse(localStorage.getItem('survival_equipped_v5'));
+            updateLeveledStatsDescriptions();
+        }
 
-    const slotR = document.getElementById('slot-r');
-    if (char.skills.r) {
-        slotR.style.display = 'flex';
-        document.getElementById('icon-r').innerText = char.skills.r.icon;
-        document.getElementById('name-r').innerText = char.skills.r.name;
-    } else {
-        slotR.style.display = 'none';
-    }
+        function saveGameData() {
+            localStorage.setItem('survival_wallet_v5', wallet); localStorage.setItem('survival_slots_v5', slotUpgradesOwned);
+            localStorage.setItem('survival_owned_pets_v5', JSON.stringify(ownedPets)); localStorage.setItem('survival_equipped_pets_v5', JSON.stringify(equippedPets));
+            localStorage.setItem('survival_total_matches_v5', totalMatchesPlayed); localStorage.setItem('survival_total_heals_v5', totalHealsUsed);
+            localStorage.setItem('survival_sanids_record_v5', maxSingleMatchHealsSanids); localStorage.setItem('survival_doc_matches_v5', doctorsQualifyingMatches);
+            localStorage.setItem('survival_total_regened_v5', historicalTotalHpRegened); localStorage.setItem('survival_max_single_cash_v5', maxSingleMatchSurvivalCash);
+            localStorage.setItem('survival_conilos_lvl_v5', characters.conilos.level); localStorage.setItem('survival_sanids_lvl_v5', characters.sanids.level);
+            localStorage.setItem('survival_doctors_lvl_v5', characters.doctors.level); localStorage.setItem('survival_sonygodly_lvl_v5', characters.sonygodly.level);
+            localStorage.setItem('survival_dingsera_lvl_v6', characters.dingsera.level); localStorage.setItem('survival_hexicoins_lvl_v7', characters.hexicoins.level);
+            
+            localStorage.setItem('survival_conilos_total_v6', conilosTotalOwnHealed); localStorage.setItem('survival_sanids_total_v6', sanidsTotalBandageHealed);
+            localStorage.setItem('survival_sony_90_v6', sonygodlyMatchesAbove90); localStorage.setItem('survival_doc_v3_matches_v6', doctorsQualifyingMatchesV3);
+            localStorage.setItem('survival_dingsera_l2_matches_v6', dingseraL2Matches); localStorage.setItem('survival_dingsera_l3_matches_v6', dingseraL3Matches);
+            localStorage.setItem('survival_hexicoins_l2_rec_v7', hexicoinsL2Record); localStorage.setItem('survival_hexicoins_l3_mat_v7', hexicoinsL3Matches);
 
-    updateUltUI();
-    updateHpUI();
-}
+            localStorage.setItem('survival_player_level', playerLevel); localStorage.setItem('survival_player_exp', playerExp); localStorage.setItem('survival_v_expiry', vartealthaisExpiry);
+            localStorage.setItem('survival_exp_mult_v8', permanentExpMultiplier); localStorage.setItem('survival_lv40_claim_v8', hasClaimedLevel40Reward);
 
-function enterBattle() {
-    document.getElementById('lobby-screen').style.display = 'none';
-    setupSkillUI();
-    gameRunning = true;
-}
+            localStorage.setItem('craft_double_money_v8', craftDoubleMoneyMatches); localStorage.setItem('craft_double_exp_v8', craftDoubleExpMatches);
+            localStorage.setItem('craft_madasa_team_v8', craftMadasaTeamMatches); localStorage.setItem('potion_x2_money_v8', potionX2MoneyExpiry); localStorage.setItem('potion_x2_exp_v8', potionX2ExpExpiry);
 
-function returnToLobby() {
-    gameRunning = false;
-    document.getElementById('lobby-screen').style.display = 'flex';
-    renderLobby();
-}
+            let ownedList = []; for (let key in characters) { if (characters[key].owned) ownedList.push(key); }
+            localStorage.setItem('survival_owned_chars_v5', JSON.stringify(ownedList)); localStorage.setItem('survival_equipped_v5', JSON.stringify(equippedChars));
+        }
 
-// Init Game
-loadProgress();
-renderLobby();
-draw();
-</script>
+        function updateLeveledStatsDescriptions() {
+            if (characters.hexicoins.level === 1) characters.hexicoins.desc = "Mỗi 30s trong trận nhận thêm $2 (Tổng $7). [Có thể tiến hóa]";
+            if (characters.hexicoins.level === 2) characters.hexicoins.desc = "<b style='color:#2ecc71;'>[LV 2]</b> Mỗi 30s trong trận nhận thêm $4 (Tổng $9).";
+            if (characters.hexicoins.level === 3) characters.hexicoins.desc = "<b style='color:#e74c3c;'>[LV 3 MAX]</b> Mỗi 30s nhận tổng $15. Tăng mạnh thêm <b style='color:#f1c40f;'>x1.5 tiền</b> cho các nhân vật hệ Thêm tiền mang theo cùng.";
+
+            if (characters.conilos.level === 2) characters.conilos.desc = "<b style='color:#2ecc71;'>[LV 2]</b> Mất máu hồi 10 HP/s trong 3s. Hồi chiêu lập tức khi bấm G. Tăng 5% tốc độ băng gạc.";
+            if (characters.conilos.level === 3) characters.conilos.desc = "<b style='color:#e74c3c;'>[LV 3 MAX]</b> Tự động hồi vọt tới <b style='color:#f1c40f;'>15 máu/s trong 3s</b> khi mất máu. Tăng mạnh <b style='color:#00bcd4;'>13% tốc độ quấn gạc</b>.";
+
+            if (characters.sanids.level === 2) characters.sanids.desc = "<b style='color:#2ecc71;'>[LV 2]</b> Lượng máu hồi phục cộng thêm của băng gạc tăng mạnh lên thẳng +30 HP.";
+            if (characters.sanids.level === 3) characters.sanids.desc = "<b style='color:#e74c3c;'>[LV 3 MAX]</b> Băng gạc hồi trực tiếp <b style='color:#f1c40f;'>45 máu</b>, nhưng giảm 10% hiệu ứng từ tất cả nhân vật hệ hỗ trợ khác.";
+
+            if (characters.sonygodly.level === 2) characters.sonygodly.desc = "<b style='color:#2ecc71;'>[LV 2]</b> Nhận thêm $10 trực tiếp khi thua. Rút ngắn thời gian tự động nhận tiền sinh tồn xuống 19s.";
+            if (characters.sonygodly.level === 3) characters.sonygodly.desc = "<b style='color:#e74c3c;'>[LV 3 MAX]</b> Thêm thẳng <b style='color:#2ecc71;'>+$25 khi thua trận</b>! Rút ngắn thời gian đếm giây nhận tiền trong trận xuống chỉ còn <b style='color:#00bcd4;'>15 giây/lần</b>.";
+
+            if (characters.doctors.level === 2) characters.doctors.desc = "<b style='color:#2ecc71;'>[LV 2]</b> Hệ hồi máu tăng 30%. [Có thể tiến hóa lên cấp tối đa]";
+            if (characters.doctors.level === 3) characters.doctors.desc = "<b style='color:#e74c3c;'>[LV 3 MAX]</b> Hệ hồi máu tăng mạnh <b style='color:#2ecc71;'>+50%</b>. Thời gian quấn gạc giảm cực sâu chỉ còn <b style='color:#f1c40f;'>3.5 giây</b>. Tự có trụ hồi phục <b style='color:#00bcd4;'>5 máu/s liên tục</b> kế bên. Đặc biệt: Cứ hồi mỗi <b style='color:#e67e22;'>13000 máu</b> trong trận = <b style='color:#e67e22;'>x1.3 lần tổng số tiền nhận khi thua!</b>";
+
+            if (characters.dingsera.level === 1) characters.dingsera.desc = "Giảm trực tiếp 25% sát thương nhận vào từ vòng bo. [Có thể tiến hóa]";
+            if (characters.dingsera.level === 2) characters.dingsera.desc = "<b style='color:#2ecc71;'>[LV 2]</b> Giảm trực tiếp 30% sát thương từ bo và cộng thêm hẳn +10 giáp lá chắn khi vào trận.";
+            if (characters.dingsera.level === 3) characters.dingsera.desc = "<b style='color:#e74c3c;'>[LV 3 MAX]</b> Giảm 35% sát thương bo, vào trận +25 lá chắn. Khi hết lá chắn, nhận lập tức +25 EP và kích hoạt hiệu ứng hồi 1 lá chắn/s (Tối đa dừng lại ở mức 25).";
+        }
+
+        function openLevelRewardsModal() {
+            document.getElementById('level-rewards-modal').style.display = 'flex';
+            let listDiv = document.getElementById('level-rewards-list'); listDiv.innerHTML = '';
+            for (let lv = 1; lv <= 40; lv++) {
+                let amt = Math.round(50 * Math.pow(1.1, lv - 1)); let special = "";
+                if (lv === 20) special = " <b style='color:#9b59b4;'>[Mở khóa Hòm Mở Unit Thần Thoại]</b>";
+                else if (lv === 40) special = " <b style='color:#e74c3c;'>[SIÊU MỐC: +$3500, 5 Hòm, x1.2 EXP vĩnh viễn]</b>";
+                else if (lv % 5 === 0) special = " <b style='color:#673ab7;'>[Thuê Thử Nghiệm Vartealthais 3h]</b>";
+                let currentText = (lv === playerLevel) ? " <span style='color:#f1c40f;'>(Cấp Hiện Tại)</span>" : "";
+                listDiv.innerHTML += `<div style="border-bottom:1px solid #444; padding:3px 0;"><b>Cấp ${lv}:</b> Tặng +$${amt}${special}${currentText}</div>`;
+            }
+        }
+
+        function buyCrate(count) {
+            let cost = count * 1000;
+            if (playerLevel < 20) { alert("Bạn chưa đủ cấp độ 20 để mua hòm!"); return; }
+            if (wallet < cost) { alert("Bạn không đủ tiền để mua hòm!"); return; }
+            wallet -= cost;
+            let pool = [{ key: 'lius', name: 'Lius', weight: 65 }, { key: 'silimuss', name: 'Silimuss', weight: 15 }, { key: 'neutuin', name: 'Neutuin', weight: 14 }, { key: 'xiphung', name: 'Xĩ Phưng', weight: 6 }];
+            let openedUnits = [];
+            for (let i = 0; i < count; i++) {
+                let rand = Math.random() * 100; let sum = 0; let chosen = pool[0];
+                for (let j = 0; j < pool.length; j++) { sum += pool[j].weight; if (rand <= sum) { chosen = pool[j]; break; } }
+                characters[chosen.key].owned = true; openedUnits.push(chosen.name);
+            }
+            saveGameData(); if (activePage===1) renderShop(); else renderCraftPage();
+            document.getElementById('gacha-modal').style.display = 'flex'; let body = document.getElementById('gacha-results-body');
+            body.innerHTML = `<p style="text-align:center; font-weight:bold; color:#f1c40f; margin-top:0;">MỞ THÀNH CÔNG ${count} THÙNG HÒM UNIT:</p>`;
+            openedUnits.forEach((name, idx) => { body.innerHTML += `<div style="padding: 4px 0; border-bottom: 1px dashed #555;">[Thùng ${idx+1}] Nhận được Unit: <b style="color:#2ecc71;">${name.toUpperCase()}</b></div>`; });
+        }
+
+        function healPlayer(rawAmount, isHealSystem = true, isBandage = false) {
+            if (player.hp <= 0 || rawAmount <= 0) return; let finalHeal = rawAmount;
+            if (equippedChars.includes('madasalitting')) finalHeal *= 1.3;
+            if (equippedChars.includes('vartealthais') && player.hp >= player.maxHp) { player.maxHp += Math.floor(Math.random() * 11) + 5; player.hp = player.maxHp; return; }
+
+            if (isHealSystem) {
+                let multiplier = 1.0;
+                if (equippedChars.includes('doctors')) multiplier += (characters.doctors.level === 3) ? 0.50 : 0.30;
+                if (equippedPets.includes('bone')) multiplier += 0.15;
+                if (equippedChars.includes('sanids') && characters.sanids.level === 3) multiplier -= 0.10;
+                if (equippedPets.includes('conilas')) multiplier *= 2.0;
+                finalHeal *= multiplier;
+                if (isBandage && equippedPets.includes('ricaka')) { if (Math.random() < 0.5) finalHeal *= 1.5; }
+            }
+            let oldHp = player.hp; player.hp = Math.min(player.maxHp, player.hp + finalHeal);
+            let realRegened = player.hp - oldHp; 
+            if (realRegened > 0) { matchHpRegenAccumulator += realRegened; if (isBandage) matchBandageHealSanidsAccumulator += realRegened; }
+        }
+
+        function highlightAndScrollToChar(key) {
+            switchPage(1); setTimeout(() => { let card = document.getElementById(`char-card-${key}`);
+            if (card) { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.classList.add('highlight-flash'); setTimeout(() => { card.classList.remove('highlight-flash'); }, 1600); }
+            }, 100);
+        }
+
+        function openPetModal() {
+            document.getElementById('pet-modal').style.display = 'flex'; const container = document.getElementById('pet-list-container'); container.innerHTML = '';
+            for (let key in pets) {
+                let pet = pets[key]; let isOwned = ownedPets.includes(key); let isEquipped = equippedPets.includes(key);
+                let btnText = "Mua"; let btnStyle = "background:#27ae60;"; let btnAction = `buyPet('${key}', ${pet.price})`;
+                if (isOwned) {
+                    if (isEquipped) { btnText = "Hủy Trang Bị"; btnStyle = "background:#c0392b;"; btnAction = `unequipPet('${key}')`; } 
+                    else { btnText = "Trang Bị"; btnStyle = "background:#2980b9;"; btnAction = `equipPet('${key}')`; }
+                }
+                let div = document.createElement('div'); div.className = `pet-option ${isEquipped ? 'equipped-pet' : ''}`;
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;"><b style="color:#f1c40f; font-size:14px;">${pet.name.toUpperCase()} ($${pet.price})</b><span style="font-size:11px; color:#aaa;">${isOwned ? '[ Đã sở hữu ]' : ''}</span></div>
+                    <p style="font-size:11px; margin:4px 0; color:#ddd;">${pet.desc}</p>
+                    <button class="btn-sm" style="width:100%; margin-top:4px; ${btnStyle}" onclick="${btnAction}" ${!isOwned && wallet < pet.price ? 'disabled' : ''}>${btnText}</button>
+                `;
+                container.appendChild(div);
+            }
+        }
+        function closePetModal() { document.getElementById('pet-modal').style.display = 'none'; if(activePage===1) renderShop(); else renderCraftPage(); }
+        function buyPet(key, price) { if (wallet >= price && !ownedPets.includes(key)) { wallet -= price; ownedPets.push(key); saveGameData(); openPetModal(); } }
+        function equipPet(key) { if (equippedPets.length >= 3) { alert("Chỉ trang bị tối đa 3 thú cưng!"); return; } if (!equippedPets.includes(key)) { equippedPets.push(key); saveGameData(); openPetModal(); } }
+        function unequipPet(key) { equippedPets = equippedPets.filter(k => k !== key); saveGameData(); openPetModal(); }
+        function upgradeSlots() { if (slotUpgradesOwned >= 2) return; if (wallet >= 50) { wallet -= 50; slotUpgradesOwned++; saveGameData(); if(activePage===1) renderShop(); else renderCraftPage(); } }
+
+        function openUpgradeModal(key) {
+            currentUpgradeTarget = key; const modal = document.getElementById('upgrade-modal');
+            const title = document.getElementById('up-modal-title'); const body = document.getElementById('up-modal-body');
+            const btn = document.getElementById('btn-confirm-upgrade'); modal.style.display = 'flex';
+            let curLvl = characters[key].level || 1;
+            if (curLvl === 1) {
+                if (key === 'hexicoins') { title.innerText = "TIẾN HÓA: HEXICOINS [LÊN LV 2]"; body.innerHTML = `<p>Nhận đủ $7 của 30s tối thiểu 20 lần trong một trận.</p><p>Kỷ lục: <b>${hexicoinsL2Record}</b> / 20 lần.</p>`; btn.disabled = (hexicoinsL2Record < 20); } 
+                else if (key === 'conilos') { title.innerText = "TIẾN HÓA: CONILOS [LÊN LV 2]"; body.innerHTML = `<ul><li>Chơi đủ 10 trận: ${totalMatchesPlayed>=10?"<b>ĐẠT</b>":"CHƯA ĐẠT"} (${totalMatchesPlayed}/10)</li><li>Bơm gạc 50 lần: ${totalHealsUsed>=50?"<b>ĐẠT</b>":"CHƯA ĐẠT"} (${totalHealsUsed}/50)</li></ul>`; btn.disabled = !(totalMatchesPlayed >= 10 && totalHealsUsed >= 50); } 
+                else if (key === 'sanids') { title.innerText = "TIẾN HÓA: SANIDS [LÊN LV 2]"; body.innerHTML = `<p>Bơm từ 20 gạc trong 1 trận đơn.<br>Kỷ lục: <b>${maxSingleMatchHealsSanids}</b>/20 lần.</p>`; btn.disabled = (maxSingleMatchHealsSanids < 20); } 
+                else if (key === 'doctors') { title.innerText = "TIẾN HÓA: DOCTORS [LÊN LV 2]"; body.innerHTML = `<ul><li>Hỗ trợ 45 trận: ${doctorsQualifyingMatches>=45?"<b>ĐẠT</b>":"CHƯA ĐẠT"} (${doctorsQualifyingMatches}/45)</li><li>Tích lũy 1250 HP: ${historicalTotalHpRegened>=1250?"<b>ĐẠT</b>":"CHƯA ĐẠT"} (${Math.round(historicalTotalHpRegened)}/1250 HP)</li></ul>`; btn.disabled = !(doctorsQualifyingMatches >= 45 && historicalTotalHpRegened >= 1250); } 
+                else if (key === 'sonygodly') { title.innerText = "TIẾN HÓA: SONYGODLY [LÊN LV 2]"; body.innerHTML = `<p>Đạt trên $40 tiền sinh tồn khi thua trong 1 trận đơn.<br>Cao nhất: <b>$${maxSingleMatchSurvivalCash}</b>/$40</p>`; btn.disabled = (maxSingleMatchSurvivalCash < 40); } 
+                else if (key === 'dingsera') { title.innerText = "TIẾN HÓA: DINGSERA [LÊN LV 2]"; body.innerHTML = `<p>Mang theo chơi 10 trận và nhận ít nhất 2 lần sát thương bo trong trận.</p><p>Tiến độ: <b>${dingseraL2Matches}</b> / 10</p>`; btn.disabled = (dingseraL2Matches < 10); }
+                btn.innerText = btn.disabled ? "CHƯA ĐỦ ĐIỀU KIỆN" : "TIẾN HÀNH TIẾN HÓA LV2";
+            } else if (curLvl === 2) {
+                if (key === 'hexicoins') { title.innerText = "TIẾN HÓA: HEXICOINS [LÊN LV 3 MAX]"; body.innerHTML = `<p>Đạt $125 sinh tồn trận đơn chỉ dùng Hexicoins trong 25 trận.</p><p>Tiến độ: <b>${hexicoinsL3Matches}</b> / 25</p>`; btn.disabled = (hexicoinsL3Matches < 25); } 
+                else if (key === 'conilos') { title.innerText = "TIẾN HÓA: CONILOS [LÊN LV 3 MAX]"; body.innerHTML = `<p>Tự hồi phục tích lũy 3500 máu bằng Conilos.</p><p>Tiến độ: <b>${Math.round(conilosTotalOwnHealed)}</b> / 3500 HP</p>`; btn.disabled = (conilosTotalOwnHealed < 3500); } 
+                else if (key === 'sanids') { title.innerText = "TIẾN HÓA: SANIDS [LÊN LV 3 MAX]"; body.innerHTML = `<p>Hồi phục tích lũy đủ 15000 máu bằng Băng Gạc.</p><p>Tiến độ: <b>${Math.round(sanidsTotalBandageHealed)}</b> / 15000 HP</p>`; btn.disabled = (sanidsTotalBandageHealed < 15000); } 
+                else if (key === 'sonygodly') { title.innerText = "TIẾN HÓA: SONYGODLY [LÊN LV 3 MAX]"; body.innerHTML = `<p>Chơi đủ 20 trận đạt trên $90 tiền sinh tồn.</p><p>Tiến độ: <b>${sonygodlyMatchesAbove90}</b> / 20</p>`; btn.disabled = (sonygodlyMatchesAbove90 < 20); } 
+                else if (key === 'doctors') { title.innerText = "TIẾN HÓA: DOCTORS [LÊN LV 3 MAX]"; body.innerHTML = `<p>3 điều kiện:</p>• 100 trận hỗ trợ: <b>${doctorsQualifyingMatchesV3}</b>/100<br>• 5000 máu hồi phục: <b>${Math.round(historicalTotalHpRegened)}</b>/5000 HP<br>• Đạt $150 trận đơn: <b>$${maxSingleMatchSurvivalCash}</b>/$150`; btn.disabled = !(doctorsQualifyingMatchesV3 >= 100 && historicalTotalHpRegened >= 5000 && maxSingleMatchSurvivalCash >= 150); } 
+                else if (key === 'dingsera') { title.innerText = "TIẾN HÓA: DINGSERA [LÊN LV 3 MAX]"; body.innerHTML = `<p>Chơi 50 trận nhận 10 lần st bo mỗi trận, KHÔNG quấn gạc.</p><p>Tiến độ: <b>${dingseraL3Matches}</b> / 50</p>`; btn.disabled = (dingseraL3Matches < 50); }
+                btn.innerText = btn.disabled ? "CHƯA ĐỦ NHIỆM VỤ" : "NÂNG CẤP LÊN LEVEL 3 (MAX)";
+            } else { title.innerText = "ĐÃ ĐẠT CẤP TỐI ĐA"; body.innerHTML = "<p style='color:#e74c3c; font-weight:bold;'>Đạt Cấp 3 cao nhất!</p>"; btn.disabled = true; }
+        }
+
+        function executeCharacterUpgrade() {
+            let cur = characters[currentUpgradeTarget].level || 1;
+            if (cur < 3) { characters[currentUpgradeTarget].level = cur + 1; updateLeveledStatsDescriptions(); saveGameData(); renderShop(); document.getElementById('upgrade-modal').style.display = 'none'; }
+        }
+
+        function renderShop() {
+            let elemWallet = document.getElementById('lobby-money'); if (elemWallet) elemWallet.innerText = wallet;
+            let elemSlot = document.getElementById('ui-max-slot'); if (elemSlot) elemSlot.innerText = getMaxSlots();
+            let elemEquip = document.getElementById('equip-list'); if (elemEquip) elemEquip.innerText = equippedChars.length > 0 ? equippedChars.join(', ').toUpperCase() : 'Trống';
+            let pNames = equippedPets.map(k => pets[k] ? pets[k].name : k);
+            let elemPet = document.getElementById('lobby-pet-status'); if (elemPet) elemPet.innerText = pNames.length > 0 ? pNames.join(' + ') : "Trống";
+
+            let elemLvl = document.getElementById('lobby-level'); if (elemLvl) elemLvl.innerText = playerLevel;
+            let elemExp = document.getElementById('lobby-exp'); if (elemExp) elemExp.innerText = playerExp;
+            let elemMaxExp = document.getElementById('lobby-max-exp'); if (elemMaxExp) elemMaxExp.innerText = playerMaxExp;
+
+            let isLvl20 = playerLevel >= 20;
+            let elemGachaMsg = document.getElementById('gacha-lock-msg');
+            if (elemGachaMsg) elemGachaMsg.innerText = isLvl20 ? "🎉 Đã mở khóa hòm! Hãy thử vận may gacha." : "🔒 Yêu cầu Cấp độ tài khoản đạt Lv 20 để mở khóa.";
+            
+            let btnG1 = document.getElementById('btn-gacha-1'); if(btnG1) btnG1.disabled = !isLvl20 || wallet < 1000;
+            let btnG5 = document.getElementById('btn-gacha-5'); if(btnG5) btnG5.disabled = !isLvl20 || wallet < 5000;
+            let btnG10 = document.getElementById('btn-gacha-10'); if(btnG10) btnG10.disabled = !isLvl20 || wallet < 10000;
+
+            const upBtn = document.getElementById('btn-upgrade-slot');
+            if (upBtn) {
+                if (slotUpgradesOwned >= 2) { upBtn.innerText = "ĐÃ MAX Ô CHỨA"; upBtn.disabled = true; } 
+                else { upBtn.innerText = "MUA Ô CHỨA"; upBtn.disabled = wallet < 50; }
+            }
+
+            let now = Date.now();
+            if (vartealthaisExpiry > now) {
+                characters.vartealthais.owned = true; let minLeft = Math.ceil((vartealthaisExpiry - now) / 60000);
+                characters.vartealthais.desc = `<b style='color:#673ab7;'>[Thử nghiệm ${minLeft} phút]</b> Triệu hồi 4 người miễn nhiễm bo (Phím E). Chém bằng Q để hút 10 máu. Chết tạo vùng huyết hồi phục.`;
+            } else {
+                characters.vartealthais.owned = false; equippedChars = equippedChars.filter(c => c !== 'vartealthais');
+                characters.vartealthais.desc = "<b style='color:#e74c3c;'>[Khóa]</b> Phần thưởng đặc biệt mỗi 5 cấp độ tài khoản (Được dùng thử trong vòng 3 tiếng).";
+            }
+
+            const comboDiv = document.getElementById('recommended-combos-container');
+            if (comboDiv) {
+                comboDiv.innerHTML = '';
+                predefinedCombos.forEach(combo => {
+                    let block = document.createElement('div'); block.className = 'combo-container';
+                    let slotsHtml = combo.members.map(mKey => {
+                        let char = characters[mKey]; if (!char) return '';
+                        return `<div class="combo-slot ${char.owned?'owned':'not-owned'}" onclick="highlightAndScrollToChar('${mKey}')">${char.owned?char.name.substring(0,11):'ĐEN XÌ'}</div>`;
+                    }).join('');
+                    block.innerHTML = `<div class="combo-title">${combo.name}</div><div class="combo-slots">${slotsHtml}</div>`; comboDiv.appendChild(block);
+                });
+            }
+
+            let filterElem = document.getElementById('tag-filter'); let currentFilter = filterElem ? filterElem.value : "ALL";
+            let searchElem = document.getElementById('combo-search'); let searchQuery = searchElem ? searchElem.value.toLowerCase() : "";
+            
+            let sortedChars = Object.keys(characters).map(k => ({ id: k, ...characters[k] })).sort((a, b) => b.price - a.price);
+            if (currentFilter !== "ALL") sortedChars = sortedChars.filter(c => c.tags.includes(currentFilter));
+            if (searchQuery !== "") sortedChars = sortedChars.filter(c => c.name.toLowerCase().includes(searchQuery));
+
+            const grid = document.getElementById('shop-grid');
+            if (grid) {
+                grid.innerHTML = '';
+                sortedChars.forEach(char => {
+                    let key = char.id; let isEquipped = equippedChars.includes(key);
+                    let card = document.createElement('div'); card.className = `char-card ${isEquipped ? 'equipped' : ''}`; card.id = `char-card-${key}`;
+                    
+                    let btnText = "Mua"; let btnAction = `buyChar('${key}')`; let priceText = char.owned ? '[ Sở hữu ]' : '$' + char.price;
+                    if (char.gacha) priceText = char.owned ? '[ Đã nổ hòm ]' : 'Hòm Thần Thoại';
+                    if (key === 'vartealthais') priceText = char.owned ? 'Đang Mở':'Quà Cấp Độ';
+                    if (key === 'madasalitting') priceText = char.owned ? '[ Đã Chế Tạo ]':'Chế Tạo Trang 2';
+
+                    if (char.owned) {
+                        if (isEquipped) { btnText = "Hủy bỏ"; btnAction = `unequipChar('${key}')`; } else { btnText = "Trang bị"; btnAction = `equipChar('${key}')`; }
+                    } else {
+                        if (char.gacha) { btnText = "Mở Hòm Cấp 20"; btnAction = ""; } else if (key === 'vartealthais' || key === 'madasalitting') { btnText = "Khóa"; btnAction = ""; }
+                    }
+
+                    let upgradeIconHtml = '';
+                    if (char.owned && ['conilos','sanids','doctors','sonygodly','dingsera', 'hexicoins'].includes(key)) {
+                        let lvl = char.level || 1; let cls = lvl === 3 ? "upgrade-icon-btn max-lvl" : "upgrade-icon-btn";
+                        upgradeIconHtml = `<button class="${cls}" onclick="openUpgradeModal('${key}')">⇡Lv${lvl}</button>`;
+                    }
+                    card.innerHTML = `
+                        ${upgradeIconHtml}
+                        <div><div class="char-name">${char.name.toUpperCase()} ${char.level ? "[Lv"+char.level+"]" : ""}</div><div class="char-price">${priceText}</div><div class="char-info">${char.desc}</div></div>
+                        <button class="char-btn" onclick="${btnAction}" ${(!char.owned && char.price > 0 && wallet < char.price) || (!char.owned && char.price === 0) ? 'disabled' : ''}>${btnText}</button>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        function renderCraftPage() {
+            document.getElementById('lobby-money').innerText = wallet; const grid = document.getElementById('craft-grid'); grid.innerHTML = ''; let now = Date.now();
+            let moneyCard = document.createElement('div'); moneyCard.className = 'craft-card';
+            let moneyStatusText = potionX2MoneyExpiry > now ? `<span style='color:#2ecc71;'>ĐANG KÍCH HOẠT (Còn ${Math.ceil((potionX2MoneyExpiry - now)/3600000)} giờ)</span>` : `<span style='color:#e74c3c;'>Chưa kích hoạt</span>`;
+            let moneyBtnDisabled = craftDoubleMoneyMatches < 50 || maxSingleMatchSurvivalCash < 350;
+            moneyCard.innerHTML = `
+                <div>
+                    <h3 style="color:#f1c40f; margin:0 0 5px 0;">THUỐC X2 TIỀN TRONG TRẬN</h3>
+                    <p style="font-size:12px; color:#ccc; margin:3px 0;"><b>Hiệu ứng:</b> Nhân đôi toàn bộ tiền sinh tồn kiếm được khi kết thúc trận.</p>
+                    <p style="font-size:12px; color:#ccc; margin:3px 0;"><b>Thời gian dùng:</b> 1 ngày (24 giờ).</p>
+                    <div class="craft-status">Yêu cầu: Chơi đủ 50 trận và từng đạt kỷ lục $350/trận</div>
+                    <div style="font-size:13px; color:#fff; font-weight:bold;">Trận: ${craftDoubleMoneyMatches}/50 | Kỷ lục: $${maxSingleMatchSurvivalCash}/$350</div>
+                    <div style="font-size:12px; margin-top:5px;">Trạng thái: ${moneyStatusText}</div>
+                </div>
+                <button class="char-btn" style="margin-top:10px; background:#27ae60;" onclick="claimX2Money()" ${moneyBtnDisabled||potionX2MoneyExpiry>now?'disabled':''}>${(potionX2MoneyExpiry>now)?'ĐANG SỬ DỤNG':(moneyBtnDisabled?'CHƯA ĐỦ ĐIỀU KIỆN':'NHẬN THỦ CÔNG (Tặng +$350)')}</button>
+            `;
+            grid.appendChild(moneyCard);
+
+            let expCard = document.createElement('div'); expCard.className = 'craft-card';
+            let expStatusText = potionX2ExpExpiry > now ? `<span style='color:#2ecc71;'>ĐANG KÍCH HOẠT (Còn ${Math.ceil((potionX2ExpExpiry - now)/3600000)} giờ)</span>` : `<span style='color:#e74c3c;'>Chưa kích hoạt</span>`;
+            let expBtnDisabled = craftDoubleExpMatches < 3;
+            expCard.innerHTML = `
+                <div>
+                    <h3 style="color:#00bcd4; margin:0 0 5px 0;">THUỐC X2 EXP TÀI KHOẢN</h3>
+                    <p style="font-size:12px; color:#ccc; margin:3px 0;"><b>Hiệu ứng:</b> Nhân đôi toàn bộ điểm kinh nghiệm EXP nhận được cuối trận.</p>
+                    <p style="font-size:12px; color:#ccc; margin:3px 0;"><b>Thời gian dùng:</b> 24 giờ liên tục.</p>
+                    <div class="craft-status">Yêu cầu: Chơi 3 trận đạt tối thiểu 100 EXP/trận</div>
+                    <div style="font-size:13px; color:#fff; font-weight:bold;">Tiến độ: ${craftDoubleExpMatches} / 3 trận</div>
+                    <div style="font-size:12px; margin-top:5px;">Trạng thái: ${expStatusText}</div>
+                </div>
+                <button class="char-btn" style="margin-top:10px; background:#27ae60;" onclick="claimX2Exp()" ${expBtnDisabled||potionX2ExpExpiry>now?'disabled':''}>${(potionX2ExpExpiry>now)?'ĐANG SỬ DỤNG':(expBtnDisabled?'CHƯA ĐỦ ĐIỀU KIỆN':'NHẬN THỦ CÔNG')}</button>
+            `;
+            grid.appendChild(expCard);
+
+            let madaCard = document.createElement('div'); madaCard.className = 'craft-card';
+            let madaBtnDisabled = craftMadasaTeamMatches < 35;
+            let madaStatusText = characters.madasalitting.owned ? `<span style='color:#2ecc71;'>ĐÃ SỞ HỮU CHẾ TẠO</span>` : `<span style='color:#e74c3c;'>Chưa chế tạo thành công</span>`;
+            madaCard.innerHTML = `
+                <div>
+                    <h3 style="color:#e74c3c; margin:0 0 5px 0;">NHÂN VẬT CHẾ TẠO: MADASALITTING</h3>
+                    <p style="font-size:12px; color:#ccc; margin:2px 0;">• Cứ mỗi 5s sinh tồn nhận vọt liền $2.</p>
+                    <p style="font-size:12px; color:#ccc; margin:2px 0;">• Tăng giới hạn máu gốc vĩnh viễn thêm +25 HP.</p>
+                    <p style="font-size:12px; color:#ccc; margin:2px 0;">• <b>Hỗ trợ thông tin:</b> Toàn bộ nhân vật mang theo cùng được nhân x1.3 lần hiệu quả/chỉ số.</p>
+                    <p style="font-size:12px; color:#ccc; margin:2px 0;">• <b>Hồi phục trì hoãn:</b> Khi mất máu, 4s sau đó tự động hồi 5 HP/s trong 15s.</p>
+                    <div class="craft-status" style="color:#9b59b4;">Yêu cầu: Chơi 35 trận mang đủ combo: 1 Hồi máu, 1 Tăng máu, 1 Hỗ trợ, 1 Thêm tiền</div>
+                    <div style="font-size:13px; color:#fff; font-weight:bold;">Tiến độ: ${craftMadasaTeamMatches} / 35 trận</div>
+                    <div style="font-size:12px; margin-top:5px;">Trạng thái: ${madaStatusText}</div>
+                </div>
+                <button class="char-btn" style="margin-top:10px; background:#9b59b4;" onclick="claimMadasalitting()" ${madaBtnDisabled||characters.madasalitting.owned?'disabled':''}>${characters.madasalitting.owned?'ĐÃ HOÀN THÀNH CHẾ TẠO':(madaBtnDisabled?'CHƯA ĐỦ ĐIỀU KIỆN':'NHẬN THỦ CÔNG')}</button>
+            `;
+            grid.appendChild(madaCard);
+        }
+
+        function claimX2Money() { potionX2MoneyExpiry = Date.now() + (24 * 60 * 60 * 1000); wallet += 350; craftDoubleMoneyMatches = 0; saveGameData(); renderCraftPage(); alert("🎉 Kích hoạt Thuốc x2 Tiền trong 1 ngày và nhận được $350 thành công!"); }
+        function claimX2Exp() { potionX2ExpExpiry = Date.now() + (24 * 60 * 60 * 1000); craftDoubleExpMatches = 0; saveGameData(); renderCraftPage(); alert("🎉 Kích hoạt Thuốc x2 EXP thành công! Hiệu lực trong vòng 24 giờ tiếp theo."); }
+        function claimMadasalitting() { characters.madasalitting.owned = true; saveGameData(); renderCraftPage(); alert("🎉 Chúc mừng bạn đã chế tạo thành công Siêu nhân vật Thần thoại MADASALITTING! Hãy quay lại trang 1 để trang bị."); }
+        function buyChar(key) { if (wallet >= characters[key].price && !characters[key].owned) { wallet -= characters[key].price; characters[key].owned = true; saveGameData(); renderShop(); } }
+        function equipChar(key) { if (equippedChars.length >= getMaxSlots()) { alert("Đội hình đã đạt giới hạn ô chứa!"); return; } if (!equippedChars.includes(key)) { equippedChars.push(key); saveGameData(); renderShop(); } }
+        function unequipChar(key) { equippedChars = equippedChars.filter(item => item !== key); saveGameData(); renderShop(); }
+
+        /* --- XỬ LÝ SÁT THƯƠNG VÀO NGƯỜI CHƠI --- */
+        function takeDamage(amount) {
+            if (player.hp <= 0 || amount <= 0) return;
+            player.hp -= amount;
+            if (equippedChars.includes('madasalitting')) madasaDelayTimer = 4;
+            if (equippedChars.includes('conilos') && conilosCooldown <= 0) {
+                conilosCooldown = 60;
+                conilosRegenTimer = 3;
+            }
+            if (player.hp <= 0) {
+                if (equippedChars.includes('neutuin') && !neutuinRevived) {
+                    neutuinRevived = true; player.maxHp += 25; player.hp = player.maxHp; return;
+                }
+                if (equippedChars.includes('xiphung') && xiPhungGhosts > 0) {
+                    xiPhungGhosts--; player.hp = Math.round(player.maxHp * 0.5); return;
+                }
+                triggerGameOver();
+            }
+        }
+
+        function startHealing() {
+            if (player.hp <= 0 || player.isHealing || player.isUsingBigMedkit) return;
+            if (player.hp >= player.maxHp) return;
+            player.isHealing = true;
+            player.healProgress = 0;
+            matchUsedBandageInThisGame = true;
+        }
+
+        function useBigMedkit() {
+            if (player.bigMedkitCount > 0 && !player.isUsingBigMedkit && !player.isHealing && player.hp > 0) {
+                player.bigMedkitCount--;
+                player.isUsingBigMedkit = true;
+                player.bigMedkitProgress = 0;
+                document.getElementById('ui-big-medkit').innerText = `Túi cứu thương lớn [Phím 1]: ${player.bigMedkitCount} túi`;
+            }
+        }
+
+        function activateActiveSkill() {
+            if (activeSkillCooldown > 0 || player.hp <= 0) return;
+            if (equippedChars.includes('allyas')) {
+                player.shield = Math.min(player.maxShield, player.shield + 75);
+                activeSkillCooldown = 120;
+            } else if (equippedChars.includes('geople_galaxy')) {
+                geopleGalaxyTimer = 20;
+                activeSkillCooldown = 60;
+            } else if (equippedChars.includes('autriled')) {
+                if (player.ep >= 200) { player.ep -= 200; autriledImmortalTimer = 5; activeSkillCooldown = 10; }
+            }
+            if (equippedChars.includes('malatuliss')) player.shield = Math.min(player.maxShield, player.shield + 15);
+        }
+
+        function activateVartealthaisSkill() {
+            if (!equippedChars.includes('vartealthais') || vartealthaisCooldown > 0) return;
+            humansList = [];
+            for (let i = 0; i < 4; i++) {
+                humansList.push({ x: player.x + (Math.random() * 80 - 40), y: player.y + (Math.random() * 80 - 40), radius: 10, hp: 50 });
+            }
+            vartealthaisCooldown = 45;
+        }
+
+        function triggerKnifeAttack() {
+            if (!equippedChars.includes('vartealthais') || player.hp <= 0) return;
+            humansList.forEach((h, idx) => {
+                let dist = Math.hypot(player.x - h.x, player.y - h.y);
+                if (dist < 45) {
+                    h.hp -= 25;
+                    healPlayer(10, false);
+                    if (h.hp <= 0) { bloodPoolsList.push({ x: h.x, y: h.y, radius: 35, duration: 300 }); humansList.splice(idx, 1); }
+                }
+            });
+        }
+
+        function placeTurret() {
+            if (!equippedChars.includes('missingnoo') || turretsPlaced >= 4 || player.hp <= 0) return;
+            turretsList.push({ x: player.x, y: player.y, battery: 100 });
+            turretsPlaced++;
+        }
+
+        // --- KHỞI ĐỘNG VÀO TRẬN ---
+        function startGame() {
+            clearAllGameTimers();
+            currentMode = document.getElementById('game-mode-select').value;
+            
+            document.getElementById('lobby').style.display = 'none'; 
+            document.getElementById('game-screen').style.display = 'block'; 
+            document.getElementById('death-screen').style.display = 'none';
+            document.getElementById('win-screen').style.display = 'none';
+            
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            
+            totalMatchesPlayed++;
+            if (craftDoubleMoneyMatches < 50) craftDoubleMoneyMatches++;
+
+            let hasHeal=false, hasHp=false, hasSupport=false, hasMoney=false;
+            equippedChars.forEach(k => {
+                if(characters[k].tags.includes("Hồi máu")) hasHeal = true; if(characters[k].tags.includes("Tăng Máu")) hasHp = true;
+                if(characters[k].tags.includes("Hỗ trợ nhân vật")) hasSupport = true; if(characters[k].tags.includes("Thêm tiền")) hasMoney = true;
+            });
+            if (hasHeal && hasHp && hasSupport && hasMoney && craftMadasaTeamMatches < 35) craftMadasaTeamMatches++;
+            if (equippedChars.includes('doctors')) { let countHealTags = 0; equippedChars.forEach(k => { if(k !== 'doctors' && characters[k].tags.includes("Hồi máu")) countHealTags++; }); if (countHealTags >= 3) { doctorsQualifyingMatches++; doctorsQualifyingMatchesV3++; } }
+            saveGameData();
+
+            player.maxHp = equippedChars.includes('kalukaka') ? 250 : 200; 
+            if (equippedChars.includes('madasalitting')) player.maxHp += 25;
+            if (equippedPets.includes('conilas')) player.maxHp += 150; 
+            player.hp = player.maxHp;
+            
+            // XỬ LÝ KHỞI ĐẦU CHẾ ĐỘ KHÓ
+            hardMaxHpLost = 0; hardModePhase2Timer = 0; enemyBullets = [];
+            if (currentMode === 'hard') {
+                player.hp -= 10; 
+                if (player.hp < 1) player.hp = 1;
+                document.getElementById('ui-hard-mode').style.display = 'block';
+                document.getElementById('ui-hard-mode').innerText = `Chế độ Khó: Max HP bị trừ: -0/75`;
+            } else { document.getElementById('ui-hard-mode').style.display = 'none'; }
+
+            let baseMaxShield = 15;
+            if (equippedChars.includes('allyas')) baseMaxShield = 75;
+            if (equippedChars.includes('dingsera')) { if (characters.dingsera.level === 2) baseMaxShield += 10; else if (characters.dingsera.level === 3) baseMaxShield += 25; }
+            if (equippedChars.includes('allyas') && equippedChars.includes('malatuliss')) baseMaxShield += 15;
+            player.maxShield = baseMaxShield;
+            if (equippedChars.includes('dingsera')) { if (characters.dingsera.level === 2) player.shield = 10; else if (characters.dingsera.level === 3) player.shield = 25; else player.shield = 0; } else { player.shield = 0; }
+            
+            player.maxEp = equippedChars.includes('autriled') ? 300 : 200; player.ep = 0;
+            
+            let spdMultiplier = 1.0;
+            if (equippedChars.includes('sxphonacer')) spdMultiplier *= 2.0; if (equippedPets.includes('supix')) spdMultiplier *= 2.0; 
+            player.baseSpeed = 4 * spdMultiplier; player.speed = player.baseSpeed;
+            player.x = canvas.width / 2; player.y = canvas.height / 2;
+            
+            player.isHealing = false; player.healProgress = 0; player.isUsingBigMedkit = false; player.bigMedkitProgress = 0; player.bigMedkitRegenTicks = 0;
+            player.bigMedkitCount = equippedPets.includes('xosastions') ? 30 : 0;
+
+            turretsPlaced = 0; turretsList = []; matchTimer = 0; zoneDmg = 0; gameMoneyEarned = equippedPets.includes('cakaqua') ? 10 : 0; 
+            matchHpRegenAccumulator = 0; matchOwnHealConilosAccumulator = 0; matchBandageHealSanidsAccumulator = 0; matchZoneDmgTicksCount = 0; matchUsedBandageInThisGame = false; dingseraL3PassiveTriggered = false; matchHexicoinsTriggerCount = 0; currentMatchExpEarned = 0;
+            
+            madasaDelayTimer = 0; madasaHealTimer = 0;
+            liusFirstImmortalTimer = equippedChars.includes('lius') ? 40 : 0; liusShieldImmortalTimer = 0; liusShieldTriggered = false; silimussBandageBonus = 0; neutuinRevived = false; xiPhungGhosts = equippedChars.includes('xiphung') ? 3 : 0; xiPhungBandageCount = 0; xiPhungImmortalTimer = 0;
+            humansList = []; bloodPoolsList = []; vartealthaisCooldown = 0; conilosCooldown = 0; conilosRegenTimer = 0; activeSkillCooldown = 0; matchHealCounter = 0; supermasixTimer = 0; runTimer = 0; thanenicoRegenTimer = 0; mexicoxnentDoubles = 0; geopleGalaxyTimer = 0; autriledImmortalTimer = 0; quossespBuffTimer = 0;
+
+            joystickActive = false; stick.style.transform = `translate(0px, 0px)`; keys = { w: false, a: false, s: false, d: false };
+            document.getElementById('ui-big-medkit').innerText = `Túi cứu thương lớn [Phím 1]: ${player.bigMedkitCount} túi`; document.getElementById('game-money').innerText = gameMoneyEarned; document.getElementById('ui-equipped').innerText = "Trang bị: " + (equippedChars.length > 0 ? equippedChars.join(', ').toUpperCase() : "Trống"); document.getElementById('ui-match-own-regen').innerText = `Hồi máu riêng trận này: 0 HP`;
+
+            if (equippedChars.includes('allyas') || equippedChars.includes('geople_galaxy') || equippedChars.includes('autriled') || equippedChars.includes('malatuliss')) { document.getElementById('ui-skill-cooldown').style.display = 'block'; document.getElementById('ui-skill-cooldown').innerText = "Kỹ năng [G]: Sẵn sàng"; document.getElementById('mb-btn-skill').style.display = 'flex'; } else { document.getElementById('ui-skill-cooldown').style.display = 'none'; document.getElementById('mb-btn-skill').style.display = 'none'; }
+            if (equippedChars.includes('vartealthais')) { document.getElementById('ui-v-skill-cooldown').style.display = 'block'; document.getElementById('ui-v-skill-cooldown').innerText = "Kỹ năng Gọi Người [E]: Sẵn sàng"; document.getElementById('mb-btn-v-skill').style.display = 'flex'; document.getElementById('mb-btn-v-knife').style.display = 'flex'; } else { document.getElementById('ui-v-skill-cooldown').style.display = 'none'; document.getElementById('mb-btn-v-skill').style.display = 'none'; document.getElementById('mb-btn-v-knife').style.display = 'none'; }
+            if (equippedChars.includes('missingnoo')) { document.getElementById('mb-btn-turret').style.display = 'flex'; } else { document.getElementById('mb-btn-turret').style.display = 'none'; }
+
+            timers.gameLoop = setInterval(updateGame, 1000 / 60);
+
+            if (equippedChars.includes('doctors')) {
+                let docIntervalVal = (characters.doctors.level === 3) ? 0.5 : 0.1;
+                if(equippedChars.includes('madasalitting')) docIntervalVal *= 1.3;
+                timers.doctorRegenInterval = setInterval(() => { if (player.hp > 0 && player.hp < player.maxHp) healPlayer(docIntervalVal, false); }, 100);
+            }
+            if (equippedPets.includes('manic')) { timers.manicRegenInterval = setInterval(() => { if (player.hp > 0 && player.hp < player.maxHp) healPlayer(5 / 10, false); }, 100); }
+
+            timers.zoneStartTimeout = setTimeout(() => { zoneDmg = 5; document.getElementById('ui-zone-dmg').innerText = zoneDmg; timers.zoneGrowInterval = setInterval(() => { zoneDmg += 1; document.getElementById('ui-zone-dmg').innerText = zoneDmg; }, 20000); }, 5000);
+
+            function triggerDingseraShieldPassive() {
+                if (equippedChars.includes('dingsera') && characters.dingsera.level === 3 && !dingseraL3PassiveTriggered) {
+                    dingseraL3PassiveTriggered = true; player.ep = Math.min(player.maxEp, player.ep + 25);
+                    timers.dingseraShieldRegen = setInterval(() => {
+                        if (player.hp > 0) { if (player.shield < 25) { player.shield = Math.min(player.maxShield, player.shield + 1); } else { clearInterval(timers.dingseraShieldRegen); timers.dingseraShieldRegen = null; } }
+                    }, 1000);
+                }
+            }
+
+            timers.zoneDmgInterval = setInterval(() => {
+                if (player.hp > 0 && zoneDmg > 0) {
+                    if (geopleGalaxyTimer > 0 || autriledImmortalTimer > 0 || liusFirstImmortalTimer > 0 || liusShieldImmortalTimer > 0 || xiPhungImmortalTimer > 0) return;
+                    matchZoneDmgTicksCount++; let baseDmg = zoneDmg;
+                    if (equippedChars.includes('dingsera')) { if (characters.dingsera.level === 2) baseDmg *= 0.70; else if (characters.dingsera.level === 3) baseDmg *= 0.65; else baseDmg *= 0.75; }
+                    if (equippedPets.includes('conilas')) { baseDmg *= 0.85; }
+                    if (equippedChars.includes('xiphung')) { baseDmg *= 0.65; } 
+                    if (neutuinRevived) { baseDmg *= 0.20; } 
+
+                    let finalDmg = baseDmg;
+                    if (equippedChars.includes('silimuss') && Math.random() < 0.3) { finalDmg = Math.max(0, finalDmg - 3); }
+
+                    if (equippedChars.includes('athaira_son') && player.ep > 0) {
+                        let epShielded = finalDmg * 0.5; if (player.ep >= epShielded) { player.ep -= epShielded; finalDmg = finalDmg - epShielded; } else { finalDmg = finalDmg - player.ep; player.ep = 0; }
+                    }
+
+                    if (player.shield > 0) {
+                        player.shield -= finalDmg;
+                        if (player.shield <= 0) { let rem = Math.abs(player.shield); player.shield = 0; triggerDingseraShieldPassive(); if (rem > 0) takeDamage(rem); }
+                    } else { triggerDingseraShieldPassive(); takeDamage(finalDmg); }
+
+                    if (equippedChars.includes('lius') && player.shield >= 80 && !liusShieldTriggered) { liusShieldTriggered = true; liusShieldImmortalTimer = 15; }
+                }
+            }, 1000);
+
+            let cashIntervalTime = 30000;
+            if (equippedChars.includes('sonygodly')) { if (characters.sonygodly.level === 2) cashIntervalTime = 19000; else if (characters.sonygodly.level === 3) cashIntervalTime = 15000; }
+
+            timers.cashInterval = setInterval(() => {
+                if (player.hp > 0) { 
+                    let cashPulse = 5;
+                    if (equippedChars.includes('hexicoins') && characters.hexicoins.level === 3) cashPulse = Math.round(cashPulse * 1.5);
+                    if (Date.now() < potionX2MoneyExpiry) cashPulse *= 2; 
+                    if (equippedChars.includes('madasalitting')) cashPulse = Math.round(cashPulse * 1.3);
+                    gameMoneyEarned += cashPulse; document.getElementById('game-money').innerText = gameMoneyEarned; 
+                }
+            }, cashIntervalTime);
+
+            if (equippedChars.includes('hexicoins')) {
+                timers.hexicoinsInterval = setInterval(() => {
+                    if (player.hp > 0) {
+                        let lvl = characters.hexicoins.level || 1; let moneyAdded = 7;
+                        if (lvl === 2) moneyAdded = 9; else if (lvl === 3) moneyAdded = 15;
+                        if (Date.now() < potionX2MoneyExpiry) moneyAdded *= 2; 
+                        if (equippedChars.includes('madasalitting')) moneyAdded = Math.round(moneyAdded * 1.3);
+                        gameMoneyEarned += moneyAdded; matchHexicoinsTriggerCount++; document.getElementById('game-money').innerText = gameMoneyEarned;
+                    }
+                }, 30000);
+            }
+
+            timers.oneSecInterval = setInterval(() => {
+                if (player.hp > 0) {
+                    matchTimer++;
+                    
+                    // CHU KỲ HARD MODE (MỘT GIÂY)
+                    if (currentMode === 'hard') {
+                        if (matchTimer % 15 === 0 && hardMaxHpLost < 75) {
+                            player.maxHp -= 2; hardMaxHpLost += 2;
+                            if (player.hp > player.maxHp) player.hp = player.maxHp;
+                        }
+                        
+                        if (hardMaxHpLost < 75) {
+                            document.getElementById('ui-hard-mode').innerText = `Chế độ Khó: Max HP bị trừ: -${hardMaxHpLost}/75`;
+                        } else {
+                            hardModePhase2Timer++;
+                            let timeLeft = 120 - hardModePhase2Timer;
+                            document.getElementById('ui-hard-mode').innerText = `🔥 CỐ LÊN! WIN SAU: ${timeLeft}s 🔥`;
+                            if (hardModePhase2Timer >= 120) {
+                                triggerWinGame(); return;
+                            }
+                        }
+
+                        if (matchTimer % 2 === 0 && Math.random() < 0.1) {
+                            let side = Math.floor(Math.random() * 4);
+                            let bx, by;
+                            if(side===0){ bx=Math.random()*canvas.width; by=-20; }
+                            else if(side===1){ bx=Math.random()*canvas.width; by=canvas.height+20; }
+                            else if(side===2){ bx=-20; by=Math.random()*canvas.height; }
+                            else { bx=canvas.width+20; by=Math.random()*canvas.height; }
+                            
+                            let angle = Math.atan2(player.y - by, player.x - bx);
+                            enemyBullets.push({ x: bx, y: by, vx: Math.cos(angle)*4, vy: Math.sin(angle)*4, radius: 8 });
+                        }
+                    }
+
+                    if (equippedChars.includes('madasalitting') && matchTimer % 5 === 0) {
+                        let extra = 2; if (Date.now() < potionX2MoneyExpiry) extra *= 2;
+                        gameMoneyEarned += extra; document.getElementById('game-money').innerText = gameMoneyEarned;
+                    }
+
+                    if (liusFirstImmortalTimer > 0) liusFirstImmortalTimer--;
+                    if (liusShieldImmortalTimer > 0) liusShieldImmortalTimer--;
+                    if (xiPhungImmortalTimer > 0) xiPhungImmortalTimer--;
+                    if (geopleGalaxyTimer > 0) geopleGalaxyTimer--;
+                    if (autriledImmortalTimer > 0) autriledImmortalTimer--;
+                    if (activeSkillCooldown > 0) activeSkillCooldown--;
+                    if (vartealthaisCooldown > 0) vartealthaisCooldown--;
+                    if (conilosCooldown > 0) conilosCooldown--;
+
+                    if (equippedChars.includes('quossesp')) {
+                        if (quossespBuffTimer > 0) { quossespBuffTimer--; } 
+                        else {
+                            player.ep = Math.min(player.maxEp, player.ep + 10);
+                            if (player.ep >= 300) { player.ep = 0; quossespBuffTimer = 10; }
+                        }
+                    }
+
+                    if (equippedChars.includes('madasalitting') && madasaDelayTimer > 0) {
+                        madasaDelayTimer--;
+                        if (madasaDelayTimer <= 0) madasaHealTimer = 15;
+                    }
+                    if (madasaHealTimer > 0) {
+                        madasaHealTimer--;
+                        healPlayer(5, false);
+                    }
+
+                    if (conilosRegenTimer > 0) {
+                        conilosRegenTimer--;
+                        let conHeal = (characters.conilos.level === 3) ? 15 : 10;
+                        healPlayer(conHeal, false);
+                        conilosTotalOwnHealed += conHeal;
+                        document.getElementById('ui-match-own-regen').innerText = `Hồi máu riêng trận này: ${Math.round(conilosTotalOwnHealed)} HP`;
+                    }
+                }
+            }, 1000);
+        }
+
+        /* --- CẬP NHẬT GAME LOOP & VẼ VÒNG BĂNG GẠC --- */
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let vx = 0, vy = 0;
+            if (keys.w) vy -= 1; if (keys.s) vy += 1;
+            if (keys.a) vx -= 1; if (keys.d) vx += 1;
+            if (vx !== 0 && vy !== 0) { vx *= 0.7071; vy *= 0.7071; }
+
+            let curSpeed = player.speed;
+            if (quossespBuffTimer > 0) curSpeed *= 3;
+            if (supermasixTimer > 0) curSpeed *= 10;
+
+            player.x += vx * curSpeed; player.y += vy * curSpeed;
+            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+            // Đạn kẻ địch (Chế độ khó)
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                let b = enemyBullets[i];
+                b.x += b.vx; b.y += b.vy;
+                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fillStyle = "#e74c3c"; ctx.fill();
+                
+                let dist = Math.hypot(player.x - b.x, player.y - b.y);
+                if (dist < player.radius + b.radius) {
+                    takeDamage(15);
+                    enemyBullets.splice(i, 1);
+                } else if (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50) {
+                    enemyBullets.splice(i, 1);
+                }
+            }
+
+            // Xử lý Băng Gạc
+            if (player.isHealing) {
+                let healDuration = 300; 
+                if (equippedChars.includes('bunkolesses')) healDuration *= 0.65;
+                if (equippedChars.includes('conilos') && characters.conilos.level >= 2) healDuration *= 0.95;
+                if (equippedChars.includes('conilos') && characters.conilos.level === 3) healDuration *= 0.87;
+                if (equippedChars.includes('doctors') && characters.doctors.level === 3) healDuration = 210;
+
+                player.healProgress++;
+                let progressRatio = Math.min(1, player.healProgress / healDuration);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius + 12, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius + 12, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * progressRatio));
+                ctx.strokeStyle = "#2ecc71";
+                ctx.lineWidth = 6;
+                ctx.lineCap = "round";
+                ctx.stroke();
+                ctx.restore();
+
+                if (player.healProgress >= healDuration) {
+                    player.isHealing = false;
+                    player.healProgress = 0;
+
+                    let baseHeal = 15;
+                    if (equippedChars.includes('dagandas')) baseHeal = 22;
+                    if (equippedChars.includes('sanids')) {
+                        if (characters.sanids.level === 1) baseHeal += 10;
+                        else if (characters.sanids.level === 2) baseHeal += 30;
+                        else if (characters.sanids.level === 3) baseHeal = 45;
+                    }
+                    if (equippedChars.includes('silimuss')) baseHeal += silimussBandageBonus;
+                    if (equippedChars.includes('riostudio') && player.hp < 55) baseHeal *= 1.5;
+
+                    healPlayer(baseHeal, true, true);
+
+                    totalHealsUsed++;
+                    matchHealCounter++;
+                    if (matchHealCounter > maxSingleMatchHealsSanids) maxSingleMatchHealsSanids = matchHealCounter;
+                    sanidsTotalBandageHealed += baseHeal;
+
+                    if (equippedChars.includes('silimuss')) silimussBandageBonus += 2;
+                    if (equippedChars.includes('xiphung')) {
+                        xiPhungBandageCount++;
+                        if (xiPhungBandageCount % 5 === 0) {
+                            xiPhungImmortalTimer = 5; player.maxHp += 30; player.hp += 30;
+                            player.shield = Math.min(player.maxShield, player.shield + 25);
+                        }
+                    }
+                    document.getElementById('ui-match-heals').innerText = `Băng gạc: ${matchHealCounter} lần`;
+                }
+            }
+
+            // Xử lý Túi Cứu Thương Lớn
+            if (player.isUsingBigMedkit) {
+                player.bigMedkitProgress++;
+                let bigProgressRatio = Math.min(1, player.bigMedkitProgress / 420);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius + 18, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * bigProgressRatio));
+                ctx.strokeStyle = "#ff5722";
+                ctx.lineWidth = 6;
+                ctx.stroke();
+                ctx.restore();
+
+                if (player.bigMedkitProgress % 6 === 0) healPlayer(1, false);
+                if (player.bigMedkitProgress >= 420) player.isUsingBigMedkit = false;
+            }
+
+            // Vẽ Người chơi
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = (geopleGalaxyTimer > 0 || autriledImmortalTimer > 0 || liusFirstImmortalTimer > 0 || liusShieldImmortalTimer > 0 || xiPhungImmortalTimer > 0) ? "#f1c40f" : "#2ecc71";
+            ctx.fill();
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Vẽ Trụ
+            turretsList.forEach(t => {
+                ctx.beginPath(); ctx.arc(t.x, t.y, 12, 0, Math.PI * 2); ctx.fillStyle = "#3498db"; ctx.fill();
+            });
+
+            // Vẽ Người triệu hồi
+            humansList.forEach(h => {
+                ctx.beginPath(); ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2); ctx.fillStyle = "#9b59b4"; ctx.fill();
+            });
+
+            // Vẽ Vũng máu
+            bloodPoolsList.forEach((bp, idx) => {
+                ctx.beginPath(); ctx.arc(bp.x, bp.y, bp.radius, 0, Math.PI * 2); ctx.fillStyle = "rgba(192, 57, 43, 0.4)"; ctx.fill();
+                bp.duration--;
+                if (Math.hypot(player.x - bp.x, player.y - bp.y) < bp.radius + player.radius) {
+                    healPlayer(0.5, false);
+                }
+                if (bp.duration <= 0) bloodPoolsList.splice(idx, 1);
+            });
+
+            updateUI();
+        }
+
+        function updateUI() {
+            let hpPercent = Math.max(0, (player.hp / player.maxHp) * 100);
+            document.getElementById('hp-bar').style.width = hpPercent + '%';
+            document.getElementById('ui-hp-text').innerText = `${Math.ceil(player.hp)}/${player.maxHp}`;
+
+            let shieldPercent = Math.max(0, (player.shield / player.maxShield) * 100);
+            document.getElementById('shield-bar').style.width = shieldPercent + '%';
+            document.getElementById('ui-shield-text').innerText = `${Math.ceil(player.shield)}/${player.maxShield}`;
+
+            let epPercent = Math.max(0, (player.ep / player.maxEp) * 100);
+            document.getElementById('ep-bar').style.width = epPercent + '%';
+            document.getElementById('ui-ep-text').innerText = `${Math.ceil(player.ep)}/${player.maxEp}`;
+
+            if (activeSkillCooldown > 0) {
+                document.getElementById('ui-skill-cooldown').innerText = `Kỹ năng [G]: Chờ ${activeSkillCooldown}s`;
+            } else {
+                document.getElementById('ui-skill-cooldown').innerText = "Kỹ năng [G]: Sẵn sàng";
+            }
+
+            if (vartealthaisCooldown > 0) {
+                document.getElementById('ui-v-skill-cooldown').innerText = `Gọi Người [E]: Chờ ${vartealthaisCooldown}s`;
+            } else {
+                document.getElementById('ui-v-skill-cooldown').innerText = "Gọi Người [E]: Sẵn sàng";
+            }
+        }
+
+        /* --- XỬ LÝ KẾT THÚC TRẬN ĐẤU & CHUYỂN SẢNH --- */
+        function triggerGameOver() {
+            clearAllGameTimers();
+
+            let bonusLossMoney = 0;
+            if (equippedChars.includes('sonygodly')) {
+                let lvl = characters.sonygodly.level || 1;
+                if (lvl === 1) bonusLossMoney = 10;
+                else if (lvl === 2) bonusLossMoney = 10;
+                else if (lvl === 3) bonusLossMoney = 25;
+            }
+            if (equippedChars.includes('mexicoxnent')) bonusLossMoney += 2;
+            if (equippedPets.includes('supix')) bonusLossMoney *= 1.5;
+
+            let totalMatchMoney = gameMoneyEarned + Math.round(bonusLossMoney);
+            if (currentMode === 'hard') totalMatchMoney *= 2;
+            if (equippedChars.includes('doctors') && characters.doctors.level === 3) {
+                if (matchHpRegenAccumulator >= 13000) totalMatchMoney = Math.round(totalMatchMoney * 1.3);
+            }
+
+            let expEarned = Math.round(matchTimer * 1.5 * permanentExpMultiplier);
+            if (currentMode === 'hard') expEarned *= 2;
+            if (Date.now() < potionX2ExpExpiry) expEarned *= 2;
+
+            wallet += totalMatchMoney;
+            playerExp += expEarned;
+
+            let initialLevel = playerLevel;
+            while (playerExp >= playerMaxExp) {
+                playerExp -= playerMaxExp;
+                playerLevel++;
+                playerMaxExp = Math.round(200 * Math.pow(1.1, playerLevel - 1));
+                let rewardMoney = Math.round(50 * Math.pow(1.1, playerLevel - 1));
+                wallet += rewardMoney;
+                if (playerLevel % 5 === 0) {
+                    vartealthaisExpiry = Date.now() + (3 * 3600 * 1000);
+                }
+            }
+
+            if (gameMoneyEarned > maxSingleMatchSurvivalCash) maxSingleMatchSurvivalCash = gameMoneyEarned;
+            if (gameMoneyEarned >= 90) sonygodlyMatchesAbove90++;
+            if (expEarned >= 100 && craftDoubleExpMatches < 3) craftDoubleExpMatches++;
+
+            historicalTotalHpRegened += matchHpRegenAccumulator;
+            saveGameData();
+
+            let text = `Tiền thưởng sinh tồn: +$${gameMoneyEarned}\nTiền thua trận: +$${Math.round(bonusLossMoney)}\nTổng tiền nhận được: +$${totalMatchMoney}\nKinh nghiệm (EXP): +${expEarned} EXP`;
+            if (playerLevel > initialLevel) text += `\n🎉 CẤP ĐỘ MỚI: LEVEL ${playerLevel}!`;
+
+            document.getElementById('death-reward-text').innerText = text;
+            document.getElementById('death-screen').style.display = 'flex';
+        }
+
+        function triggerWinGame() {
+            clearAllGameTimers();
+
+            let winBonusMoney = 100;
+            let totalMatchMoney = gameMoneyEarned + winBonusMoney;
+            if (currentMode === 'hard') totalMatchMoney *= 2;
+
+            let expEarned = Math.round(matchTimer * 3.0 * permanentExpMultiplier);
+            if (currentMode === 'hard') expEarned *= 2;
+            if (Date.now() < potionX2ExpExpiry) expEarned *= 2;
+
+            wallet += totalMatchMoney;
+            playerExp += expEarned;
+
+            let initialLevel = playerLevel;
+            while (playerExp >= playerMaxExp) {
+                playerExp -= playerMaxExp;
+                playerLevel++;
+                playerMaxExp = Math.round(200 * Math.pow(1.1, playerLevel - 1));
+                let rewardMoney = Math.round(50 * Math.pow(1.1, playerLevel - 1));
+                wallet += rewardMoney;
+                if (playerLevel % 5 === 0) {
+                    vartealthaisExpiry = Date.now() + (3 * 3600 * 1000);
+                }
+            }
+
+            if (gameMoneyEarned > maxSingleMatchSurvivalCash) maxSingleMatchSurvivalCash = gameMoneyEarned;
+            historicalTotalHpRegened += matchHpRegenAccumulator;
+            saveGameData();
+
+            let text = `🎉 CHIẾN THẮNG HOÀN HẢO!\nTiền sinh tồn: +$${gameMoneyEarned}\nThưởng thắng: +$${winBonusMoney}\nTổng tiền: +$${totalMatchMoney}\nKinh nghiệm: +${expEarned} EXP`;
+            if (playerLevel > initialLevel) text += `\n🎉 CẤP ĐỘ MỚI: LEVEL ${playerLevel}!`;
+
+            document.getElementById('win-reward-text').innerText = text;
+            document.getElementById('win-screen').style.display = 'flex';
+        }
+
+        function goLobby() {
+            clearAllGameTimers();
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('death-screen').style.display = 'none';
+            document.getElementById('win-screen').style.display = 'none';
+            document.getElementById('lobby').style.display = 'flex';
+            loadGameData();
+            if (activePage === 1) renderShop(); else renderCraftPage();
+        }
+
+        function restartGame() {
+            clearAllGameTimers();
+            startGame();
+        }
+
+        /* --- SỰ KIỆN PHÍM BÀN PHÍM VÀ CẢM ỨNG --- */
+        window.addEventListener('keydown', (e) => {
+            let k = e.key.toLowerCase();
+            if (k === 'w' || e.key === 'ArrowUp') keys.w = true;
+            if (k === 's' || e.key === 'ArrowDown') keys.s = true;
+            if (k === 'a' || e.key === 'ArrowLeft') keys.a = true;
+            if (k === 'd' || e.key === 'ArrowRight') keys.d = true;
+            if (e.code === 'Space') startHealing();
+            if (k === '1') useBigMedkit();
+            if (k === 'g') activateActiveSkill();
+            if (k === 'e') activateVartealthaisSkill();
+            if (k === 'q') triggerKnifeAttack();
+            if (k === 'f') placeTurret();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            let k = e.key.toLowerCase();
+            if (k === 'w' || e.key === 'ArrowUp') keys.w = false;
+            if (k === 's' || e.key === 'ArrowDown') keys.s = false;
+            if (k === 'a' || e.key === 'ArrowLeft') keys.a = false;
+            if (k === 'd' || e.key === 'ArrowRight') keys.d = false;
+        });
+
+        dpad.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            let touch = e.touches[0];
+            let rect = dpad.getBoundingClientRect();
+            joystickStartX = rect.left + rect.width / 2;
+            joystickStartY = rect.top + rect.height / 2;
+            updateJoystick(touch);
+        });
+
+        dpad.addEventListener('touchmove', (e) => {
+            if (!joystickActive) return;
+            updateJoystick(e.touches[0]);
+        });
+
+        dpad.addEventListener('touchend', () => {
+            joystickActive = false;
+            stick.style.transform = `translate(0px, 0px)`;
+            keys.w = keys.s = keys.a = keys.d = false;
+        });
+
+        function updateJoystick(touch) {
+            let dx = touch.clientX - joystickStartX;
+            let dy = touch.clientY - joystickStartY;
+            let dist = Math.hypot(dx, dy);
+            if (dist > dpadRadius) {
+                dx = (dx / dist) * dpadRadius;
+                dy = (dy / dist) * dpadRadius;
+            }
+            stick.style.transform = `translate(${dx}px, ${dy}px)`;
+            keys.w = dy < -15;
+            keys.s = dy > 15;
+            keys.a = dx < -15;
+            keys.d = dx > 15;
+        }
+
+        window.onload = () => {
+            loadGameData();
+            goLobby();
+        };
+    </script>
 </body>
 </html>
